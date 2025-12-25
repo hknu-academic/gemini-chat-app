@@ -303,11 +303,45 @@ GRAD_REQUIREMENTS = load_graduation_requirements()
 PRIMARY_REQUIREMENTS = load_primary_requirements()
 MAJORS_INFO = load_majors_info()  # 🆕 전공 정보 로드
 
+def token_partial_match(root_input, target_clean):
+    """
+    root_input: 정제된 사용자 입력 (공백 제거된 상태)
+    target_clean: 전공명 정제 문자열
+    """
+    # 한글/영문 토큰 추출
+    tokens = re.findall(r'[가-힣a-zA-Z]+', root_input)
 
-# === [핵심] AI 지식 검색 함수 (RAG) ===
+    for t in tokens:
+        if len(t) >= 2 and t in target_clean:
+            return True
+    return False
+
+def normalize_major_type(val):
+    v = str(val)
+    if '필수' in v or '전필' in v:
+        return '전공필수'
+    if '선택' in v or '전선' in v:
+        return '전공선택'
+    return '기타'
+
+# === [핵심] AI 지식 검색 함수 (RAG) - 수정 버전 ===
 def get_ai_context(user_input, data_dict):
     context = ""
     user_input_clean = user_input.replace(" ", "").lower()
+
+    # ✅ 반드시 먼저 초기화
+    is_course_query = False
+    is_contact_query = False
+
+    is_course_query = any(
+        w in user_input_clean
+        for w in ["과목", "교과목", "추천", "리스트", "수강", "학년"]
+    )
+
+    is_contact_query = any(
+        w in user_input_clean
+        for w in ["연락처", "사무실", "위치", "번호"]
+    )
 
     # 데이터 가져오기 (전역 변수 활용 및 안전장치)
     majors_info = data_dict.get('majors', MAJORS_INFO)
@@ -316,170 +350,285 @@ def get_ai_context(user_input, data_dict):
     faq_data = data_dict.get('faq', FAQ_DATA)
     prog_info = data_dict.get('programs', PROGRAM_INFO)
 
+    # MD 쿼리 여부 판단
     is_md_query = any(k in user_input_clean for k in ['md', '마이크로', '소단위', '마디'])
 
-    raw_keyword = re.sub(r'[^\w]', '', user_input_clean)
-    if is_md_query:
-        # MD 관련 키워드는 남기고, 질문형 조사만 제거
-        root_input = re.sub(r'(보여줘|알려줘|교과목|리스트|과목|뭐야|뭐있어|추천|해줘)', '', raw_keyword)
-    else:
-        root_input = re.sub(r'(전공|학과|학부|연락처|위치|번호|과목|학년|신청|학점|md|마디|마이크로디그리|마이크로|소단위전공과정|소단위|과정|보여줘|알려줘|교과목|리스트)', '', raw_keyword)
-
-    # ==========================================================
-    # [1] 마이크로디그리 전용 검색 (is_md_query일 때만 실행)
-    # ==========================================================
-    if is_md_query and not courses_data.empty:
-        if '제도유형' in courses_data.columns and '전공명' in courses_data.columns:
-            
-            # 1단계: MD 과목만 필터링
-            md_courses_df = courses_data[
-                courses_data['제도유형'].astype(str).str.contains('소단위|마이크로|MD', case=False, na=False)
-            ]
-            
-            if not md_courses_df.empty:
-                # 2단계: MD 전공명 리스트 확보
-                md_major_list = md_courses_df['전공명'].unique()
-
-                matched_md_majors = []
-
-                # 🔧 개선된 매칭 로직
-                for m_name in md_major_list:
-                    m_str = str(m_name)
-                    
-                    # 전공명 정제: 번호 prefix 제거 (01., 02. 등)
-                    m_clean = re.sub(r'^\d+\.?\s*', '', m_str)  # 앞의 숫자와 점 제거
-                    m_clean = re.sub(r'[^\w]', '', m_clean.lower())  # 특수문자 제거
-                    
-                    # 괄호 안 내용도 별도로 추출 (식품영양학전공 등)
-                    paren_match = re.search(r'\(([^)]+)\)', m_str)
-                    parent_major = ""
-                    if paren_match:
-                        parent_major = re.sub(r'[^\w]', '', paren_match.group(1).lower())
-                    
-                    # 매칭 시도 (여러 방법)
-                    match_found = False
-                    
-                    # Case A: 입력어가 정제된 전공명에 포함
-                    if root_input in m_clean:
-                        match_found = True
-                    
-                    # Case B: 정제된 전공명이 입력어에 포함
-                    elif m_clean in root_input:
-                        match_found = True
-                    
-                    # Case C: 괄호 안의 모전공과 매칭 (식품영양학전공 등)
-                    elif parent_major and (root_input in parent_major or parent_major in root_input):
-                        match_found = True
-                    
-                    # Case D: 핵심 단어 부분 매칭 (최소 4글자 이상)
-                    elif len(root_input) >= 4:
-                        # 입력어의 앞 4글자가 전공명에 포함되는지 확인
-                        if root_input[:4] in m_clean:
-                            match_found = True
-                    
-                    if match_found:
-                        matched_md_majors.append(m_name)
-
-                # 4단계: 매칭된 MD가 있다면 컨텍스트 생성
-                if matched_md_majors:
-                    for m_name in matched_md_majors:
-                        context += f"### [🎯 {m_name} 과목 리스트]\n"
-                        context += "※ 이 과목들은 '소단위전공과정(마이크로디그리)' 이수용 과목입니다.\n"
-                        
-                        # 해당 전공의 과목 추출
-                        m_courses = md_courses_df[md_courses_df['전공명'] == m_name]
-                        for _, row in m_courses.head(25).iterrows():
-                            grade = row.get('학년', '-')
-                            term = row.get('학기', '-')
-                            try: grade = int(float(grade))
-                            except: pass
-                            try: term = int(float(term))
-                            except: pass
-                            
-                            context += f"- {grade}학년 {term}학기: {row['과목명']} ({row['학점']}학점)\n"
-                        context += "\n"
-                    
-                    # MD 과목을 찾았으므로 함수 종료
-                    return context
-
-    # ==========================================================
-    # [2] 일반 전공 검색 (MD가 아닐 때만 실행됨)
-    # ==========================================================
+    # 1️⃣ 질문 의도 판별
+    is_contact_query = any(
+        w in user_input_clean
+        for w in ["연락처", "사무실", "위치", "번호"]
+    )
     
+    # 1️⃣ 전공/MD 여부 판별
+    is_md_query = any(
+        w in user_input_clean
+        for w in ["마이크로디그리", "소단위", "MD"]
+    )
+
+    # 2️⃣ 전공명 핵심어 추출
+    raw_keyword = re.sub(r'[^\w]', '', user_input_clean)
+    is_contact_query = any(w in user_input_clean for w in ["연락처", "사무실", "위치", "번호"])
+  
+    if is_md_query:
+        root_input = re.sub(r'(보여줘|알려줘|교과목|리스트|과목|뭐야|뭐있어|추천|해줘)', '', raw_keyword)
+
+    elif is_contact_query:
+        # ❗ 연락처 질문일 때는 "전공"만 제거, 핵심 명칭은 살린다
+        root_input = re.sub(r'(학과|학부)', '', raw_keyword)
+
+    else:
+        root_input = re.sub(
+            r'(전공|학과|학부|과목|학년|신청|학점|보여줘|알려줘|교과목|리스트)',
+            '',
+            raw_keyword
+        )
+
+    if is_course_query:
+        # ❗ 전공명 보존
+        root_input = re.sub(
+            r'(학년|과목|추천|해줘|알려줘)',
+            '',
+            raw_keyword
+        )
+    else:
+        root_input = re.sub(
+            r'(전공|학과|학부|신청|학점)',
+            '',
+            raw_keyword
+        )
+
     # 전공 목록 확보
     all_majors_set = set()
-
-    # 2. 전공 정보 파일에서 전공명 추가
     if not majors_info.empty:
         names = majors_info['전공명'].dropna().astype(str).unique()
         all_majors_set.update(names)
-
     if not courses_data.empty:
         names = courses_data['전공명'].dropna().astype(str).unique()
         all_majors_set.update(names)
-
     all_majors_list = list(all_majors_set)
 
+    target_year = None
+    for i in range(1, 5):
+        if f"{i}학년" in user_input_clean:
+            target_year = i
+            break
 
-    # ==========================================================
-    # [1] 특정 전공명 매칭 (가장 먼저 수행!)
-    # ==========================================================
+    # 3️⃣ 🔥 전공 매칭 (matched_majors 생성)
     matched_majors = set()
+    
+    major_list = set()
 
-    if len(root_input) >= 2:
-        for m in all_majors_list:
-            m_str = str(m)
-            m_clean = re.sub(r'[^\w]', '', m_str.lower())
-            # 입력된 핵심 단어가 전공명에 포함되어 있으면 매칭
+    if not majors_info.empty and '전공명' in majors_info.columns:
+        major_list.update(
+            majors_info['전공명'].dropna().astype(str).unique()
+        )
 
-            if root_input in m_clean: matched_majors.add(m_str)
-            elif m_clean in root_input: matched_majors.add(m_str)
+    if not courses_data.empty and '전공명' in courses_data.columns:
+        major_list.update(
+            courses_data['전공명'].dropna().astype(str).unique()
+        )
+
+    major_list = list(major_list)
+
+    # 5️⃣ 과목/추천 질문인지 판별
+    is_course_query = any(w in user_input_clean for w in [
+        "과목", "추천", "수강", "강의"
+    ])
+
+   # 4️⃣ 🔥 학년 추출
+    year_match = re.search(r'([1-4])\s*학년', user_input_clean)
+    target_year = int(year_match.group(1)) if year_match else None
+
+    # 4️⃣ 과목 조회 분기 (🔥 이게 핵심)
+    if is_course_query and matched_majors:
+        for m_str in matched_majors:
+            major_courses = COURSES_DATA[COURSES_DATA['전공명'] == m_str]
+
+            # 학년 필터
+            if target_year:
+                major_courses = major_courses[
+                    major_courses['학년'] == target_year
+                ]
+
+            # 🔹 마이크로디그리 제외
+            if '제도유형' in major_courses.columns:
+                major_courses = major_courses[
+                    ~major_courses['제도유형']
+                    .astype(str)
+                    .str.contains('소단위|마이크로|MD', case=False, na=False)
+                ]
+
+            if major_courses.empty:
+                context += f"[안내] {m_str} {target_year}학년 과목 정보가 데이터에 없습니다.\n"
+                continue
+                
+            # ✅ 🔥 여기!!!! (당신이 물어본 코드)
+            major_courses['전공구분정리'] = (
+                major_courses['이수구분'].apply(normalize_major_type)
+            )
+
+            required_courses = major_courses[
+                major_courses['전공구분정리'] == '전공필수'
+            ]
+
+            elective_courses = major_courses[
+                major_courses['전공구분정리'] == '전공선택'
+            ]
+
+            # 🔹 이제부터 "추천" 출력
+            context += f"### [{major} {target_year}학년 추천 과목]\n"
+
+            if not required_courses.empty:
+                context += "🔹 전공필수 과목\n"
+                for _, row in required_courses.head(10).iterrows():
+                    context += f"- {row['과목명']} ({row.get('학기','-')}학기)\n"
+
+            if not elective_courses.empty:
+                context += "\n🔹 전공선택 과목\n"
+                for _, row in elective_courses.head(10).iterrows():
+                    context += f"- {row['과목명']} ({row.get('학기','-')}학기)\n"
+
+            context += "\n"
+
+    for m_str in major_list:
+        m_clean = re.sub(r'\s+', '', m_str)
+        m_root = m_clean.replace("전공", "")
+
+        # 1️⃣ 1순위
+        if root_input in m_clean or root_input in m_root:
+              matched_majors.add(m_str)
+        # 2️⃣ 2순위
+        elif len(root_input) >= 4 and root_input[:4] in m_clean:
+            matched_majors.add(m_str)
+
+    # =============================== 
+    # 🔒 연락처 질문 전용 보강 로직 (추가)
+    # ===============================
+    if is_contact_query and not matched_majors:
+        for m_str in major_list:
+            if m_str.replace(" ", "") in raw_keyword:
+                matched_majors.add(m_str)
 
     # 매칭된 전공 상세 정보 추가
     if matched_majors:
-        context += f"[검색된 특정 전공: {', '.join(matched_majors)}]\n"
+        context += f"[검색된 특정 전공: {', '.join(matched_majors)}]\n\n"
 
-        for m_name in list(matched_majors)[:2]:
-
-            # 1. 기본 정보 (연락처 등 - MD는 제외)
+        for m_name in list(matched_majors)[:3]:  # 최대 3개까지
+            # A. 기본 정보 (연락처 등)
             if not majors_info.empty:
                 m_rows = majors_info[majors_info['전공명'] == m_name]
                 if not m_rows.empty:
                     m_row = m_rows.iloc[0]
                     p_type = str(m_row.get('제도유형', ''))
                     
+                    context += f"### [{m_name} 상세정보]\n"
+                    
                     # MD가 아닐 때만 연락처 제공
                     if '마이크로' not in p_type and '소단위' not in p_type:
-                        context += f"[{m_name} 상세정보]\n- 연락처: {m_row.get('연락처','-')}\n- 위치: {m_row.get('위치','-')}\n"
+                        context += f"- 연락처: {m_row.get('연락처','-')}\n"
+                        context += f"- 위치: {m_row.get('위치','-')}\n"
+                    
+                    context += f"- 제도유형: {p_type}\n"
                     context += f"- 소개: {m_row.get('전공설명','-')}\n\n"
-            # B. 과목 정보 (여기가 핵심! 무조건 실행되어야 함)
+            
+            # B. 과목 정보
+            if not courses_data.empty and is_course_query:
+                for major in matched_majors:
+                    major_courses = courses_data[courses_data['전공명'] == major]
 
-            if not courses_data.empty:
-                # 전공명이 정확히 일치하는 과목들 추출
-                major_courses = courses_data[courses_data['전공명'] == m_name]
+                    # ✅ [핵심] MD 질문이 아니면 마이크로디그리 과목 제외
+                    if not is_md_query and '제도유형' in major_courses.columns:
+                        major_courses = major_courses[
+                            ~major_courses['제도유형']
+                            .astype(str)
+                            .str.contains('소단위|마이크로|MD', case=False, na=False)
+                        ]
 
-                if not major_courses.empty:
-                    if is_md_query:
-                        context += f"### [{m_name} 개설 과목 리스트]\n"
-                        for _, row in major_courses.head(20).iterrows():
+                    # ✅ 학년 필터
+                    if target_year:
+                        major_courses = major_courses[
+                            major_courses['학년']
+                                .astype(str)
+                                .str.startswith(str(target_year))
+                        ]
+
+                    if major_courses.empty:
+                        context += f"[안내] {major} {target_year}학년 과목 정보가 데이터에 없습니다.\n"
+                    else:
+                        context += f"### [{major} {target_year}학년 추천 과목]\n"
+                        for _, row in major_courses.head(15).iterrows():
+                            context += (
+                                f"- {row.get('학년','-')}학년 "
+                                f"{row.get('학기','-')}학기: "
+                                f"{row.get('과목명')} ({row.get('학점','-')}학점)\n"
+                            )
+                        context += "\n"
+
+    # ==========================================================
+    # [2] 마이크로디그리 전용 추가 검색 (is_md_query일 때만)
+    # ==========================================================
+    if is_md_query and not courses_data.empty:
+        if '제도유형' in courses_data.columns and '전공명' in courses_data.columns:
+            
+            # MD 과목만 필터링
+            md_courses_df = courses_data[
+                courses_data['제도유형'].astype(str).str.contains('소단위|마이크로|MD', case=False, na=False)
+            ]
+            
+            if not md_courses_df.empty:
+                md_major_list = md_courses_df['전공명'].unique()
+                matched_md_majors = []
+
+                for m_name in md_major_list:
+                    m_str = str(m_name)
+                    m_clean = re.sub(r'^\d+\.?\s*', '', m_str)
+                    m_clean = re.sub(r'[^\w]', '', m_clean.lower())
+                    
+                    paren_match = re.search(r'\(([^)]+)\)', m_str)
+                    parent_major = ""
+                    if paren_match:
+                        parent_major = re.sub(r'[^\w]', '', paren_match.group(1).lower())
+                    
+                    match_found = False
+                    
+                    if root_input in m_clean or m_clean in root_input:
+                        match_found = True
+                    elif token_partial_match(root_input, m_clean):
+                        match_found = True
+                    elif parent_major and token_partial_match(root_input, parent_major):
+                        match_found = True
+                    elif len(root_input) >= 4 and root_input[:4] in m_clean:
+                        match_found = True
+                    
+                    if match_found and m_name not in matched_majors:
+                        matched_md_majors.append(m_name)
+
+                # MD 매칭 결과 추가
+                if matched_md_majors:
+                    for m_name in matched_md_majors:
+                        context += f"### [🎯 {m_name} 과목 리스트]\n"
+                        context += "※ 이 과목들은 '소단위전공과정(마이크로디그리)' 이수용 과목입니다.\n"
+                        
+                        m_courses = md_courses_df[md_courses_df['전공명'] == m_name]
+                        for _, row in m_courses.head(25).iterrows():
                             grade = row.get('학년', '-')
                             term = row.get('학기', '-')
-                            # 학년/학기 데이터가 .0으로 끝나는 경우 정수 변환
                             try:
                                 grade = int(float(grade))
-                            except: pass
+                            except:
+                                pass
                             try:
                                 term = int(float(term))
-                            except: pass
-                        
+                            except:
+                                pass
+                            
                             context += f"- {grade}학년 {term}학기: {row['과목명']} ({row['학점']}학점)\n"
                         context += "\n"
 
     # ==========================================================
-    # [2] 제도 카테고리 리스트 (수정된 핵심 로직)
-    # 특정 전공(matched_majors)이 없을 때만 전체 리스트를 보여줍니다.
+    # [3] 제도 카테고리 리스트 (특정 전공이 없을 때만)
     # ==========================================================
-    if not matched_majors:  # <--- 이 조건이 추가되어 문제가 해결됩니다!
+    if not matched_majors:
         categories = {
             "융합전공": ["융합전공", "융합"],
             "부전공": ["부전공"],
@@ -489,21 +638,17 @@ def get_ai_context(user_input, data_dict):
         }
 
         for cat_name, keywords in categories.items():
-            # 사용자가 리스트를 원할 경우 (질문에 키워드가 포함됨)
             if any(kw in user_input_clean for kw in keywords):
                 if not majors_info.empty and '제도유형' in majors_info.columns:
                     matched_rows = majors_info[majors_info['제도유형'].str.contains(cat_name, na=False)]
                     if not matched_rows.empty:
                         major_list = matched_rows['전공명'].tolist()
-                        context += f"[{cat_name} 전체 목록]\n- {', '.join(major_list)}\n"
+                        context += f"[{cat_name} 전체 목록]\n- {', '.join(major_list)}\n\n"
 
     # ==========================================================
-    # [3] 기타 정보 (본전공 요건, FAQ, 제도 설명)
+    # [4] 본전공 이수요건 검색
     # ==========================================================
-    
-    # 본전공 이수요건 검색
     if not primary_req.empty:
-        # 입력어에서 '전공' 등을 뺀 단어로 본전공 매칭 시도
         pm_input = re.sub(r'(전공|학과|학부|의|신청|학점|알려줘|md)', '', user_input_clean)
         matched_primary = [m for m in primary_req['전공명'].unique() if pm_input in str(m).lower()]
         
@@ -513,192 +658,20 @@ def get_ai_context(user_input, data_dict):
             for _, row in df_major.iterrows():
                 context += f"- 구분: {row['구분']}, 본전공필수: {row.get('본전공_전필',0)}, 전공선택: {row.get('본전공_전선',0)}, 계: {row.get('본전공_계',0)}\n"
 
-    # FAQ 검색
+    # ==========================================================
+    # [5] FAQ 검색
+    # ==========================================================
     if faq_data:
         for faq in faq_data:
             if user_input_clean in str(faq['질문']).replace(" ","").lower():
                 context += f"[FAQ] Q: {faq['질문']}\nA: {faq['답변']}\n\n"
 
-    # 제도 자체 설명
+    # ==========================================================
+    # [6] 제도 자체 설명
+    # ==========================================================
     for p_name, p_info in prog_info.items():
         if p_name in user_input_clean:
             context += f"### [{p_name}] 제도 설명\n- {p_info['description']}\n- 이수학점: {p_info['credits_multi']}\n\n"
-
-    return context
-
-    # 4. 학사 FAQ 연동
-    if faq_data:
-        for faq in faq_data:
-            if user_input_clean in str(faq['질문']).lower() or user_input_clean in str(faq['답변']).lower():
-                context += f"[FAQ] Q: {faq['질문']}\nA: {faq['답변']}\n\n"
-
-    # 1. 어떤 다전공 제도에 관심이 있는지 파악 (복수, 부, 융합 등)
-    target_program = None
-    for p in ["복수전공", "부전공", "융합전공", "융합부전공", "연계전공", "마이크로디그리"]:
-        if p in user_input_clean or p[:2] in user_input_clean:
-            target_program = p
-            break
-
-    # 2. 본전공 이수요건 변동 정보 검색 (PRIMARY_REQUIREMENTS 활용)
-    if not PRIMARY_REQUIREMENTS.empty:
-        # 전공 핵심어 추출 (예: 경영학전공 -> 경영)
-        root_input = re.sub(r'(전공|학과|학부|의|신청|학점|어떻게|변해|알려줘|추천)', '', user_input_clean)
-        
-        # 전공명 매칭
-        matched_primary = []
-        for m in PRIMARY_REQUIREMENTS['전공명'].unique():
-            if root_input in str(m).lower() or str(m).lower().replace("전공","") in root_input:
-                matched_primary.append(m)
-        
-        if matched_primary:
-            for m in matched_primary[:1]: # 가장 유사한 전공 하나 선택
-                df_major = PRIMARY_REQUIREMENTS[PRIMARY_REQUIREMENTS['전공명'] == m]
-                
-                # [중요] 해당 전공의 모든 이수 요건(단일전공 포함)을 다 AI에게 줍니다.
-                # 그래야 AI가 '단일전공'과 '복수전공'을 비교해서 설명할 수 있습니다.
-                context += f"### [{m}] 본전공 이수학점 상세 기준\n"
-                for _, row in df_major.iterrows():
-                    context += f"- 구분: {row['구분']}\n"
-                    context += f"  * 본전공 전필: {row.get('본전공_전필', 0)}학점\n"
-                    context += f"  * 본전공 전선: {row.get('본전공_전선', 0)}학점\n"
-                    context += f"  * 본전공 총합: {row.get('본전공_계', 0)}학점\n"
-                context += "\n"
-
-    # 1. 제도 카테고리 감지 (리스트를 뽑기 위한 키워드)
-    # 사용자가 '융합전공 종류', '마디 리스트' 등을 물어볼 때 대응
-    categories = {
-        "융합전공": ["융합전공", "융합"],
-        "부전공": ["부전공"],
-        "복수전공": ["복수전공", "복전"],
-        "마이크로디그리": ["마이크로디그리", "마디", "소단위", "md"],
-        "연계전공": ["연계전공", "연계"]
-    }
-
-    target_category = None
-    for cat_name, keywords in categories.items():
-        if any(kw in user_input_clean for kw in keywords):
-            target_category = cat_name
-            # 사용자가 리스트를 원할 경우를 대비해 해당 카테고리 전체를 긁어옴
-            if not MAJORS_INFO.empty and '제도유형' in MAJORS_INFO.columns:
-                # '제도유형' 컬럼에 해당 카테고리명이 포함된 전공들 추출
-                matched_rows = MAJORS_INFO[MAJORS_INFO['제도유형'].str.contains(cat_name, na=False)]
-                if not matched_rows.empty:
-                    major_list = matched_rows['전공명'].tolist()
-                    context += f"[{cat_name} 전체 목록]\n- 현재 운영 중인 전공: {', '.join(major_list)}\n"
-                    context += "(이 리스트를 학생에게 모두 나열하며 안내해주세요.)\n\n"
-
-    # [의도 파악용 키워드]
-    is_contact_query = any(w in user_input_clean for w in ["연락처", "사무실", "위치", "번호"])
-    is_major_list_query = any(w in user_input_clean for w in ["전공", "종류", "리스트", "뭐있어"])
-    is_apply_query = any(w in user_input_clean for w in ["신청", "기간", "절차", "방법", "언제"])
-    
-    # 1. 특정 전공 매칭 시도
-    root_input = re.sub(r'(전공|학과|학부|의|과목|학년|리스트|추천|해줘|알려줘|뭐있어|설명|연락처|위치|사무실)', '', user_input_clean)
-
-    if len(root_input) >= 2: # 최소 2글자 이상일 때만 상세 검색
-        matched_majors = set()
-        if not MAJORS_INFO.empty:
-           for m in MAJORS_INFO['전공명'].unique():
-                if root_input in str(m).lower() or str(m).lower().replace("전공","") in root_input:
-                    matched_majors.add(str(m))
-       
-    for major in list(matched_majors)[:2]:
-            m_info = MAJORS_INFO[MAJORS_INFO['전공명'] == major]
-            if not m_info.empty:
-                row = m_info.iloc[0]
-                context += f"[{major} 상세정보]\n- 연락처: {row.get('연락처','-')}\n- 위치: {row.get('위치','-')}\n- 소개: {row.get('전공설명','-')}\n\n"
-
-    # 2. 데이터 수집
-    if matched_majors:
-        # 특정 전공이 매칭된 경우 (상세 정보 제공)
-        for major in list(matched_majors)[:2]:
-            m_info = MAJORS_INFO[MAJORS_INFO['전공명'] == major]
-            if not m_info.empty:
-                row = m_info.iloc[0]
-                context += f"[{major} 정보]\n- 연락처: {row.get('연락처','-')}\n- 위치: {row.get('위치','-')}\n- 소개: {row.get('전공설명','-')}\n\n"
-    
-    # [핵심 수정] 특정 전공이 없어도 범용 질문이면 '맛보기' 데이터 주입
-    elif is_contact_query:
-        context += "[주요 전공 연락처 맛보기]\n"
-        # 상위 5개 전공 정보를 미리 줍니다.
-        for _, row in MAJORS_INFO.head(5).iterrows():
-            context += f"- {row['전공명']}: {row.get('연락처','-')} ({row.get('위치','-')})\n"
-        context += f"\n[전체 전공 목록]: {', '.join(all_majors_list[:15])}... 등\n"
-
-    # 2. 학년 파악 (1~4학년)
-    target_year = None
-    for i in range(1, 5):
-        if f"{i}학년" in user_input_clean or str(i) in user_input_clean:
-            target_year = i
-            break
-    
-    # 3. 전공 매칭 로직 (중복 제거를 위해 set 사용)
-    matched_majors = set()
-    if not COURSES_DATA.empty:
-        all_majors_list = COURSES_DATA['전공명'].unique()
-        for m in all_majors_list:
-            m_str = str(m)
-            m_clean = m_str.replace(" ", "").lower()
-            m_root = re.sub(r'(전공|학과|학부)', '', m_clean)
-            
-            # 검색어가 전공명에 포함되거나, 전공 핵심어가 검색어에 포함되는 경우 매칭
-            if root_input in m_clean or m_root in root_input:
-                matched_majors.add(m_str)
-
-    # 4. 수집된 정보를 바탕으로 Context 구성
-    if matched_majors:
-        # 후보군 리스트 생성
-        context += f"[검색된 전공 후보군: {', '.join(matched_majors)}]\n\n"
-        
-        # 각 전공별 상세 정보 및 과목 추출
-        for major in list(matched_majors)[:2]: # 토큰 절약을 위해 최대 2개 전공만 상세 안내
-            # A. 전공 기본 정보 (연락처, 설명 등)
-            if not MAJORS_INFO.empty:
-                m_info = MAJORS_INFO[MAJORS_INFO['전공명'] == major]
-                if not m_info.empty:
-                    row = m_info.iloc[0]
-                    context += f"[{major} 상세 정보]\n- 소개: {row.get('전공설명','-')}\n- 연락처: {row.get('연락처','-')}\n- 위치: {row.get('위치','-')}\n"
-
-            # B. 전공 과목 정보
-            major_courses = COURSES_DATA[COURSES_DATA['전공명'] == major]
-            if target_year:
-                major_courses = major_courses[major_courses['학년'] == target_year]
-                context += f"[{major} {target_year}학년 과목 리스트]\n"
-            else:
-                context += f"[{major} 주요 과목 리스트]\n"
-            
-            # 주요 과목 15개까지만 출력
-            for _, row in major_courses.head(15).iterrows():
-                context += f"- {row['학년']}학년 {row['학기']}학기: [{row['이수구분']}] {row['과목명']} ({row['학점']}학점)\n"
-            context += "\n"
-    else:
-        # 매칭된 전공이 없을 때
-        if len(root_input) > 1:
-            context += f"[안내] 입력하신 '{root_input}'와 일치하는 전공을 찾지 못했습니다. 학생에게 정확한 전공명을 물어봐주세요.\n"
-
-    # 6. FAQ 검색 (기존 중복 방지 로직 유지)
-    if FAQ_DATA:
-        added_faqs = set()
-        # A. 사용자가 '신청'을 물어보면 '신청'이 포함된 모든 FAQ를 우선 수집
-        if is_apply_query:
-            for faq in FAQ_DATA:
-                if "신청" in str(faq['질문']) or "기간" in str(faq['질문']):
-                    context += f"[학사 안내: 신청 관련]\nQ: {faq['질문']}\nA: {faq['답변']}\n\n"
-                    added_faqs.add(faq['질문'])
-
-        # B. 일반 키워드 매칭
-        for faq in FAQ_DATA:
-            if faq['질문'] not in added_faqs:
-                if user_input_clean in str(faq['질문']).lower() or user_input_clean in str(faq['답변']).lower():
-                    context += f"[참고 FAQ]\nQ: {faq['질문']}\nA: {faq['답변']}\n\n"
-                    added_faqs.add(faq['질문'])
-
-    # 3. 제도 정보 검색 (PROGRAM_INFO)
-    for p_name, p_info in PROGRAM_INFO.items():
-        if p_name in user_input_clean:
-            context += f"### [{p_name}] 제도 자체 이수 기준\n"
-            context += f"- 설명: {p_info['description']}\n"
-            context += f"- 이 제도 이수를 위해 필요한 학점: {p_info['credits_multi']}\n\n"
 
     return context
 
