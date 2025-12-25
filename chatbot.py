@@ -1,4 +1,5 @@
 import streamlit as st
+from google import genai
 import pandas as pd
 from streamlit_option_menu import option_menu 
 from datetime import datetime
@@ -9,16 +10,12 @@ from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import uuid
 import re
-from google import genai
 
 # === [AI 설정] Gemini API 연결 ===
-
-load_dotenv()
-
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY")
 if not GEMINI_API_KEY:
     st.error("⚠️ GEMINI_API_KEY가 설정되지 않았습니다!")
-    st.info("프로젝트 폴더에 .env 파일을 만들고 API 키를 저장하세요.")
+    st.info("Streamlit Secrets에 API 키를 저장해주세요.")
     st.stop()
 
 client = genai.Client(api_key=GEMINI_API_KEY)  # <--- Client 객체 생성 방식으로 변경
@@ -746,7 +743,7 @@ def generate_ai_response(user_input, chat_history, data_dict):
     try:
         # 최신 google-genai SDK 호출 방식
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-1.5-flash',
             contents=prompt
         )
         if response and response.text:
