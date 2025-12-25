@@ -49,3 +49,5 @@ openpyxl
 scikit-learn
 numpy
 google-genai
+streamlit-option-menu
+python-dotenv
