@@ -743,7 +743,7 @@ def generate_ai_response(user_input, chat_history, data_dict):
     try:
         # 최신 google-genai SDK 호출 방식
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-2.0-flash',
             contents=prompt
         )
         if response and response.text:
