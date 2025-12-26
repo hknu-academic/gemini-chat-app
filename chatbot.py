@@ -429,14 +429,23 @@ def get_ai_context(user_input, data_dict):
     # 4️⃣ 🔥 전공 매칭 (핵심 수정!)
     matched_majors = set()
     
+    # 🔧 디버깅: 입력값 확인
+    debug_info = f"[디버그] root_input='{root_input}', 전공수={len(major_list)}\n"
+    
     for m_str in major_list:
         m_clean = re.sub(r'\s+', '', m_str).lower()
         m_root = m_clean.replace("전공", "").replace("학과", "").replace("학부", "")
+        
+        # 🔧 디버깅: 시각미디어디자인 관련만 로그
+        if "시각" in m_clean or "미디어" in m_clean or "디자인" in m_clean:
+            debug_info += f"  - 검사중: {m_str} (m_clean={m_clean}, m_root={m_root})\n"
         
         # 매칭 조건 (우선순위 순서)
         # 1순위: 정확히 포함
         if root_input in m_clean or root_input in m_root:
             matched_majors.add(m_str)
+            if "시각" in m_clean or "미디어" in m_clean or "디자인" in m_clean:
+                debug_info += f"    ✅ 매칭 성공 (1순위)\n"
             continue
         
         # 2순위: 핵심 단어만 일치 (예: "법학" in "법학전공")
@@ -444,11 +453,19 @@ def get_ai_context(user_input, data_dict):
             # "법학" -> "법학전공", "법학과" 모두 매칭
             if m_root.startswith(root_input) or root_input in m_root:
                 matched_majors.add(m_str)
+                if "시각" in m_clean or "미디어" in m_clean or "디자인" in m_clean:
+                    debug_info += f"    ✅ 매칭 성공 (2순위)\n"
                 continue
         
         # 3순위: 부분 토큰 매칭
         if len(root_input) >= 3 and token_partial_match(root_input, m_clean):
             matched_majors.add(m_str)
+            if "시각" in m_clean or "미디어" in m_clean or "디자인" in m_clean:
+                debug_info += f"    ✅ 매칭 성공 (3순위)\n"
+    
+    # 🔧 디버깅 정보를 context에 임시 추가
+    if "시각" in user_input_clean and not matched_majors:
+        context += f"\n### [🔧 디버깅 정보]\n{debug_info}\n"
 
     # 5️⃣ 과목 정보 추가 (matched_majors가 있을 때만)
 
@@ -1691,7 +1708,7 @@ def main():
                     "경영학전공 사무실 전화번호 알려줘",
                     "소프트웨어융합전공 2학년 과목 보여줘",
                     "식품품질관리 마이크로디그리 과목 리스트",
-                    "기계공학전공 사무실 위치 어디야?",
+                    "시각미디어디자인전공 사무실 위치 어디야?",
                 ]
             }
 
@@ -1836,18 +1853,39 @@ def main():
             
             # 1) 전공 목록 확보
             available_majors = set()
+            
+            # courses 데이터에서 가져오기
             if 'courses' in ALL_DATA and not ALL_DATA['courses'].empty:
-                # 제도 유형이 포함된 전공 필터링
                 c_df = ALL_DATA['courses']
                 if '제도유형' in c_df.columns:
-                    mask = c_df['제도유형'].astype(str).str.contains(selected_program, na=False)
+                    # 소단위전공은 다양한 키워드로 검색
+                    if "소단위" in selected_program or "마이크로" in selected_program:
+                        mask = c_df['제도유형'].astype(str).str.contains('소단위|마이크로|MD', case=False, na=False)
+                    else:
+                        mask = c_df['제도유형'].astype(str).str.contains(selected_program, na=False)
                     available_majors.update(c_df[mask]['전공명'].unique())
 
+            # curriculum 데이터에서 가져오기
             if 'curriculum' in ALL_DATA:
                  curr_df = ALL_DATA['curriculum']
                  if not curr_df.empty and '제도유형' in curr_df.columns:
-                     mask = curr_df['제도유형'].astype(str).str.contains(selected_program, na=False)
+                     # 소단위전공은 다양한 키워드로 검색
+                     if "소단위" in selected_program or "마이크로" in selected_program:
+                         mask = curr_df['제도유형'].astype(str).str.contains('소단위|마이크로|MD', case=False, na=False)
+                     else:
+                         mask = curr_df['제도유형'].astype(str).str.contains(selected_program, na=False)
                      available_majors.update(curr_df[mask]['전공명'].unique())
+            
+            # 🆕 majors_info 데이터에서도 가져오기 (중요!)
+            if 'majors' in ALL_DATA and not ALL_DATA['majors'].empty:
+                m_df = ALL_DATA['majors']
+                if '제도유형' in m_df.columns:
+                    # 소단위전공은 다양한 키워드로 검색
+                    if "소단위" in selected_program or "마이크로" in selected_program:
+                        mask = m_df['제도유형'].astype(str).str.contains('소단위|마이크로|MD', case=False, na=False)
+                    else:
+                        mask = m_df['제도유형'].astype(str).str.contains(selected_program, na=False)
+                    available_majors.update(m_df[mask]['전공명'].unique())
 
             # 2) 전공 선택 UI (오리지널 스타일)
             if available_majors:
