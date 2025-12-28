@@ -43,11 +43,8 @@ tzdata==2025.2
 urllib3==2.5.0
 watchdog==6.0.0
 XlsxWriter==3.2.3
-streamlit
-pandas
-openpyxl
-scikit-learn
-numpy
 google-genai
 streamlit-option-menu
 python-dotenv
+PyYAML
+semantic-router
