@@ -47,4 +47,4 @@ google-genai
 streamlit-option-menu
 python-dotenv
 PyYAML
-semantic-router
+semantic-router[local]
