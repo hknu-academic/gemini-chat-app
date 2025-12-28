@@ -141,7 +141,7 @@ if not SEMANTIC_ROUTER_AVAILABLE:
     st.warning("⚠️ Semantic Router가 설치되지 않았거나 호환되지 않습니다.\n키워드 기반 분류로 동작합니다.\n설치: pip install semantic-router sentence-transformers")
 
 # === [AI 설정] Gemini API 연결 ===
-GEMINI_API_KEY = "AIzaSyAyBEX3MRQv6q3RhNpznsfuDWKqhAlaGV8"
+GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 if not GEMINI_API_KEY:
     st.error("⚠️ GEMINI_API_KEY가 설정되지 않았습니다!")
     st.stop()
