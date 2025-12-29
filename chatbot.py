@@ -2,7 +2,7 @@
 ============================================================
 🎓 한경국립대학교 다전공 안내 AI챗봇
 ============================================================
-버전: 3.4 (HTML 카드 스타일 UI)
+버전: 3.6 (Modern UI 리디자인)
 수정사항:
 1. AI챗봇 과목 안내 - 학년/학기/이수구분별 정리
 2. 소단위전공 이미지 2개 표시 문제 해결
@@ -16,7 +16,14 @@
 10. 과목 안내 시 학사공지 교육과정 참고 안내 추가
 11. HTML 카드 스타일 UI 적용
 12. 사이드바 AI챗봇/다전공 소개 스타일링
-13. 질문 버튼 전체 그리드 방식 (24개 항목) ← 🆕
+13. 질문 버튼 전체 그리드 방식 (24개 항목)
+14. 계열별 전공 그룹화 (다전공 제도 안내 + AI챗봇)
+15. Modern UI 전면 리디자인 ← 🆕
+    - Pretendard 폰트 적용
+    - 인디고(#4F46E5) 색상 팔레트
+    - 부드러운 그림자 & 둥근 모서리
+    - 채팅 메시지 스타일링 개선
+    - 버튼 호버 효과
 ============================================================
 """
 
@@ -126,24 +133,35 @@ st.set_page_config(
     layout="wide",
 )
 
-# 🔧 수정 #6, #7: CSS - Streamlit 브랜딩 완전 숨김 + 모바일 가독성 개선
-hide_streamlit_style = """
+# 🔧 수정 #6, #7: CSS - Modern UI 스타일링
+modern_css = """
 <style>
-/* Streamlit 브랜딩 완전 숨기기 */
+/* 폰트 적용 (Pretendard) */
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+
+html, body, [class*="css"] {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+
+/* 전체 배경 */
+.stApp {
+    background-color: #F8F9FC;
+}
+
+/* 헤더/푸터 숨김 */
+header {visibility: hidden !important;}
 footer {display: none !important; visibility: hidden !important; height: 0 !important;}
 .stApp > footer {display: none !important;}
-footer:after {visibility: hidden !important; display: none !important;}
 #MainMenu {visibility: hidden !important;}
-header {visibility: hidden !important;}
-.viewerBadge_container__1QSob {display: none !important;}
-.viewerBadge_link__1S137 {display: none !important;}
 [data-testid="stToolbar"] {display: none !important;}
 .stDeployButton {display: none !important;}
 a[href*="streamlit.io"] {display: none !important;}
 
-/* 하단 여백 */
+/* 메인 컨테이너 */
 .main .block-container {
-    padding-bottom: 120px !important;
+    padding-top: 2rem !important;
+    padding-bottom: 8rem !important;
+    max-width: 1000px;
 }
 
 /* 사이드바 토글 버튼 유지 */
@@ -152,59 +170,132 @@ a[href*="streamlit.io"] {display: none !important;}
     display: block !important;
 }
 
+/* 채팅 메시지 스타일링 */
+[data-testid="stChatMessage"] {
+    background-color: transparent;
+    padding: 1rem 0;
+}
+[data-testid="stChatMessage"] .stMarkdown {
+    background-color: #ffffff;
+    padding: 16px 20px;
+    border-radius: 0px 20px 20px 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+    border: 1px solid #E5E7EB;
+    line-height: 1.6;
+}
+[data-testid="chatAvatarIcon-user"] {
+    background-color: #4F46E5 !important;
+}
+
+/* 버튼 스타일링 */
+.stButton > button {
+    border-radius: 12px !important;
+    border: 1px solid #E5E7EB !important;
+    background-color: white !important;
+    color: #374151 !important;
+    font-weight: 600 !important;
+    padding: 0.5rem 1rem !important;
+    transition: all 0.2s ease !important;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+    height: auto !important;
+}
+.stButton > button:hover {
+    border-color: #4F46E5 !important;
+    color: #4F46E5 !important;
+    background-color: #EEF2FF !important;
+    transform: translateY(-1px);
+}
+
+/* 입력창 스타일 */
 .stChatInputContainer {
     position: sticky;
     bottom: 0;
-    background: white;
-    padding: 0.75rem 0;
+    background: #F8F9FC;
+    padding: 1rem 0;
     z-index: 999;
 }
+.stChatInputContainer textarea {
+    border-radius: 24px !important;
+    border: 1px solid #E5E7EB !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+}
 
-/* 🔧 수정 #7: 모바일 가독성 개선 */
+/* 탭 스타일 */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 8px;
+    background-color: transparent;
+}
+.stTabs [data-baseweb="tab"] {
+    height: 40px;
+    border-radius: 8px;
+    background-color: white;
+    border: 1px solid #E5E7EB;
+    padding: 0 16px;
+    font-size: 14px;
+}
+.stTabs [aria-selected="true"] {
+    background-color: #4F46E5 !important;
+    color: white !important;
+    border: none !important;
+}
+
+/* 사이드바 스타일 */
+section[data-testid="stSidebar"] {
+    background-color: white;
+    border-right: 1px solid #F3F4F6;
+}
+
+/* 테이블 스타일 */
+table {
+    border-collapse: separate !important; 
+    border-spacing: 0;
+    width: 100%;
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+    overflow: hidden;
+}
+th {
+    background-color: #F9FAFB !important;
+    color: #4B5563 !important;
+    font-weight: 600 !important;
+    border-bottom: 1px solid #E5E7EB !important;
+    padding: 12px !important;
+}
+td {
+    padding: 12px !important;
+    border-bottom: 1px solid #F3F4F6 !important;
+    font-size: 0.95rem;
+}
+
+/* Expander 스타일 */
+.streamlit-expanderHeader {
+    background-color: white !important;
+    border-radius: 12px !important;
+    border: 1px solid #E5E7EB !important;
+}
+
+/* 모바일 최적화 */
 @media (max-width: 768px) {
-    /* 제목 줄바꿈 방지 */
-    h1, h2, h3 {
-        word-break: keep-all !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        font-size: 1.1rem !important;
+    .main .block-container { 
+        padding: 1rem 0.5rem !important; 
     }
-    
-    .nav-link {
-        font-size: 13px !important;
-        padding: 8px !important;
-    }
-    
-    .stMarkdown p, .stMarkdown li {
-        font-size: 14px !important;
-        line-height: 1.5 !important;
-    }
+    h1 { font-size: 1.5rem !important; }
+    h2 { font-size: 1.3rem !important; }
+    h3 { font-size: 1.1rem !important; }
     
     .stButton > button {
         font-size: 13px !important;
         padding: 8px 12px !important;
     }
     
-    .block-container {
-        padding: 1rem 0.5rem !important;
-    }
-    
     section[data-testid="stSidebar"] {
         min-width: 200px !important;
         max-width: 250px !important;
     }
-    
-    .stTabs [data-baseweb="tab"] {
-        font-size: 12px !important;
-        padding: 6px !important;
-    }
 }
 
 @media (max-width: 375px) {
-    h1, h2 {
-        font-size: 1rem !important;
-    }
+    h1, h2 { font-size: 1rem !important; }
 }
 
 html, body {
@@ -212,7 +303,7 @@ html, body {
 }
 </style>
 """
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+st.markdown(modern_css, unsafe_allow_html=True)
 
 
 def scroll_to_bottom():
@@ -623,96 +714,230 @@ def classify_intent(user_input, use_ai_fallback=True):
     return 'OUT_OF_SCOPE', 'fallback', {}
 
 # ============================================================
-# 🎨 HTML 카드 스타일 헬퍼 함수들
+# 🏫 계열별 전공 그룹화 헬퍼 함수
 # ============================================================
 
-def create_header_card(title, emoji="📋", gradient="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"):
-    """상단 헤더 카드 생성"""
+def get_majors_by_category(program_type=None, data_source="majors"):
+    """
+    계열별로 전공을 그룹화하여 반환
+    - 융합전공, 융합부전공, 소단위전공과정은 계열 구분 없이 반환
+    - 일반 전공(복수전공, 부전공)은 계열별로 그룹화
+    
+    Returns:
+        dict: {'계열명': ['전공1', '전공2', ...], ...}
+        특수 제도의 경우: {'전체': ['전공1', '전공2', ...]}
+    """
+    # 특수 제도는 계열 구분 없음
+    special_programs = ["융합전공", "융합부전공", "소단위전공과정", "연계전공"]
+    
+    if program_type in special_programs:
+        majors_list = []
+        
+        if data_source == "majors" and not MAJORS_INFO.empty and '제도유형' in MAJORS_INFO.columns:
+            if program_type == "융합전공":
+                mask = MAJORS_INFO['제도유형'].str.contains('융합전공', na=False) & ~MAJORS_INFO['제도유형'].str.contains('융합부전공', na=False)
+            elif "소단위" in program_type:
+                mask = MAJORS_INFO['제도유형'].apply(lambda x: any(kw in str(x).lower() for kw in ['소단위', '마이크로', 'md']))
+            else:
+                mask = MAJORS_INFO['제도유형'].str.contains(program_type, na=False)
+            majors_list = MAJORS_INFO[mask]['전공명'].unique().tolist()
+        
+        if data_source == "courses" and not COURSES_DATA.empty and '제도유형' in COURSES_DATA.columns:
+            if program_type == "융합전공":
+                mask = COURSES_DATA['제도유형'].str.contains('융합전공', na=False) & ~COURSES_DATA['제도유형'].str.contains('융합부전공', na=False)
+            elif "소단위" in program_type:
+                mask = COURSES_DATA['제도유형'].apply(lambda x: any(kw in str(x).lower() for kw in ['소단위', '마이크로', 'md']))
+            else:
+                mask = COURSES_DATA['제도유형'].str.contains(program_type, na=False)
+            for m in COURSES_DATA[mask]['전공명'].unique():
+                if m not in majors_list:
+                    majors_list.append(m)
+        
+        return {"전체": sorted(majors_list)} if majors_list else {}
+    
+    # 일반 전공 (복수전공, 부전공) - 계열별 그룹화
+    category_majors = {}
+    
+    if not MAJORS_INFO.empty:
+        has_category = '계열' in MAJORS_INFO.columns
+        
+        if program_type:
+            if program_type == "부전공":
+                mask = MAJORS_INFO['제도유형'].str.contains('부전공', na=False) & ~MAJORS_INFO['제도유형'].str.contains('융합부전공', na=False)
+            else:
+                mask = MAJORS_INFO['제도유형'].str.contains(program_type, na=False)
+            filtered_df = MAJORS_INFO[mask]
+        else:
+            filtered_df = MAJORS_INFO
+        
+        if has_category:
+            for _, row in filtered_df.iterrows():
+                category = row.get('계열', '기타')
+                if pd.isna(category) or str(category).strip() == '':
+                    category = '기타'
+                category = str(category).strip()
+                major_name = row['전공명']
+                
+                if category not in category_majors:
+                    category_majors[category] = []
+                if major_name not in category_majors[category]:
+                    category_majors[category].append(major_name)
+        else:
+            # 계열 컬럼이 없으면 전체로 그룹화
+            category_majors["전체"] = filtered_df['전공명'].unique().tolist()
+    
+    # 각 계열 내 전공 정렬
+    for cat in category_majors:
+        category_majors[cat] = sorted(category_majors[cat])
+    
+    return category_majors
+
+
+def get_category_color(category):
+    """계열별 색상 반환 - Modern 팔레트"""
+    colors = {
+        '공학계열': '#EF4444',      # Red
+        '자연과학계열': '#10B981',   # Emerald
+        '인문사회계열': '#3B82F6',   # Blue
+        '예체능계열': '#8B5CF6',     # Violet
+        '의학계열': '#F59E0B',       # Amber
+        '사범계열': '#06B6D4',       # Cyan
+        '기타': '#6B7280',           # Gray
+        '전체': '#4F46E5',           # Indigo
+    }
+    return colors.get(category, '#6B7280')
+
+
+def format_majors_by_category_html(category_majors):
+    """계열별 전공 목록을 Modern HTML 카드로 포맷팅"""
+    if not category_majors:
+        return "<p style='color: #6B7280;'>전공 정보가 없습니다.</p>"
+    
+    html = ""
+    for category, majors in category_majors.items():
+        if not majors:
+            continue
+        color = get_category_color(category)
+        majors_tags = " ".join([f'<span style="background: {color}15; color: {color}; padding: 4px 10px; border-radius: 20px; font-size: 13px; margin: 4px; display: inline-block; font-weight: 500;">{m}</span>' for m in majors])
+        
+        html += f"""
+<div style="margin-bottom: 16px;">
+    <div style="color: {color}; font-weight: 700; font-size: 0.9rem; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+        <span style="width: 8px; height: 8px; background: {color}; border-radius: 50%; display: inline-block;"></span>
+        {category} ({len(majors)})
+    </div>
+    <div style="background: white; padding: 12px; border-radius: 12px; border: 1px solid #E5E7EB;">
+        {majors_tags}
+    </div>
+</div>
+"""
+    return html
+
+
+# ============================================================
+# 🎨 Modern UI 카드 스타일 헬퍼 함수들
+# ============================================================
+
+def create_header_card(title, emoji="📋", gradient=None):
+    """깔끔한 Modern 헤더 카드"""
     return f"""
-<div style="background: {gradient}; padding: 18px 20px; border-radius: 12px; color: white; margin-bottom: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-    <h3 style="margin: 0; font-size: 1.2rem;">{emoji} {title}</h3>
+<div style="background-color: white; border-bottom: 2px solid #4F46E5; padding: 20px 0; margin-bottom: 20px;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="background-color: #EEF2FF; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+            {emoji}
+        </div>
+        <h3 style="margin: 0; color: #111827; font-weight: 700; font-size: 1.2rem;">{title}</h3>
+    </div>
 </div>
 """
 
-def create_info_card(title, content_list, border_color="#007bff", emoji="📌"):
-    """정보 카드 생성 - content_list는 문자열 리스트"""
-    items_html = ""
-    for item in content_list:
-        items_html += f'<p style="margin: 6px 0; font-size: 0.95rem;">✅ {item}</p>\n'
+def create_info_card(title, content_list, color="#4F46E5", emoji="📌"):
+    """Modern 정보 카드 (Soft Shadow)"""
+    items_html = "".join([f'<li style="margin-bottom: 6px; color: #374151;">{item}</li>' for item in content_list])
     
     return f"""
-<div style="background: #f8f9fa; border-left: 4px solid {border_color}; padding: 14px 16px; margin: 10px 0; border-radius: 0 10px 10px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
-    <h4 style="color: {border_color}; margin: 0 0 10px 0; font-size: 1rem;">{emoji} {title}</h4>
-    {items_html}
+<div style="background: white; border-radius: 16px; padding: 20px; margin: 12px 0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid #F3F4F6;">
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+        <span style="color: {color}; font-size: 1.1rem;">{emoji}</span>
+        <strong style="color: #1F2937; font-size: 1rem;">{title}</strong>
+    </div>
+    <ul style="margin: 0; padding-left: 20px; font-size: 0.95rem; line-height: 1.6;">
+        {items_html}
+    </ul>
 </div>
 """
 
-def create_simple_card(content, bg_color="#f0f7ff", border_color="#007bff"):
-    """간단한 정보 카드"""
+def create_simple_card(content, bg_color="#F9FAFB", border_color="#E5E7EB"):
+    """간결한 메시지 박스"""
     return f"""
-<div style="background: {bg_color}; border: 1px solid {border_color}; padding: 14px 16px; margin: 10px 0; border-radius: 10px;">
+<div style="background: {bg_color}; border: 1px solid {border_color}; padding: 16px; margin: 10px 0; border-radius: 12px; color: #374151;">
     {content}
 </div>
 """
 
-def create_step_card(step_num, title, description, color="#007bff"):
-    """단계별 카드 생성"""
+def create_step_card(step_num, title, description, color="#4F46E5"):
+    """단계별 카드 (타임라인 스타일)"""
     return f"""
-<div style="display: flex; align-items: flex-start; margin: 12px 0; padding: 12px; background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
-    <div style="background: {color}; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 14px; flex-shrink: 0;">{step_num}</div>
-    <div>
-        <strong style="color: #333; font-size: 0.95rem;">{title}</strong>
-        <p style="margin: 4px 0 0 0; color: #666; font-size: 0.9rem;">{description}</p>
+<div style="display: flex; gap: 16px; margin-bottom: 16px; align-items: flex-start;">
+    <div style="background: {color}; color: white; min-width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; margin-top: 2px;">{step_num}</div>
+    <div style="background: white; padding: 16px; border-radius: 12px; border: 1px solid #E5E7EB; flex-grow: 1; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05);">
+        <strong style="display: block; color: #111827; margin-bottom: 4px;">{title}</strong>
+        <span style="color: #6B7280; font-size: 0.9rem;">{description}</span>
     </div>
 </div>
 """
 
 def create_tip_box(text, emoji="💡"):
-    """팁 박스 생성"""
+    """팁 박스 - 앰버 색상"""
     return f"""
-<div style="background: linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%); border: 1px solid #ffc107; padding: 12px 16px; margin: 12px 0; border-radius: 10px;">
-    <p style="margin: 0; color: #856404; font-size: 0.9rem;"><strong>{emoji} TIP:</strong> {text}</p>
+<div style="background: #FFFBEB; border: 1px solid #FCD34D; padding: 16px; margin: 16px 0; border-radius: 12px; display: flex; gap: 12px; align-items: center;">
+    <span style="font-size: 1.2rem;">{emoji}</span>
+    <span style="color: #92400E; font-size: 0.9rem; font-weight: 500;">{text}</span>
 </div>
 """
 
 def create_warning_box(text, emoji="⚠️"):
-    """경고 박스 생성"""
+    """경고 박스 - 레드 색상"""
     return f"""
-<div style="background: #fff5f5; border: 1px solid #dc3545; padding: 12px 16px; margin: 12px 0; border-radius: 10px;">
-    <p style="margin: 0; color: #dc3545; font-size: 0.9rem;"><strong>{emoji}</strong> {text}</p>
+<div style="background: #FEF2F2; border: 1px solid #FECACA; padding: 16px; margin: 16px 0; border-radius: 12px; display: flex; gap: 12px; align-items: center;">
+    <span style="font-size: 1.2rem;">{emoji}</span>
+    <span style="color: #991B1B; font-size: 0.9rem; font-weight: 500;">{text}</span>
 </div>
 """
 
 def create_contact_box():
-    """연락처 박스 생성"""
+    """연락처 박스 - 깔끔한 스타일"""
     return f"""
-<div style="background: linear-gradient(135deg, #e8f4f8 0%, #d1ecf1 100%); border: 1px solid #17a2b8; padding: 14px 16px; margin-top: 16px; border-radius: 10px;">
-    <p style="margin: 0; color: #0c5460; font-size: 0.9rem;">📞 <strong>문의:</strong> 전공 사무실 또는 학사지원팀 <strong>031-670-5035</strong></p>
+<div style="margin-top: 24px; padding: 16px; background: white; border-radius: 12px; border: 1px solid #E5E7EB; text-align: center;">
+    <p style="margin: 0; color: #6B7280; font-size: 0.9rem;">
+        📞 문의가 필요하신가요?<br>
+        <strong style="color: #4F46E5; font-size: 1rem;">전공 사무실</strong> 또는 <strong style="color: #4F46E5;">학사지원팀 031-670-5035</strong>
+    </p>
 </div>
 """
 
 def create_table_html(headers, rows, colors=None):
-    """HTML 테이블 생성"""
+    """Clean Table Design"""
     if colors is None:
-        colors = ["#007bff", "#28a745", "#ffc107", "#dc3545", "#6f42c1", "#17a2b8"]
+        colors = ["#4F46E5", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#06B6D4"]
     
-    header_html = "".join([f'<th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">{h}</th>' for h in headers])
+    header_html = "".join([f'<th style="padding: 12px 16px; text-align: left; font-weight: 600;">{h}</th>' for h in headers])
     
     rows_html = ""
     for idx, row in enumerate(rows):
         cells = ""
         for i, cell in enumerate(row):
-            if i == 0:  # 첫 번째 열은 색상 강조
+            if i == 0:
                 color = colors[idx % len(colors)]
-                cells += f'<td style="padding: 10px; border-bottom: 1px solid #eee;"><span style="color: {color}; font-weight: bold;">●</span> {cell}</td>'
+                cells += f'<td style="padding: 12px 16px;"><span style="color: {color}; font-weight: 600;">●</span> {cell}</td>'
             else:
-                cells += f'<td style="padding: 10px; border-bottom: 1px solid #eee;">{cell}</td>'
-        rows_html += f"<tr>{cells}</tr>\n"
+                cells += f'<td style="padding: 12px 16px; color: #374151;">{cell}</td>'
+        rows_html += f"<tr style='border-bottom: 1px solid #F3F4F6;'>{cells}</tr>\n"
     
     return f"""
-<div style="overflow-x: auto; margin: 12px 0;">
-    <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
-        <thead style="background: #f8f9fa;">
+<div style="overflow-x: auto; margin: 16px 0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border-radius: 12px; border: 1px solid #E5E7EB;">
+    <table style="width: 100%; border-collapse: collapse; background: white;">
+        <thead style="background: #F9FAFB; border-bottom: 1px solid #E5E7EB;">
             <tr>{header_html}</tr>
         </thead>
         <tbody>
@@ -722,9 +947,9 @@ def create_table_html(headers, rows, colors=None):
 </div>
 """
 
-def create_program_badge(program_name, color="#007bff"):
+def create_program_badge(program_name, color="#4F46E5"):
     """프로그램 배지 생성"""
-    return f'<span style="background: {color}; color: white; padding: 4px 10px; border-radius: 15px; font-size: 0.85rem; margin-right: 6px;">{program_name}</span>'
+    return f'<span style="background: {color}15; color: {color}; padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 500; margin-right: 6px;">{program_name}</span>'
 
 
 # ============================================================
@@ -734,25 +959,25 @@ def create_program_badge(program_name, color="#007bff"):
 def handle_qualification(user_input, extracted_info, data_dict):
     programs = data_dict.get('programs', PROGRAM_INFO)
     
-    response = create_header_card("다전공 제도별 신청 자격 요건", "📋", "linear-gradient(135deg, #667eea 0%, #764ba2 100%)")
+    response = create_header_card("제도별 신청 자격", "📋")
     
-    # 제도별 카드 생성
-    colors = ["#007bff", "#28a745", "#ffc107", "#dc3545", "#6f42c1", "#17a2b8"]
+    # Modern 색상 팔레트
+    colors = ["#4F46E5", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#06B6D4"]
     for idx, (p_name, p_info) in enumerate(programs.items()):
         qual = p_info.get('qualification', '-')
         color = colors[idx % len(colors)]
         response += create_info_card(p_name, [qual], color, "🎓")
     
-    response += create_tip_box("학점이 부족하면 부전공이나 마이크로디그리부터 시작해보세요!")
+    response += create_tip_box("학점이 부족하면 마이크로디그리부터 시작해보세요!")
     response += create_contact_box()
     
     return response, "QUALIFICATION"
 
 
 def handle_application_period(user_input, extracted_info, data_dict):
-    response = create_header_card("다전공 신청 기간 안내", "📅", "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)")
+    response = create_header_card("다전공 신청 기간", "📅")
     
-    response += create_simple_card(f"<p style='margin:0; font-size: 0.95rem;'>다전공 신청은 <strong>매 학기 2회</strong> 진행됩니다.</p>", "#e8f5e9", "#28a745")
+    response += create_simple_card("<p style='margin:0; text-align:center; font-weight:600; color: #111827;'>매 학기 2회 (4월/6월, 10월/12월)</p>")
     
     # 테이블
     headers = ["이수 희망 학기", "신청 시기"]
@@ -1024,23 +1249,25 @@ def handle_course_search(user_input, extracted_info, data_dict):
                     break
     
     if not major:
-        # 사용 가능한 전공 목록 표시
-        available_majors = []
-        if not courses_data.empty:
-            available_majors = sorted(courses_data['전공명'].unique().tolist())[:10]
+        response = create_header_card("과목 조회", "📚", "linear-gradient(135deg, #667eea 0%, #764ba2 100%)")
+        response += create_simple_card("<p style='margin:0;'>어떤 전공의 과목을 찾으시나요?</p>", "#f0f4ff", "#667eea")
         
-        response = "## 📚 과목 조회\n\n"
-        response += "어떤 전공의 과목을 찾으시나요?\n\n"
-        response += "💡 **정확한 전공명을 입력해주세요.**\n\n"
+        # 계열별 전공 목록 표시
+        category_majors = get_majors_by_category()
+        if category_majors and len(category_majors) > 1:
+            response += "<div style='margin-top: 12px;'><strong>📚 계열별 전공 목록</strong></div>"
+            response += format_majors_by_category_html(category_majors)
+        else:
+            # 계열 정보가 없으면 기존 방식
+            available_majors = []
+            if not courses_data.empty:
+                available_majors = sorted(courses_data['전공명'].unique().tolist())[:10]
+            if available_majors:
+                majors_html = " ".join([f'<span style="background: #e3f2fd; padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; margin: 2px; display: inline-block;">{m}</span>' for m in available_majors])
+                response += f"<div style='margin: 10px 0;'><strong>📋 조회 가능한 전공:</strong><br>{majors_html}</div>"
         
-        if available_majors:
-            response += "📋 **조회 가능한 전공 예시:**\n"
-            for m in available_majors:
-                response += f"- {m}\n"
-            response += "\n"
-        
-        response += "**예시 질문:** \"AI반도체융합전공 과목 알려줘\"\n\n"
-        response += CONTACT_MESSAGE
+        response += create_tip_box("예시: \"AI반도체융합전공 과목 알려줘\"")
+        response += create_contact_box()
         return response, "COURSE_SEARCH"
     
     if courses_data.empty:
@@ -1052,7 +1279,10 @@ def handle_course_search(user_input, extracted_info, data_dict):
         major_courses = courses_data[courses_data['전공명'].str.contains(major_keyword, case=False, na=False)]
     
     if major_courses.empty:
-        # 비슷한 전공 찾기
+        # 비슷한 전공 찾기 + 계열별 안내
+        response = create_header_card(f"'{major}' 과목 조회 실패", "📚", "linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)")
+        response += create_warning_box(f"입력하신 <strong>'{major}'</strong> 전공을 찾을 수 없습니다.")
+        
         major_keyword = major.replace('전공', '').replace('융합', '').replace('학과', '')[:3]
         similar_majors = []
         if major_keyword and not courses_data.empty:
@@ -1061,24 +1291,23 @@ def handle_course_search(user_input, extracted_info, data_dict):
                 if major_keyword in m_clean:
                     similar_majors.append(m)
         
-        response = f"## 📚 '{major}' 과목 조회 실패\n\n"
-        response += f"입력하신 **'{major}'** 전공을 찾을 수 없습니다.\n\n"
-        
         if similar_majors:
-            response += "🔍 **혹시 이 전공을 찾으셨나요?**\n"
-            for sm in similar_majors[:5]:
-                response += f"- {sm}\n"
-            response += "\n"
+            similar_html = " ".join([f'<span style="background: #d4edda; color: #155724; padding: 4px 10px; border-radius: 12px; font-size: 0.85rem; margin: 2px; display: inline-block;">{m}</span>' for m in similar_majors[:5]])
+            response += f"""
+<div style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin: 10px 0;">
+    <strong>🔍 혹시 이 전공을 찾으셨나요?</strong><br>
+    <div style="margin-top: 8px;">{similar_html}</div>
+</div>
+"""
         else:
-            # 전체 전공 목록 일부 표시
-            all_majors = sorted(courses_data['전공명'].unique().tolist())[:8]
-            response += "📋 **조회 가능한 전공:**\n"
-            for m in all_majors:
-                response += f"- {m}\n"
-            response += "\n"
+            # 계열별 전공 목록 표시
+            category_majors = get_majors_by_category()
+            if category_majors and len(category_majors) > 1:
+                response += "<div style='margin-top: 12px;'><strong>📚 계열별 전공 목록</strong></div>"
+                response += format_majors_by_category_html(category_majors)
         
-        response += "💡 **정확한 전공명을 다시 입력해주세요.**\n\n"
-        response += CONTACT_MESSAGE
+        response += create_tip_box("정확한 전공명을 다시 입력해주세요.")
+        response += create_contact_box()
         return response, "COURSE_SEARCH"
     
     actual_major = major_courses['전공명'].iloc[0]
@@ -1144,6 +1373,13 @@ def handle_contact_search(user_input, extracted_info, data_dict):
     if not major:
         response = create_header_card("연락처 조회", "📞", "linear-gradient(135deg, #667eea 0%, #764ba2 100%)")
         response += create_simple_card("<p style='margin:0;'>어떤 전공의 연락처를 찾으시나요?</p>", "#f0f4ff", "#667eea")
+        
+        # 계열별 전공 목록 표시
+        category_majors = get_majors_by_category()
+        if category_majors and len(category_majors) > 1:
+            response += "<div style='margin-top: 12px;'><strong>📚 계열별 전공 목록</strong></div>"
+            response += format_majors_by_category_html(category_majors)
+        
         response += create_tip_box("예시: \"경영학전공 연락처 알려줘\"")
         response += create_contact_box()
         return response, "CONTACT_SEARCH"
@@ -1498,109 +1734,77 @@ def display_major_contact(major):
 def main():
     initialize_session_state()
     
-    st.title(APP_TITLE)
-    
-    # 사이드바
+    # 사이드바 - Modern Design
     with st.sidebar:
         st.markdown("""
-        <div style='text-align: center; padding: 10px 0;'>
-            <h1 style='font-size: 3rem; margin-bottom: 0;'>🎓</h1>
-            <h3 style='margin-top: 0;'>HKNU 다전공 안내</h3>
+        <div style='text-align: center; padding: 20px 0;'>
+            <div style='font-size: 3rem;'>🎓</div>
+            <h2 style='margin-top: 10px; font-weight: 700; color: #1F2937;'>HKNU<br>MajorBot</h2>
         </div>
         """, unsafe_allow_html=True)
         
         menu = option_menu(
             menu_title=None,
             options=["AI챗봇 상담", "다전공 제도 안내", "FAQ"], 
-            icons=["chat-dots-fill", "journal-bookmark-fill", "question-circle-fill"],
+            icons=["chat-text", "book", "question-circle"],
             default_index=0,
             styles={
-                "container": {"padding": "0!important", "background-color": "#fafafa"},
-                "icon": {"color": "orange", "font-size": "18px"}, 
-                "nav-link": {"font-size": "15px", "text-align": "left", "margin":"0px"},
-                "nav-link-selected": {"background-color": "#0091FF"},
+                "container": {"padding": "0!important", "background-color": "transparent"},
+                "icon": {"color": "#6B7280", "font-size": "16px"}, 
+                "nav-link": {"font-size": "15px", "text-align": "left", "margin":"5px", "border-radius":"10px", "color":"#4B5563"},
+                "nav-link-selected": {"background-color": "#4F46E5", "color": "white", "font-weight":"600"},
             }
         )
         
-        st.divider()
+        st.markdown("---")
         
-        # AI챗봇 소개
+        # 팁 박스
         st.markdown("""
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                    padding: 12px; border-radius: 10px; margin-bottom: 12px;">
-            <h4 style="color: white; margin: 0 0 8px 0; font-size: 0.95rem;">🤖 AI챗봇 소개</h4>
-            <p style="color: rgba(255,255,255,0.9); font-size: 0.8rem; margin: 0; line-height: 1.4;">
-                다전공 제도에 관한 질문에<br>AI가 실시간으로 답변해드려요!
+        <div style="background: #EEF2FF; border: 1px solid #C7D2FE; padding: 12px; border-radius: 12px; margin-bottom: 12px;">
+            <p style="margin: 0; color: #4338CA; font-size: 0.85rem;">
+                💡 <strong>Tip</strong><br>
+                <span style="font-size: 0.8rem; color: #6366F1;">왼쪽 메뉴에서 제도를 상세히 살펴볼 수 있어요.</span>
             </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # 다전공 제도 소개
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); 
-                    padding: 12px; border-radius: 10px; margin-bottom: 12px;">
-            <h4 style="color: white; margin: 0 0 8px 0; font-size: 0.95rem;">📚 다전공 제도</h4>
-            <div style="display: flex; flex-wrap: wrap; gap: 4px;">
-                <span style="background: rgba(255,255,255,0.25); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem;">복수전공</span>
-                <span style="background: rgba(255,255,255,0.25); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem;">부전공</span>
-                <span style="background: rgba(255,255,255,0.25); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem;">융합전공</span>
-                <span style="background: rgba(255,255,255,0.25); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem;">마이크로디그리</span>
-            </div>
         </div>
         """, unsafe_allow_html=True)
         
         # 참고용 안내 문구
         st.markdown("""
-        <p style="color: #999; font-size: 0.7rem; text-align: center; margin: 8px 0; font-style: italic;">
-            ⚠️ 이 AI챗봇은 단순 참고용입니다.<br>정확한 정보는 학사공지를 확인하세요.
+        <p style="color: #9CA3AF; font-size: 0.7rem; text-align: center; margin: 12px 0;">
+            ⚠️ 이 AI챗봇은 단순 참고용입니다.<br>
+            정확한 정보는 학사공지를 확인하세요.
         </p>
         """, unsafe_allow_html=True)
         
-        st.divider()
+        st.markdown("---")
         
         # Powered by 정보
         st.markdown("""
         <div style="text-align: center; padding: 8px 0;">
-            <p style="color: #666; font-size: 0.75rem; margin: 0 0 4px 0;">
-                ⚡ Powered by <strong>Gemini 2.0</strong>
+            <p style="color: #9CA3AF; font-size: 0.75rem; margin: 0;">
+                ⚡ Powered by <strong style="color: #4F46E5;">Gemini 2.0</strong>
             </p>
+        </div>
         """, unsafe_allow_html=True)
         
         if SEMANTIC_ROUTER is not None:
             st.markdown("""
-            <p style="color: #888; font-size: 0.7rem; margin: 0;">
+            <p style="color: #9CA3AF; font-size: 0.7rem; text-align: center; margin: 4px 0;">
                 🧠 Semantic Router 활성화
             </p>
             """, unsafe_allow_html=True)
-        
-        st.markdown("</div>", unsafe_allow_html=True)
-        
-        # 연락처
-        st.markdown("""
-        <div style="background: #f8f9fa; padding: 10px; border-radius: 8px; text-align: center; margin-top: 8px;">
-            <p style="color: #495057; font-size: 0.8rem; margin: 0;">
-                ☏ 학사지원팀 <strong>031-670-5035</strong>
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
     
     # 메인 콘텐츠
     if menu == "AI챗봇 상담":
-        st.subheader("💬 AI 상담원과 대화하기")
+        # Modern 헤더
+        st.markdown("""
+        <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #111827; font-weight: 800; letter-spacing: -1px; font-size: 1.8rem;">무엇을 도와드릴까요?</h1>
+            <p style="color: #6B7280; font-size: 1rem;">다전공, 복수전공, 마이크로디그리 등 궁금한 점을 물어보세요.</p>
+        </div>
+        """, unsafe_allow_html=True)
         
-        with st.expander("💡 어떤 질문을 해야 할지 모르겠나요? (클릭)", expanded=False):
-            
-            # 버튼 스타일링 CSS
-            st.markdown("""
-            <style>
-            /* 신청 버튼 - 파란색 */
-            div[data-testid="column"]:has(button[key^="qa_"]) button,
-            button[kind="secondary"]:has-text("자격"),
-            .stButton button {
-                transition: all 0.3s ease;
-            }
-            </style>
-            """, unsafe_allow_html=True)
+        with st.expander("✨ 자주 묻는 질문 보기", expanded=True):
             
             def click_question(q):
                 st.session_state.chat_history.append({"role": "user", "content": q})
@@ -1610,19 +1814,18 @@ def main():
             
             # 📋 신청 관련
             st.markdown("""
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                        padding: 8px 12px; border-radius: 8px; margin: 8px 0 6px 0;">
-                <span style="color: white; font-weight: bold; font-size: 0.9rem;">📋 신청</span>
+            <div style="display: flex; align-items: center; gap: 8px; margin: 12px 0 8px 0;">
+                <span style="background: #4F46E5; color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">📋 신청</span>
             </div>
             """, unsafe_allow_html=True)
             cols = st.columns(6)
             q_apply = [
-                ("✅ 자격", "신청 자격이 뭐야?"),
-                ("📅 기간", "신청 기간 언제야?"),
-                ("📝 방법", "신청 방법 알려줘"),
-                ("❌ 포기", "다전공 포기 방법"),
-                ("🔄 변경", "전공 변경하고 싶어"),
-                ("📋 절차", "신청 절차 알려줘"),
+                ("자격", "신청 자격이 뭐야?"),
+                ("기간", "신청 기간 언제야?"),
+                ("방법", "신청 방법 알려줘"),
+                ("포기", "다전공 포기 방법"),
+                ("변경", "전공 변경하고 싶어"),
+                ("절차", "신청 절차 알려줘"),
             ]
             for i, (label, q) in enumerate(q_apply):
                 if cols[i].button(label, key=f"qa_{i}", use_container_width=True):
@@ -1630,19 +1833,18 @@ def main():
             
             # 📚 제도 관련
             st.markdown("""
-            <div style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); 
-                        padding: 8px 12px; border-radius: 8px; margin: 12px 0 6px 0;">
-                <span style="color: white; font-weight: bold; font-size: 0.9rem;">📚 제도</span>
+            <div style="display: flex; align-items: center; gap: 8px; margin: 16px 0 8px 0;">
+                <span style="background: #10B981; color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">📚 제도</span>
             </div>
             """, unsafe_allow_html=True)
             cols = st.columns(6)
             q_program = [
-                ("🎓 다전공", "다전공이 뭐야?"),
-                ("📘 복수전공", "복수전공 설명해줘"),
-                ("📗 부전공", "부전공이 뭐야?"),
-                ("🔗 융합전공", "융합전공 알려줘"),
-                ("💎 마이크로", "마이크로디그리 뭐야?"),
-                ("⚖️ 비교", "복수전공 부전공 차이"),
+                ("다전공", "다전공이 뭐야?"),
+                ("복수전공", "복수전공 설명해줘"),
+                ("부전공", "부전공이 뭐야?"),
+                ("융합전공", "융합전공 알려줘"),
+                ("마이크로", "마이크로디그리 뭐야?"),
+                ("비교", "복수전공 부전공 차이"),
             ]
             for i, (label, q) in enumerate(q_program):
                 if cols[i].button(label, key=f"qp_{i}", use_container_width=True):
@@ -1650,19 +1852,18 @@ def main():
             
             # 🎓 학점 관련
             st.markdown("""
-            <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); 
-                        padding: 8px 12px; border-radius: 8px; margin: 12px 0 6px 0;">
-                <span style="color: white; font-weight: bold; font-size: 0.9rem;">🎓 학점</span>
+            <div style="display: flex; align-items: center; gap: 8px; margin: 16px 0 8px 0;">
+                <span style="background: #F59E0B; color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">🎓 학점</span>
             </div>
             """, unsafe_allow_html=True)
             cols = st.columns(6)
             q_credit = [
-                ("📊 이수학점", "이수 학점 알려줘"),
-                ("🏠 본전공", "본전공 학점 변화"),
-                ("📘 복전학점", "복수전공 몇 학점?"),
-                ("📗 부전학점", "부전공 몇 학점?"),
-                ("🎯 졸업요건", "졸업 요건 알려줘"),
-                ("📈 학점비교", "제도별 학점 비교"),
+                ("이수학점", "이수 학점 알려줘"),
+                ("본전공", "본전공 학점 변화"),
+                ("복전학점", "복수전공 몇 학점?"),
+                ("부전학점", "부전공 몇 학점?"),
+                ("졸업요건", "졸업 요건 알려줘"),
+                ("비교", "제도별 학점 비교"),
             ]
             for i, (label, q) in enumerate(q_credit):
                 if cols[i].button(label, key=f"qc_{i}", use_container_width=True):
@@ -1670,38 +1871,37 @@ def main():
             
             # 📞 전공/연락처 + 🎯 추천
             st.markdown("""
-            <div style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); 
-                        padding: 8px 12px; border-radius: 8px; margin: 12px 0 6px 0;">
-                <span style="color: white; font-weight: bold; font-size: 0.9rem;">📞 전공 · 🎯 추천</span>
+            <div style="display: flex; align-items: center; gap: 8px; margin: 16px 0 8px 0;">
+                <span style="background: #EF4444; color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;">📞 전공 · 🎯 추천</span>
             </div>
             """, unsafe_allow_html=True)
             cols = st.columns(6)
             q_etc = [
-                ("📞 연락처", "전공 연락처 알려줘"),
-                ("📍 위치", "사무실 위치 어디야?"),
-                ("📚 과목", "교과목 알려줘"),
-                ("🎯 추천", "다전공 추천해줘"),
-                ("💡 쉬운거", "학점 부담 적은 거"),
-                ("💼 취업", "취업에 유리한 거"),
+                ("연락처", "전공 연락처 알려줘"),
+                ("위치", "사무실 위치 어디야?"),
+                ("과목", "교과목 알려줘"),
+                ("추천", "다전공 추천해줘"),
+                ("쉬운거", "학점 부담 적은 거"),
+                ("취업", "취업에 유리한 거"),
             ]
             for i, (label, q) in enumerate(q_etc):
                 if cols[i].button(label, key=f"qe_{i}", use_container_width=True):
                     click_question(q)
         
-        st.divider()
-        
+        # 채팅 히스토리
         for chat in st.session_state.chat_history:
             avatar = "🧑‍🎓" if chat["role"] == "user" else "🤖"
             with st.chat_message(chat["role"], avatar=avatar):
                 st.markdown(chat["content"], unsafe_allow_html=True)
         
+        # 입력창
         if prompt := st.chat_input("질문을 입력하세요..."):
             st.session_state.chat_history.append({"role": "user", "content": prompt})
             with st.chat_message("user", avatar="🧑‍🎓"):
                 st.markdown(prompt)
             
             with st.chat_message("assistant", avatar="🤖"):
-                with st.spinner("AI가 답변을 생성 중입니다..."):
+                with st.spinner("답변을 생성하고 있습니다..."):
                     response_text, res_type = generate_ai_response(prompt, st.session_state.chat_history[:-1], ALL_DATA)
                     st.markdown(response_text, unsafe_allow_html=True)
             
@@ -1709,52 +1909,64 @@ def main():
             scroll_to_bottom()
     
     elif menu == "다전공 제도 안내":
-        st.header("📊 제도 한눈에 비교")
+        st.markdown("""
+        <div style="margin-bottom: 24px;">
+            <h2 style="color: #111827; font-weight: 700;">📚 다전공 제도 안내</h2>
+            <p style="color: #6B7280;">학교의 다양한 다전공 제도를 한눈에 확인하세요.</p>
+        </div>
+        """, unsafe_allow_html=True)
         
-        # 🔧 수정 #5: 제도 비교 카드에 졸업요건, 신청자격 추가
+        # 제도 카드 - Modern Design
         if 'programs' in ALL_DATA and ALL_DATA['programs']:
             cols = st.columns(3)
+            colors = ["#4F46E5", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#06B6D4"]
             for idx, (program, info) in enumerate(ALL_DATA['programs'].items()):
                 with cols[idx % 3]:
                     desc = info.get('description', '')[:50] + '...' if len(info.get('description', '')) > 50 else info.get('description', '-')
                     qual = info.get('qualification', '-')[:30] + '...' if len(str(info.get('qualification', '-'))) > 30 else info.get('qualification', '-')
+                    color = colors[idx % len(colors)]
                     
                     html = f"""
-                    <div style="border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px; background: white; 
-                                box-shadow: 0 2px 4px rgba(0,0,0,0.05); min-height: 400px; margin-bottom: 12px;">
-                        <h3 style="margin: 0 0 8px 0; color: #1f2937; font-size: 1rem;">🎓 {program}</h3>
-                        <p style="color: #6b7280; font-size: 11px; margin-bottom: 10px; line-height: 1.4;">{desc}</p>
-                        <hr style="margin: 8px 0; border-top: 1px solid #e5e7eb;">
-                        
-                        <div style="font-size: 12px; margin-bottom: 6px;">
-                            <strong>📖 이수학점</strong><br>
-                            <span style="font-size: 11px;">본전공: {info.get('credits_primary', '-')} | 다전공: {info.get('credits_multi', '-')}</span>
+                    <div style="background: white; border-radius: 16px; padding: 20px; min-height: 380px; margin-bottom: 16px;
+                                border: 1px solid #E5E7EB; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); 
+                                transition: transform 0.2s, box-shadow 0.2s;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                            <span style="background: {color}15; color: {color}; width: 32px; height: 32px; border-radius: 8px; 
+                                        display: flex; align-items: center; justify-content: center; font-size: 16px;">🎓</span>
+                            <h3 style="margin: 0; color: #111827; font-weight: 700; font-size: 1rem;">{program}</h3>
                         </div>
                         
-                        <div style="font-size: 12px; margin-bottom: 6px;">
-                            <strong>✅ 신청자격</strong><br>
-                            <span style="font-size: 11px; color: #4b5563;">{qual}</span>
-                        </div>
+                        <p style="color: #6B7280; font-size: 0.85rem; margin-bottom: 16px; line-height: 1.5;">{desc}</p>
                         
-                        <div style="font-size: 12px; margin-bottom: 6px;">
-                            <strong>🎓 졸업요건</strong><br>
-                            <span style="font-size: 11px;">인증: {info.get('graduation_certification', '-')}<br>시험: {info.get('graduation_exam', '-')}</span>
-                        </div>
-                        
-                        <div style="font-size: 12px; margin-bottom: 6px;">
-                            <strong>📜 학위표기</strong><br>
-                            <span style="font-size: 11px; color: #2563eb;">{str(info.get('degree', '-'))[:30]}</span>
-                        </div>
-                        
-                        <div style="text-align: center; margin-top: 10px;">
-                            <span style="font-size: 11px;">난이도: </span>
-                            <span style="color: #f59e0b;">{info.get('difficulty', '⭐⭐⭐')}</span>
+                        <div style="border-top: 1px solid #F3F4F6; padding-top: 12px;">
+                            <div style="margin-bottom: 10px;">
+                                <span style="color: #9CA3AF; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">이수학점</span>
+                                <p style="margin: 4px 0 0 0; color: #374151; font-size: 0.9rem;">
+                                    본전공 {info.get('credits_primary', '-')} · 다전공 {info.get('credits_multi', '-')}
+                                </p>
+                            </div>
+                            
+                            <div style="margin-bottom: 10px;">
+                                <span style="color: #9CA3AF; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">신청자격</span>
+                                <p style="margin: 4px 0 0 0; color: #374151; font-size: 0.85rem;">{qual}</p>
+                            </div>
+                            
+                            <div style="margin-bottom: 10px;">
+                                <span style="color: #9CA3AF; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">학위표기</span>
+                                <p style="margin: 4px 0 0 0; color: {color}; font-size: 0.85rem; font-weight: 500;">{str(info.get('degree', '-'))[:30]}</p>
+                            </div>
+                            
+                            <div style="display: flex; justify-content: center; margin-top: 12px; padding-top: 12px; border-top: 1px solid #F3F4F6;">
+                                <span style="color: #F59E0B; font-size: 0.9rem;">{info.get('difficulty', '⭐⭐⭐')}</span>
+                            </div>
                         </div>
                     </div>"""
                     st.markdown(html, unsafe_allow_html=True)
         
-        st.divider()
-        st.subheader("🔍 상세 정보 조회")
+        st.markdown("---")
+        st.markdown("""
+        <h3 style="color: #111827; font-weight: 600; margin-bottom: 16px;">🔍 상세 정보 조회</h3>
+        """, unsafe_allow_html=True)
         
         prog_keys = list(ALL_DATA['programs'].keys()) if 'programs' in ALL_DATA else []
         selected_program = st.selectbox("제도 선택", prog_keys)
@@ -1810,18 +2022,78 @@ def main():
             
             if available_majors:
                 target_programs = ["복수전공", "부전공", "융합전공", "융합부전공"]
+                special_programs = ["융합전공", "융합부전공", "소단위전공과정", "연계전공"]
+                
+                # 계열별 전공 그룹화
+                category_majors = get_majors_by_category(selected_program)
                 
                 if selected_program in target_programs:
-                    col_m1, col_m2 = st.columns(2)
-                    with col_m1:
-                        selected_major = st.selectbox(f"이수하려는 {selected_program}", sorted(available_majors.keys()))
-                    with col_m2:
-                        primary_list = []
-                        if not PRIMARY_REQ.empty:
-                            primary_list = sorted(PRIMARY_REQ['전공명'].unique().tolist())
-                        my_primary = st.selectbox("나의 본전공", ["선택 안 함"] + primary_list)
+                    # 특수 제도 (융합전공 등)는 계열 구분 없이 표시
+                    if selected_program in special_programs or len(category_majors) <= 1:
+                        col_m1, col_m2 = st.columns(2)
+                        with col_m1:
+                            all_majors = []
+                            for majors in category_majors.values():
+                                all_majors.extend(majors)
+                            selected_major = st.selectbox(f"이수하려는 {selected_program}", sorted(set(all_majors)))
+                        with col_m2:
+                            # 본전공도 계열별 선택
+                            primary_categories = get_majors_by_category("복수전공")
+                            if len(primary_categories) > 1:
+                                selected_primary_cat = st.selectbox("본전공 계열", ["선택 안 함"] + sorted(primary_categories.keys()))
+                                if selected_primary_cat and selected_primary_cat != "선택 안 함":
+                                    primary_list = primary_categories.get(selected_primary_cat, [])
+                                    my_primary = st.selectbox("나의 본전공", ["선택 안 함"] + sorted(primary_list))
+                                else:
+                                    my_primary = "선택 안 함"
+                            else:
+                                primary_list = []
+                                if not PRIMARY_REQ.empty:
+                                    primary_list = sorted(PRIMARY_REQ['전공명'].unique().tolist())
+                                my_primary = st.selectbox("나의 본전공", ["선택 안 함"] + primary_list)
+                    else:
+                        # 일반 제도 (복수전공, 부전공)는 계열별 선택
+                        st.markdown("""
+                        <div style="background: #e3f2fd; padding: 10px 14px; border-radius: 8px; margin-bottom: 10px;">
+                            <p style="margin: 0; font-size: 0.9rem; color: #1565c0;">
+                                📌 <strong>계열을 먼저 선택</strong>하면 해당 계열의 전공 목록이 표시됩니다.
+                            </p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        col_cat, col_major = st.columns(2)
+                        with col_cat:
+                            category_list = sorted(category_majors.keys())
+                            selected_category = st.selectbox(f"📚 {selected_program} 계열 선택", category_list)
+                        
+                        with col_major:
+                            if selected_category:
+                                major_list = category_majors.get(selected_category, [])
+                                selected_major = st.selectbox(f"🎓 이수하려는 {selected_program}", sorted(major_list))
+                            else:
+                                selected_major = None
+                        
+                        # 본전공 선택 (계열별)
+                        col_pri_cat, col_pri_major = st.columns(2)
+                        with col_pri_cat:
+                            primary_categories = get_majors_by_category("복수전공")
+                            if len(primary_categories) > 1:
+                                selected_primary_cat = st.selectbox("🏠 본전공 계열", ["선택 안 함"] + sorted(primary_categories.keys()))
+                            else:
+                                selected_primary_cat = "선택 안 함"
+                        
+                        with col_pri_major:
+                            if selected_primary_cat and selected_primary_cat != "선택 안 함":
+                                primary_list = primary_categories.get(selected_primary_cat, [])
+                                my_primary = st.selectbox("🏠 나의 본전공", ["선택 안 함"] + sorted(primary_list))
+                            else:
+                                my_primary = "선택 안 함"
                 else:
-                    selected_major = st.selectbox(f"이수하려는 {selected_program}", sorted(available_majors.keys()))
+                    # 소단위전공과정 등
+                    all_majors = []
+                    for majors in category_majors.values():
+                        all_majors.extend(majors)
+                    selected_major = st.selectbox(f"이수하려는 {selected_program}", sorted(set(all_majors)))
                     my_primary = "선택 안 함"
                 
                 if selected_major:
