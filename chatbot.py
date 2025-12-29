@@ -2,7 +2,7 @@
 ============================================================
 🎓 한경국립대학교 다전공 안내 AI챗봇
 ============================================================
-버전: 3.7 (옵션 A: 컬러박스 + 이모지 강화)
+버전: 3.8 (신청 방법 상세화)
 수정사항:
 1. AI챗봇 과목 안내 - 학년/학기/이수구분별 정리
 2. 소단위전공 이미지 2개 표시 문제 해결
@@ -18,6 +18,7 @@
 12. 사이드바 AI챗봇/다전공 소개 스타일링
 13. 질문 버튼 전체 그리드 방식 (24개 항목)
 14. 계열별 전공 그룹화 (다전공 제도 안내 + AI챗봇)
+15. 신청 방법 전공 유형별 상세화 (복수/부/연계/융합/소단위)
 ============================================================
 """
 
@@ -113,7 +114,7 @@ except ImportError:
         SEMANTIC_ROUTER_VERSION = None
 
 # Gemini API 설정
-GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
+GEMINI_API_KEY = "AIzaSyAyBEX3MRQv6q3RhNpznsfuDWKqhAlaGV8"
 if not GEMINI_API_KEY:
     st.error("⚠️ GEMINI_API_KEY가 설정되지 않았습니다!")
     st.stop()
@@ -145,11 +146,22 @@ a[href*="streamlit.io"] {display: none !important;}
 /* header 내부의 Streamlit 요소만 숨김 (사이드바 버튼은 유지) */
 header[data-testid="stHeader"] {
     background-color: transparent !important;
+    visibility: visible !important;
+    display: flex !important;
 }
 
-header[data-testid="stHeader"] > div:not([data-testid="collapsedControl"]) {
+/* stToolbar만 숨기고 collapsedControl은 유지 */
+header[data-testid="stHeader"] [data-testid="stToolbar"] {
     visibility: hidden !important;
     display: none !important;
+}
+
+/* 사이드바 토글 버튼 영역 강제 표시 */
+header[data-testid="stHeader"] [data-testid="collapsedControl"] {
+    visibility: visible !important;
+    display: flex !important;
+    opacity: 1 !important;
+    z-index: 999999 !important;
 }
 
 /* 하단 여백 */
@@ -389,16 +401,19 @@ INTENT_UTTERANCES = {
         "자격 요건이 뭐예요?", "나도 신청 가능해?", "몇 학년부터 할 수 있어요?",
         "2학년인데 가능한가요?", "학점이 낮아도 되나요?", "조건이 어떻게 돼?",
         "신청 조건 알려줘", "자격이 되는지 모르겠어", "나 자격 있어?",
+        "자격이 뭐야?", "자격 알려줘", "조건이 뭐야?",
     ],
     'APPLICATION_PERIOD': [
         "신청 기간이 언제예요?", "언제 신청해요?", "마감일이 언제야?",
         "지원 기간 알려주세요", "언제까지 신청할 수 있어요?", "접수 기간이 어떻게 돼?",
         "몇 월에 신청해?", "신청 시작일이 언제야?", "지금 신청 가능해?",
+        "기간은 언제야?", "기간 알려줘", "언제부터 언제까지야?", "기간이 어떻게 돼?",
     ],
     'APPLICATION_METHOD': [
         "신청 방법이 어떻게 되나요?", "어떻게 신청해요?", "신청 절차 알려주세요",
         "지원하려면 어떻게 해야 해?", "신청하는 법 알려줘", "어디서 신청해?",
         "절차가 어떻게 돼?", "지원 방법이 뭐야?",
+        "신청 방법은 뭐야?", "방법 알려줘", "어떻게 하는 거야?",
     ],
     'CANCEL': [
         "포기하고 싶어요", "취소 방법 알려주세요", "철회하려면 어떻게 해?",
@@ -455,9 +470,9 @@ INTENT_UTTERANCES = {
 }
 
 INTENT_KEYWORDS = {
-    'QUALIFICATION': ['신청자격', '지원자격', '자격요건', '자격이뭐', '누가신청', '신청조건'],
-    'APPLICATION_PERIOD': ['신청기간', '지원기간', '접수기간', '언제신청', '마감일', '언제까지'],
-    'APPLICATION_METHOD': ['신청방법', '지원방법', '신청절차', '어떻게신청', '어디서신청'],
+    'QUALIFICATION': ['신청자격', '지원자격', '자격요건', '자격이뭐', '누가신청', '신청조건', '자격알려', '조건이뭐'],
+    'APPLICATION_PERIOD': ['신청기간', '지원기간', '접수기간', '언제신청', '마감일', '언제까지', '기간은언제', '기간알려', '언제부터'],
+    'APPLICATION_METHOD': ['신청방법', '지원방법', '신청절차', '어떻게신청', '어디서신청', '방법은뭐', '방법알려', '어떻게하는'],
     'CANCEL': ['포기', '취소', '철회', '그만', '중단'],
     'CHANGE': ['변경', '수정', '바꾸', '전환'],
     'PROGRAM_COMPARISON': ['차이', '비교', 'vs', '다른점', '뭐가달라'],
@@ -783,30 +798,30 @@ def format_majors_by_category_html(category_majors):
 # ============================================================
 
 def create_header_card(title, emoji="📋", color="#667eea"):
-    """상단 헤더 카드 생성 - 깔끔한 보더 스타일"""
+    """상단 헤더 카드 생성 - 단순 텍스트"""
     return f"""
-<div style="background: #f8f9fa; border-left: 5px solid {color}; padding: 15px 20px; border-radius: 8px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
-    <h3 style="margin: 0; font-size: 1.2rem; color: #333;">{emoji} {title}</h3>
-</div>
+<h3 style="margin: 20px 0 16px 0; font-size: 1.3rem; color: #333; font-weight: 600;">
+    {emoji} {title}
+</h3>
 """
 
 def create_info_card(title, content_list, border_color="#007bff", emoji="📌"):
-    """정보 카드 생성 - 컬러 좌측 보더"""
+    """정보 카드 생성 - 단순 텍스트"""
     items_html = ""
     for item in content_list:
-        items_html += f'<p style="margin: 6px 0; font-size: 0.95rem;">✅ {item}</p>\n'
+        items_html += f'<p style="margin: 6px 0 6px 20px; font-size: 0.95rem; color: #333;">• {item}</p>\n'
     
     return f"""
-<div style="background: #f8f9fa; border-left: 4px solid {border_color}; padding: 14px 16px; margin: 10px 0; border-radius: 0 10px 10px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
-    <h4 style="color: {border_color}; margin: 0 0 10px 0; font-size: 1rem;">{emoji} {title}</h4>
+<div style="margin: 12px 0;">
+    <h4 style="color: #333; margin: 10px 0 8px 0; font-size: 1rem; font-weight: 600;">{emoji} {title}</h4>
     {items_html}
 </div>
 """
 
 def create_simple_card(content, bg_color="#f0f7ff", border_color="#007bff"):
-    """간단한 정보 카드"""
+    """간단한 정보 카드 - 단순 텍스트"""
     return f"""
-<div style="background: {bg_color}; border: 1px solid {border_color}; padding: 14px 16px; margin: 10px 0; border-radius: 10px;">
+<div style="margin: 12px 0; padding: 0;">
     {content}
 </div>
 """
@@ -824,59 +839,42 @@ def create_step_card(step_num, title, description, color="#007bff"):
 """
 
 def create_tip_box(text, emoji="💡"):
-    """팁 박스 생성 - 노란 배경"""
+    """팁 박스 생성 - 단순 텍스트"""
     return f"""
-<div style="background: #fff8e1; border-left: 4px solid #ffc107; padding: 12px 16px; margin: 12px 0; border-radius: 8px;">
-    <p style="margin: 0; color: #856404; font-size: 0.9rem;"><strong>{emoji} TIP:</strong> {text}</p>
-</div>
+<p style="margin: 12px 0; color: #666; font-size: 0.9rem; font-style: italic;">
+    {emoji} <strong>TIP:</strong> {text}
+</p>
 """
 
 def create_warning_box(text, emoji="⚠️"):
-    """경고 박스 생성 - 빨간 배경"""
+    """경고 박스 생성 - 단순 텍스트"""
     return f"""
-<div style="background: #fff5f5; border: 1px solid #dc3545; padding: 12px 16px; margin: 12px 0; border-radius: 10px;">
-    <p style="margin: 0; color: #dc3545; font-size: 0.9rem;"><strong>{emoji}</strong> {text}</p>
-</div>
+<p style="margin: 12px 0; color: #dc3545; font-size: 0.9rem; font-weight: 500;">
+    {emoji} {text}
+</p>
 """
 
 def create_contact_box():
-    """연락처 박스 생성 - 청록 배경"""
-    return f"""
-<div style="background: #e8f4f8; border-left: 4px solid #17a2b8; padding: 14px 16px; margin-top: 16px; border-radius: 8px;">
-    <p style="margin: 0; color: #0c5460; font-size: 0.9rem;">📞 <strong>문의:</strong> 전공 사무실 또는 학사지원팀 <strong>031-670-5035</strong></p>
-</div>
+    """연락처 박스 생성 - 단순 텍스트"""
+    return """
+<p style="margin: 16px 0 0 0; color: #666; font-size: 0.9rem;">
+    📞 <strong>문의:</strong> 전공 사무실 또는 학사지원팀 <strong>031-670-5035</strong>
+</p>
 """
 
 def create_table_html(headers, rows, colors=None):
-    """HTML 테이블 생성"""
-    if colors is None:
-        colors = ["#007bff", "#28a745", "#ffc107", "#dc3545", "#6f42c1", "#17a2b8"]
-    
-    header_html = "".join([f'<th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6;">{h}</th>' for h in headers])
+    """HTML 테이블 생성 - 단순 스타일"""
+    header_html = "".join([f'<th style="padding: 10px; text-align: left; border-bottom: 2px solid #ddd; font-weight: 600;">{h}</th>' for h in headers])
     
     rows_html = ""
     for idx, row in enumerate(rows):
         cells = ""
         for i, cell in enumerate(row):
-            if i == 0:
-                color = colors[idx % len(colors)]
-                cells += f'<td style="padding: 10px; border-bottom: 1px solid #eee;"><span style="color: {color}; font-weight: bold;">●</span> {cell}</td>'
-            else:
-                cells += f'<td style="padding: 10px; border-bottom: 1px solid #eee;">{cell}</td>'
-        rows_html += f"<tr>{cells}</tr>\n"
+            cells += f'<td style="padding: 10px; border-bottom: 1px solid #eee;">{cell}</td>'
+        rows_html += f"<tr>{cells}</tr>"
     
-    return f"""
-<div style="overflow-x: auto; margin: 12px 0;">
-    <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
-        <thead style="background: #f8f9fa;">
-            <tr>{header_html}</tr>
-        </thead>
-        <tbody>
-            {rows_html}
-        </tbody>
-    </table>
-</div>
-"""
+    # HTML을 한 줄로 반환하여 Streamlit 렌더링 문제 방지
+    return f'<div style="overflow-x: auto; margin: 16px 0;"><table style="width: 100%; border-collapse: collapse;"><thead><tr>{header_html}</tr></thead><tbody>{rows_html}</tbody></table></div>'
 
 def create_program_badge(program_name, color="#007bff"):
     """프로그램 배지 생성"""
@@ -892,12 +890,15 @@ def handle_qualification(user_input, extracted_info, data_dict):
     
     response = create_header_card("다전공 제도별 신청 자격 요건", "📋", "#667eea")
     
-    # 제도별 카드 생성
-    colors = ["#007bff", "#28a745", "#ffc107", "#dc3545", "#6f42c1", "#17a2b8"]
-    for idx, (p_name, p_info) in enumerate(programs.items()):
-        qual = p_info.get('qualification', '-')
-        color = colors[idx % len(colors)]
-        response += create_info_card(p_name, [qual], color, "🎓")
+    # 공통 신청 자격
+    response += """
+<p style="margin: 12px 0; font-size: 0.95rem; color: #333; line-height: 1.6;">
+    <strong>✅ 모든 다전공 제도는 입학 후 첫 학기부터 신청 가능합니다.</strong>
+</p>
+<p style="margin: 12px 0 16px 0; font-size: 0.9rem; color: #666;">
+    • 복수전공, 부전공, 융합전공, 융합부전공, 연계전공, 소단위전공과정(마이크로디그리) 모두 동일한 자격 요건이 적용됩니다.
+</p>
+"""
     
     response += create_tip_box("학점이 부족하면 부전공이나 마이크로디그리부터 시작해보세요!")
     response += create_contact_box()
@@ -908,7 +909,11 @@ def handle_qualification(user_input, extracted_info, data_dict):
 def handle_application_period(user_input, extracted_info, data_dict):
     response = create_header_card("다전공 신청 기간 안내", "📅", "#11998e")
     
-    response += create_simple_card(f"<p style='margin:0; font-size: 0.95rem;'>다전공 신청은 <strong>매 학기 2회</strong> 진행됩니다.</p>", "#e8f5e9", "#28a745")
+    response += """
+<p style="margin: 12px 0; font-size: 0.95rem; color: #333;">
+    다전공 신청은 <strong>매 학기 2회</strong> 진행됩니다.
+</p>
+"""
     
     # 테이블
     headers = ["이수 희망 학기", "신청 시기"]
@@ -916,9 +921,14 @@ def handle_application_period(user_input, extracted_info, data_dict):
         ["1학기 이수 희망", f"{APP_PERIOD_1ST}"],
         ["2학기 이수 희망", f"{APP_PERIOD_2ND}"]
     ]
-    response += create_table_html(headers, rows, ["#28a745", "#17a2b8"])
+    response += create_table_html(headers, rows)
     
-    response += create_warning_box(f'정확한 일정은 <a href="{ACADEMIC_NOTICE_URL}" style="color: #dc3545;">학사공지</a>를 반드시 확인하세요!')
+    # 정확한 일정과 문의는 마지막에 표시
+    response += f"""
+<p style="margin: 16px 0 8px 0; color: #dc3545; font-size: 0.9rem; font-weight: 500;">
+    ⚠️ 정확한 일정은 <a href="{ACADEMIC_NOTICE_URL}" style="color: #dc3545; text-decoration: underline;">학사공지</a>를 반드시 확인하세요!
+</p>
+"""
     response += create_contact_box()
     
     return response, "APPLICATION_PERIOD"
@@ -927,10 +937,31 @@ def handle_application_period(user_input, extracted_info, data_dict):
 def handle_application_method(user_input, extracted_info, data_dict):
     response = create_header_card("다전공 신청 방법", "📝", "#f093fb")
     
-    response += create_step_card(1, "신청 시기 확인", "학사 공지사항에서 신청 기간을 확인합니다.", "#f5576c")
-    response += create_step_card(2, "자격 요건 확인", "본인의 학년, 평점 등 자격 충족 여부를 확인합니다.", "#f093fb")
-    response += create_step_card(3, "온라인 신청", "학사공지에 안내된 방법으로 신청서를 작성합니다.", "#667eea")
-    response += create_step_card(4, "승인 대기", "해당 학과에서 승인 절차가 진행됩니다.", "#28a745")
+    # 복수전공/부전공
+    response += '<div style="margin: 20px 0 10px 0;"><h4 style="color: #667eea; margin: 0; font-size: 1.1rem; font-weight: 600;">📘 복수전공/부전공</h4></div>'
+    response += create_step_card(1, "신청서 작성", "복수전공/부전공 신청서를 작성합니다.", "#667eea")
+    response += create_step_card(2, "원전공 지도교수 및 학부장 확인", "소속 전공의 지도교수와 학부장 확인을 받습니다.", "#764ba2")
+    response += create_step_card(3, "복수전공/부전공 희망 학부장 확인", "희망하는 전공의 학부장 확인을 받습니다.", "#667eea")
+    response += create_step_card(4, "복수전공/부전공 희망전공 사무실에 제출", "모든 확인이 완료된 신청서를 희망 전공 사무실에 제출합니다.", "#764ba2")
+    
+    # 연계전공
+    response += '<div style="margin: 25px 0 10px 0;"><h4 style="color: #f093fb; margin: 0; font-size: 1.1rem; font-weight: 600;">🔗 연계전공</h4></div>'
+    response += create_step_card(1, "신청서 작성", "연계전공 신청서를 작성합니다.", "#f093fb")
+    response += create_step_card(2, "원전공 지도교수 및 학부장 확인", "소속 전공의 지도교수와 학부장 확인을 받습니다.", "#f5576c")
+    response += create_step_card(3, "연계전공 희망 학부장 확인", "연계전공 학부장 확인을 받습니다.", "#f093fb")
+    response += create_step_card(4, "연계전공 희망전공 사무실에 제출", "모든 확인이 완료된 신청서를 연계전공 사무실에 제출합니다.", "#f5576c")
+    
+    # 융합전공/융합부전공
+    response += '<div style="margin: 25px 0 10px 0;"><h4 style="color: #4facfe; margin: 0; font-size: 1.1rem; font-weight: 600;">🌐 융합전공/융합부전공</h4></div>'
+    response += create_step_card(1, "신청서 작성", "융합전공/융합부전공 신청서를 작성합니다.", "#4facfe")
+    response += create_step_card(2, "원전공 지도교수 및 학부장 확인", "소속 전공의 지도교수와 학부장 확인을 받습니다.", "#00f2fe")
+    response += create_step_card(3, "융합전공 학부장 확인 및 제출", "융합전공 학부장 확인을 받고 <strong>제1공학관 222호</strong>에 제출합니다.", "#4facfe")
+    
+    # 소단위전공과정(마이크로디그리)
+    response += '<div style="margin: 25px 0 10px 0;"><h4 style="color: #fa709a; margin: 0; font-size: 1.1rem; font-weight: 600;">🎯 소단위전공과정(마이크로디그리)</h4></div>'
+    response += create_step_card(1, "신청서 작성", "소단위전공과정 신청서를 작성합니다.", "#fa709a")
+    response += create_step_card(2, "교육운영전공 지도교수 및 학부장 확인", "교육운영전공의 지도교수와 학부장 확인을 받습니다.", "#fee140")
+    response += create_step_card(3, "교육운영전공 학부장 확인 및 사무실 제출", "교육운영전공 학부장 확인을 받고 해당 사무실에 제출합니다.", "#fa709a")
     
     response += create_tip_box("신청 전 희망 전공의 교육과정을 미리 살펴보세요!")
     response += create_contact_box()
@@ -941,11 +972,20 @@ def handle_application_method(user_input, extracted_info, data_dict):
 def handle_cancel(user_input, extracted_info, data_dict):
     response = create_header_card("다전공 포기/취소 안내", "❌", "#ff6b6b")
     
-    response += create_info_card("포기 시기", ["매 학기 수강신청 기간 중 가능"], "#dc3545", "📆")
-    response += create_info_card("포기 방법", ["학사공지 확인 후 온라인 신청"], "#fd7e14", "📋")
-    response += create_info_card("유의사항", ["이수한 학점은 자유선택 학점으로 인정됩니다"], "#6c757d", "⚠️")
+    response += create_info_card("포기 시기", 
+        ["별도의 신청 기간 없이 언제든지 가능합니다"], 
+        "#dc3545", "📆")
     
-    response += create_tip_box("포기 전 학과 사무실과 상담하는 것을 권장합니다.")
+    response += create_info_card("포기 방법", 
+        ["해당 다전공 사무실에 포기서를 제출하면 됩니다"], 
+        "#fd7e14", "📋")
+    
+    response += create_info_card("학점 처리", 
+        ["이미 취득한 학점의 이수구분은 자유선택으로 변경됩니다",
+         "이수 중인 과목은 성적 확정 후 자유선택으로 변경됩니다"], 
+        "#6c757d", "⚠️")
+    
+    response += create_tip_box("포기 전 전공 사무실과 상담하는 것을 권장합니다.")
     response += create_contact_box()
     
     return response, "CANCEL"
@@ -1333,18 +1373,283 @@ def handle_contact_search(user_input, extracted_info, data_dict):
     return response, "CONTACT_SEARCH"
 
 
+# ============================================================
+# 🆕 다전공 추천 계산 함수
+# ============================================================
+
+def calculate_specific_major_recommendation(admission_year, primary_major, completed_required, completed_elective, desired_major, data_dict):
+    """
+    특정 희망 전공에 대한 상세 이수 학점 계산
+    
+    Parameters:
+    - admission_year: 입학년도
+    - primary_major: 본전공 이름
+    - completed_required: 이미 이수한 본전공 전공필수 학점
+    - completed_elective: 이미 이수한 본전공 전공선택 학점
+    - desired_major: 희망하는 다전공 이름
+    - data_dict: 전체 데이터
+    
+    Returns:
+    - 상세 추천 결과 텍스트
+    """
+    
+    result = ""
+    
+    # 데이터 가져오기
+    primary_req = data_dict.get('primary_req', pd.DataFrame())
+    grad_req = data_dict.get('grad_req', pd.DataFrame())
+    majors_info = data_dict.get('majors', pd.DataFrame())
+    
+    if primary_req.empty or grad_req.empty:
+        return "⚠️ 데이터가 없어 계산이 불가능합니다."
+    
+    # 희망 전공 정보 찾기
+    desired_major_info = majors_info[majors_info['전공명'] == desired_major]
+    
+    if desired_major_info.empty:
+        return f"⚠️ '{desired_major}' 전공을 찾을 수 없습니다.<br><br>💡 정확한 전공명을 입력해주세요."
+    
+    # 제도 유형 확인
+    program_type = desired_major_info.iloc[0]['제도유형']
+    
+    # 1. 본전공 변경 학점 찾기
+    primary_data = primary_req[
+        (primary_req['전공명'] == primary_major) & 
+        (primary_req['제도유형'] == program_type)
+    ].copy()
+    primary_data['기준학번'] = pd.to_numeric(primary_data['기준학번'], errors='coerce')
+    primary_data = primary_data[primary_data['기준학번'] <= admission_year]
+    primary_data = primary_data.sort_values('기준학번', ascending=False)
+    
+    if primary_data.empty:
+        return f"⚠️ '{primary_major}' 전공의 '{program_type}' 이수요건을 찾을 수 없습니다."
+    
+    primary_row = primary_data.iloc[0]
+    new_primary_required = int(primary_row.get('본전공_전필', 0))
+    new_primary_elective = int(primary_row.get('본전공_전선', 0))
+    new_primary_total = int(primary_row.get('본전공_계', 0))
+    
+    # 2. 남은 본전공 학점 계산
+    remaining_primary_required = max(0, new_primary_required - completed_required)
+    remaining_primary_elective = max(0, new_primary_elective - completed_elective)
+    remaining_primary_total = remaining_primary_required + remaining_primary_elective
+    
+    # 3. 다전공 이수 학점 찾기
+    multi_data = grad_req[
+        (grad_req['전공명'] == desired_major) & 
+        (grad_req['제도유형'] == program_type)
+    ].copy()
+    multi_data['기준학번'] = pd.to_numeric(multi_data['기준학번'], errors='coerce')
+    multi_data = multi_data[multi_data['기준학번'] <= admission_year]
+    multi_data = multi_data.sort_values('기준학번', ascending=False)
+    
+    if multi_data.empty:
+        return f"⚠️ '{desired_major}'의 졸업요건을 찾을 수 없습니다."
+    
+    multi_row = multi_data.iloc[0]
+    multi_required = int(multi_row.get('전공필수', 0))
+    multi_elective = int(multi_row.get('전공선택', 0))
+    multi_total = multi_required + multi_elective
+    
+    # 4. 총 이수해야 할 학점
+    total_remaining = remaining_primary_total + multi_total
+    
+    # 5. 평가
+    if total_remaining <= 40:
+        rating = "🟢 매우 유리"
+        rating_color = "#28a745"
+        comment = "학점 부담이 적어 이수하기 좋습니다!"
+    elif total_remaining <= 55:
+        rating = "🟡 보통"
+        rating_color = "#ffc107"
+        comment = "적절한 계획이 필요합니다."
+    else:
+        rating = "🔴 부담 큼"
+        rating_color = "#dc3545"
+        comment = "학점 부담이 큽니다. 신중히 고려하세요."
+    
+    # HTML 결과 생성
+    result += f"""
+    <div style="background: white; border-radius: 12px; padding: 16px; margin: 12px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
+        <h4 style="margin: 0 0 12px 0; color: #f093fb;">📊 상세 이수 계획</h4>
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+            <thead>
+                <tr style="background: #f8f9fa;">
+                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid #dee2e6;">구분</th>
+                    <th style="padding: 10px; text-align: center; border-bottom: 2px solid #dee2e6;">전공필수</th>
+                    <th style="padding: 10px; text-align: center; border-bottom: 2px solid #dee2e6;">전공선택</th>
+                    <th style="padding: 10px; text-align: center; border-bottom: 2px solid #dee2e6;">합계</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="padding: 10px; border-bottom: 1px solid #dee2e6;"><strong>현재 이수</strong></td>
+                    <td style="padding: 10px; text-align: center; border-bottom: 1px solid #dee2e6;">{completed_required}학점</td>
+                    <td style="padding: 10px; text-align: center; border-bottom: 1px solid #dee2e6;">{completed_elective}학점</td>
+                    <td style="padding: 10px; text-align: center; border-bottom: 1px solid #dee2e6;">{completed_required + completed_elective}학점</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px; border-bottom: 1px solid #dee2e6;"><strong>본전공 변경</strong></td>
+                    <td style="padding: 10px; text-align: center; border-bottom: 1px solid #dee2e6;">{new_primary_required}학점</td>
+                    <td style="padding: 10px; text-align: center; border-bottom: 1px solid #dee2e6;">{new_primary_elective}학점</td>
+                    <td style="padding: 10px; text-align: center; border-bottom: 1px solid #dee2e6;">{new_primary_total}학점</td>
+                </tr>
+                <tr style="background: #fff3e0;">
+                    <td style="padding: 10px; border-bottom: 1px solid #dee2e6;"><strong>남은 본전공</strong></td>
+                    <td style="padding: 10px; text-align: center; border-bottom: 1px solid #dee2e6;">{remaining_primary_required}학점</td>
+                    <td style="padding: 10px; text-align: center; border-bottom: 1px solid #dee2e6;">{remaining_primary_elective}학점</td>
+                    <td style="padding: 10px; text-align: center; border-bottom: 1px solid #dee2e6;"><strong>{remaining_primary_total}학점</strong></td>
+                </tr>
+                <tr style="background: #e3f2fd;">
+                    <td style="padding: 10px; border-bottom: 1px solid #dee2e6;"><strong>{desired_major} 이수</strong></td>
+                    <td style="padding: 10px; text-align: center; border-bottom: 1px solid #dee2e6;">{multi_required}학점</td>
+                    <td style="padding: 10px; text-align: center; border-bottom: 1px solid #dee2e6;">{multi_elective}학점</td>
+                    <td style="padding: 10px; text-align: center; border-bottom: 1px solid #dee2e6;"><strong>{multi_total}학점</strong></td>
+                </tr>
+                <tr style="background: #f0f4ff;">
+                    <td style="padding: 10px;"><strong>총 추가 이수</strong></td>
+                    <td style="padding: 10px; text-align: center;">-</td>
+                    <td style="padding: 10px; text-align: center;">-</td>
+                    <td style="padding: 10px; text-align: center;"><strong style="color: {rating_color}; font-size: 1.1rem;">{total_remaining}학점 {rating}</strong></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    """
+    
+    # 이수 계획
+    result += f"""
+    <div style="background: white; border-radius: 12px; padding: 16px; margin: 12px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
+        <h4 style="margin: 0 0 12px 0; color: #f093fb;">💡 이수 계획</h4>
+        <p style="margin: 8px 0; color: #333; line-height: 1.6;">
+            1️⃣ <strong>남은 본전공 이수</strong>: {remaining_primary_total}학점<br>
+            <span style="margin-left: 25px; color: #666; font-size: 0.9rem;">• 전공필수: {remaining_primary_required}학점</span><br>
+            <span style="margin-left: 25px; color: #666; font-size: 0.9rem;">• 전공선택: {remaining_primary_elective}학점</span>
+        </p>
+        <p style="margin: 12px 0; color: #333; line-height: 1.6;">
+            2️⃣ <strong>{desired_major} 이수</strong>: {multi_total}학점<br>
+            <span style="margin-left: 25px; color: #666; font-size: 0.9rem;">• 전공필수: {multi_required}학점</span><br>
+            <span style="margin-left: 25px; color: #666; font-size: 0.9rem;">• 전공선택: {multi_elective}학점</span>
+        </p>
+        <p style="margin: 12px 0; padding: 12px; background: #f8f9fa; border-radius: 8px; color: #333;">
+            📌 총 <strong style="color: {rating_color};">{total_remaining}학점</strong>을 추가로 이수하면 <strong>{program_type}</strong>을 완료할 수 있습니다.
+        </p>
+        <p style="margin: 8px 0; color: #666; font-size: 0.95rem;">
+            💬 <strong>평가</strong>: {comment}
+        </p>
+    </div>
+    """
+    
+    # 연락처 추가
+    if not desired_major_info.empty and pd.notna(desired_major_info.iloc[0].get('연락처')):
+        contact = desired_major_info.iloc[0]['연락처']
+        location = desired_major_info.iloc[0].get('위치', desired_major_info.iloc[0].get('사무실위치', ''))
+        
+        result += f"""
+        <div style="background: #fff3e0; border-left: 4px solid #ff9800; padding: 12px; border-radius: 8px; margin: 12px 0;">
+            <p style="margin: 0; color: #333; font-size: 0.9rem;">
+                📞 <strong>문의</strong>: {desired_major}<br>
+                <span style="margin-left: 25px; color: #666;">• 연락처: {contact}</span>
+        """
+        if location:
+            result += f"""<br><span style="margin-left: 25px; color: #666;">• 위치: {location}</span>"""
+        result += """
+            </p>
+        </div>
+        """
+    
+    result += """
+    <div style="background: #f0f7ff; padding: 10px; border-radius: 8px; margin: 12px 0;">
+        <p style="margin: 0; color: #666; font-size: 0.85rem;">
+            💡 <strong>참고</strong>: 위 계산은 학점 기준이며, 실제 이수 과목은 각 전공의 교육과정을 확인하세요.
+        </p>
+    </div>
+    """
+    
+    return result
+
+
 def handle_recommendation(user_input, extracted_info, data_dict):
+    import re
+    
+    # 질문에서 학번, 전공, 학점 정보 추출
+    year_match = re.search(r'(\d{4})학번', user_input)
+    major_match = re.search(r'([가-힣]+전공)', user_input)
+    required_match = re.search(r'전필\s*(\d+)학점', user_input)
+    elective_match = re.search(r'전선\s*(\d+)학점', user_input)
+    
+    # 정보가 모두 있는지 확인
+    if not (year_match and major_match and (required_match or elective_match)):
+        response = create_header_card("맞춤형 다전공 추천", "🎯", "#f093fb")
+        response += create_simple_card("<p style='margin:0; font-size: 0.95rem;'>정확한 추천을 위해 아래 정보가 필요합니다</p>", "#fef0f5", "#f5576c")
+        response += create_info_card("필요한 정보", [
+            "📅 기준학번 (예: 2022학번)",
+            "🎓 현재 본전공 (예: 경영학전공)",
+            "📊 이수한 전공필수/전공선택 학점"
+        ], "#f093fb", "📋")
+        response += create_tip_box("예시: \"저는 2022학번 경영학전공이고, 전필 3학점, 전선 9학점 들었어요. 다전공 추천해주세요!\"")
+        response += create_contact_box()
+        return response, "RECOMMENDATION"
+    
+    # 정보 추출
+    admission_year = int(year_match.group(1))
+    primary_major = major_match.group(1)
+    completed_required = int(required_match.group(1)) if required_match else 0
+    completed_elective = int(elective_match.group(1)) if elective_match else 0
+    total_credits = completed_required + completed_elective
+    
+    # 추천 시작
     response = create_header_card("맞춤형 다전공 추천", "🎯", "#f093fb")
     
-    response += create_simple_card("<p style='margin:0; font-size: 0.95rem;'>정확한 추천을 위해 아래 정보가 필요합니다</p>", "#fef0f5", "#f5576c")
+    # 입력 정보 표시
+    response += create_info_card("입력하신 정보", [
+        f"📅 학번: {admission_year}학번",
+        f"🎓 본전공: {primary_major}",
+        f"📊 이수 학점: 전필 {completed_required}학점, 전선 {completed_elective}학점 (총 {total_credits}학점)"
+    ], "#667eea", "📋")
     
-    response += create_info_card("필요한 정보", [
-        "📅 기준학번 (예: 2022학번)",
-        "🎓 현재 본전공 (예: 경영학전공)",
-        "📊 이수한 전공필수/전공선택 학점"
-    ], "#f093fb", "📋")
+    # MAJORS_INFO에서 추천 가능한 전공 찾기
+    majors_info = data_dict.get('majors', pd.DataFrame())
     
-    response += create_tip_box("예시: \"저는 2022학번 경영학전공이고, 전필 3학점, 전선 9학점 들었어요. 다전공 추천해주세요!\"")
+    if majors_info.empty:
+        response += create_simple_card("<p style='margin:0;'>현재 데이터에서 추천 가능한 전공을 찾을 수 없습니다. 학사지원팀에 문의해주세요.</p>", "#fff3e0", "#ff9800")
+        response += create_contact_box()
+        return response, "RECOMMENDATION"
+    
+    # 학점 기준으로 추천 전공 선택
+    if total_credits < 12:
+        # 부전공 추천
+        recommended_majors = majors_info[
+            majors_info['제도유형'].str.contains('부전공', na=False) & 
+            ~majors_info['제도유형'].str.contains('융합부전공', na=False)
+        ]['전공명'].head(3).tolist()
+        recommendation_reason = f"현재 {total_credits}학점으로 부전공(21학점)이 적합합니다"
+    else:
+        # 복수전공 추천
+        recommended_majors = majors_info[
+            majors_info['제도유형'].str.contains('복수전공', na=False)
+        ]['전공명'].head(3).tolist()
+        recommendation_reason = f"현재 {total_credits}학점으로 복수전공(36학점) 도전 가능합니다"
+    
+    if recommended_majors:
+        response += '<div style="margin: 20px 0;"><h4 style="color: #f093fb; margin: 0; font-size: 1.1rem; font-weight: 600;">💡 추천 다전공 상세 분석</h4></div>'
+        response += f'<p style="margin: 10px 0; color: #666; font-size: 0.9rem;">{recommendation_reason}</p>'
+        
+        # 각 추천 전공에 대해 상세 계산
+        for desired_major in recommended_majors:
+            result = calculate_specific_major_recommendation(
+                admission_year, 
+                primary_major, 
+                completed_required, 
+                completed_elective, 
+                desired_major, 
+                data_dict
+            )
+            response += result
+    else:
+        response += create_simple_card("<p style='margin:0;'>현재 데이터에서 추천 가능한 전공을 찾을 수 없습니다.</p>", "#fff3e0", "#ff9800")
+    
+    response += create_tip_box("더 자세한 정보는 각 전공의 교과목과 연락처를 확인해보세요!")
     response += create_contact_box()
     
     return response, "RECOMMENDATION"
@@ -1887,38 +2192,36 @@ def main():
         # AI챗봇 소개
         st.markdown("""
         <div style="background-color: #f8f9fa; border-left: 4px solid #667eea; 
-                    padding: 15px; border-radius: 8px; margin-bottom: 8px;">
+                    padding: 15px; border-radius: 8px; margin-bottom: 10px;">
             <h4 style="color: #333; margin: 0 0 10px 0; font-size: 0.95rem; font-weight: 600;">
                 🤖 AI챗봇 소개
             </h4>
-            <p style="color: #555; font-size: 0.82rem; margin: 0; line-height: 1.6;">
+            <p style="color: #555; font-size: 0.82rem; margin: 0 0 8px 0; line-height: 1.6;">
                 한경국립대학교 다전공 제도에 관한<br>
-                궁금한 사항을 AI가 실시간으로<br>
-                친절하게 답변해드립니다! 💬
+                궁금한 사항을 AI챗봇이<br>
+                친절하게 답변해드립니다!
+            </p>
+            <p style="color: #999; font-size: 0.7rem; margin: 0; font-style: italic;">
+                ⚠️ 본 챗봇은 단순 참고용입니다.
             </p>
         </div>
-        <p style="color: #999; font-size: 0.7rem; margin: 0 0 15px 0; font-style: italic; text-align: center;">
-            ⚠️ 본 챗봇은 단순 참고용입니다.
-        </p>
         """, unsafe_allow_html=True)
         
         # 다전공 제도 소개
         st.markdown("""
         <div style="background-color: #f0f8f5; border-left: 4px solid #11998e; 
-                    padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    padding: 15px; border-radius: 8px; margin-bottom: 10px;">
             <h4 style="color: #333; margin: 0 0 10px 0; font-size: 0.95rem; font-weight: 600;">
                 📚 다전공 제도란?
             </h4>
             <p style="color: #555; font-size: 0.82rem; margin: 0; line-height: 1.6;">
-                학생들이 자신의 전공 외에 추가로<br>
-                다른 학문 분야를 이수하여<br>
-                융·복합 역량을 갖춘 창의적 인재<br>
-                양성을 위한 제도입니다.
+                주전공 외에 복수, 융합전공 등<br>
+                다양한 학위를 취득하여<br>
+                융합형 인재로 성장할 수 있도록<br>
+                지원하는 제도입니다.
             </p>
         </div>
         """, unsafe_allow_html=True)
-        
-        st.divider()
         
         # 학사지원팀 연락처
         st.markdown("""
@@ -1947,15 +2250,6 @@ def main():
             """, unsafe_allow_html=True)
         
         st.markdown("</div>", unsafe_allow_html=True)
-        
-        # 연락처
-        st.markdown("""
-        <div style="background: #f8f9fa; padding: 10px; border-radius: 8px; text-align: center; margin-top: 8px;">
-            <p style="color: #495057; font-size: 0.8rem; margin: 0;">
-                ☏ 학사지원팀 <strong>031-670-5035</strong>
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
     
     # 메인 콘텐츠
     if menu == "AI챗봇 상담":
@@ -1970,25 +2264,24 @@ def main():
                 st.rerun()
             
             # 📋 신청 관련
-            cols = st.columns([1, 6])
+            cols = st.columns([0.5, 6.5])
             with cols[0]:
                 st.markdown("""<div style="padding: 8px 0; text-align: right;"><span style="color: #333; font-weight: bold; font-size: 0.9rem;">📋 신청</span></div>""", unsafe_allow_html=True)
             with cols[1]:
-                btn_cols = st.columns(6)
+                btn_cols = st.columns(5)
                 q_apply = [
                     "자격이 뭐야?",
                     "기간은 언제야?",
                     "신청 방법은 뭐야?",
                     "포기 방법은?",
-                    "전공 변경하고 싶어",
-                    "신청 절차 알려줘",
+                    "다전공을 변경하려면?",
                 ]
                 for i, q in enumerate(q_apply):
                     if btn_cols[i].button(q, key=f"qa_{i}", use_container_width=True):
                         click_question(q)
             
             # 📚 제도 관련
-            cols = st.columns([1, 6])
+            cols = st.columns([0.5, 6.5])
             with cols[0]:
                 st.markdown("""<div style="padding: 8px 0; text-align: right;"><span style="color: #333; font-weight: bold; font-size: 0.9rem;">📚 제도</span></div>""", unsafe_allow_html=True)
             with cols[1]:
@@ -2006,16 +2299,14 @@ def main():
                         click_question(q)
             
             # 🎓 학점 관련
-            cols = st.columns([1, 6])
+            cols = st.columns([0.5, 6.5])
             with cols[0]:
                 st.markdown("""<div style="padding: 8px 0; text-align: right;"><span style="color: #333; font-weight: bold; font-size: 0.9rem;">🎓 학점</span></div>""", unsafe_allow_html=True)
             with cols[1]:
-                btn_cols = st.columns(6)
+                btn_cols = st.columns(4)
                 q_credit = [
                     "이수 학점 알려줘",
-                    "본전공 학점은?",
                     "복수전공 몇 학점?",
-                    "부전공 몇 학점?",
                     "졸업 요건은?",
                     "제도별 학점 비교",
                 ]
@@ -2023,19 +2314,17 @@ def main():
                     if btn_cols[i].button(q, key=f"qc_{i}", use_container_width=True):
                         click_question(q)
             
-            # 📞 전공 · 🎯 추천
-            cols = st.columns([1, 6])
+            # 🎯 추천 / 📞 연락처
+            cols = st.columns([0.5, 6.5])
             with cols[0]:
-                st.markdown("""<div style="padding: 8px 0; text-align: right;"><span style="color: #333; font-weight: bold; font-size: 0.9rem;">📞 🎯</span></div>""", unsafe_allow_html=True)
+                st.markdown("""<div style="padding: 8px 0; text-align: right;"><span style="color: #333; font-weight: bold; font-size: 0.9rem;">🎯 📞</span></div>""", unsafe_allow_html=True)
             with cols[1]:
-                btn_cols = st.columns(6)
+                btn_cols = st.columns(4)
                 q_etc = [
-                    "전공 연락처 알려줘",
-                    "사무실 위치 어디야?",
-                    "교과목 알려줘",
-                    "다전공 추천해줘",
-                    "학점 부담 적은 거",
-                    "취업에 유리한 거",
+                    "저는 2022학번 경영학전공이고, 전필 3학점, 전선 9학점 들었어요. 다전공 추천해주세요",
+                    "경영학전공 연락처 알려줘",
+                    "응용수학전공 사무실 위치는?",
+                    "기계공학전공 교과목은?",
                 ]
                 for i, q in enumerate(q_etc):
                     if btn_cols[i].button(q, key=f"qe_{i}", use_container_width=True):
@@ -2452,3 +2741,4 @@ def main():
 if __name__ == "__main__":
     initialize_session_state()
     main()
+# Updated at Mon Dec 29 13:38:35 UTC 2025
