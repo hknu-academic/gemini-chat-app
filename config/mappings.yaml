@@ -26,12 +26,17 @@ program_aliases:
     - 연계
   마이크로디그리:
     - 마이크로디그리
+    - 마이크로 디그리
     - 마이크로
     - md
+    - micro
+    - micro degree
     - 소단위전공과정
+    - 소단위 전공과정
     - 소단위전공
     - 소단위
     - 마디
+    - 소전
 
 # 제도명 표시용 (내부명 → 표시명)
 program_display_names:
@@ -90,6 +95,7 @@ intent_keywords:
     - 바꾸
     - 전환
     - 교체
+    - 수정
   
   PROGRAM_COMPARISON:
     - 차이
@@ -123,10 +129,13 @@ intent_keywords:
     - 교육과정
     - 어떤 과목
     - 무슨 과목
-  
+    - 이수 과목
+    - 이수과목
+
   CONTACT_SEARCH:
     - 연락처
     - 전화번호
+    - tel
     - 사무실
     - 위치
     - 어디

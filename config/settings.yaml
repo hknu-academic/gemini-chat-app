@@ -45,7 +45,7 @@ example_questions:
 
 # 기본값
 defaults:
-  admission_year_min: 2018
+  admission_year_min: 2020
   curriculum_year: 2025
   difficulty: 3
 
