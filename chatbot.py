@@ -114,7 +114,7 @@ except ImportError:
         SEMANTIC_ROUTER_VERSION = None
 
 # Gemini API 설정
-GEMINI_API_KEY = "AIzaSyAyBEX3MRQv6q3RhNpznsfuDWKqhAlaGV8"
+GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 if not GEMINI_API_KEY:
     st.error("⚠️ GEMINI_API_KEY가 설정되지 않았습니다!")
     st.stop()
