@@ -126,173 +126,37 @@ st.set_page_config(
     page_title="다전공 안내 AI챗봇",
     page_icon="🎓",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
+    menu_items={
+        'Get help': 'https://www.hknu.ac.kr', # 도움말 링크
+        'Report a bug': 'https://www.hknu.ac.kr', # 버그 보고 링크
+        'About': "# 한경국립대학교 다전공 안내 AI 챗봇" # About 텍스트
+    }
 )
 
 # 🔧 수정 #6, #7: CSS - Streamlit 브랜딩 완전 숨김 + 모바일 가독성 개선
 hide_streamlit_style = """
 <style>
-/* Streamlit 브랜딩 완전 숨기기 */
-footer {display: none !important; visibility: hidden !important; height: 0 !important;}
-.stApp > footer {display: none !important;}
-footer:after {visibility: hidden !important; display: none !important;}
-#MainMenu {visibility: hidden !important;}
-.viewerBadge_container__1QSob {display: none !important;}
-.viewerBadge_link__1S137 {display: none !important;}
-[data-testid="stToolbar"] {display: none !important;}
-.stDeployButton {display: none !important;}
-a[href*="streamlit.io"] {display: none !important;}
-
-/* header 내부의 Streamlit 요소만 숨김 (사이드바 버튼은 유지) */
-header[data-testid="stHeader"] {
-    background-color: transparent !important;
-    visibility: visible !important;
-    display: flex !important;
-}
-
-/* stToolbar만 숨기고 collapsedControl은 유지 */
-header[data-testid="stHeader"] [data-testid="stToolbar"] {
-    visibility: hidden !important;
-    display: none !important;
-}
-
-/* 사이드바 토글 버튼 영역 강제 표시 */
-header[data-testid="stHeader"] [data-testid="collapsedControl"] {
-    visibility: visible !important;
-    display: flex !important;
-    opacity: 1 !important;
-    z-index: 999999 !important;
-}
-
-/* 하단 여백 */
-.main .block-container {
-    padding-bottom: 120px !important;
-}
-
-/* 사이드바 및 토글 버튼 강제 표시 */
-[data-testid="stSidebar"] {
-    visibility: visible !important;
-    display: block !important;
-}
-
-button[kind="header"] {
-    visibility: visible !important;
-    display: block !important;
-    opacity: 1 !important;
-}
-
-[data-testid="collapsedControl"] {
-    visibility: visible !important;
-    display: block !important;
-    opacity: 1 !important;
-    z-index: 999999 !important;
-    position: relative !important;
-}
-
-[data-testid="baseButton-header"] {
-    visibility: visible !important;
-    display: block !important;
-    opacity: 1 !important;
-}
-
-section[data-testid="stSidebar"] > div {
-    visibility: visible !important;
-    display: block !important;
-}
-
-.stChatInputContainer {
-    position: sticky;
-    bottom: 0;
-    background: white;
-    padding: 0.75rem 0;
-    z-index: 999;
-}
-
-/* 🔧 수정 #7: 모바일 가독성 개선 */
-@media (max-width: 768px) {
-    /* 제목 줄바꿈 방지 */
-    h1, h2, h3 {
-        word-break: keep-all !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        font-size: 1.1rem !important;
-    }
-    
-    .nav-link {
-        font-size: 13px !important;
-        padding: 8px !important;
-    }
-    
-    .stMarkdown p, .stMarkdown li {
-        font-size: 14px !important;
-        line-height: 1.5 !important;
-    }
-    
-    .stButton > button {
-        font-size: 13px !important;
-        padding: 8px 12px !important;
-    }
-    
-    .block-container {
-        padding: 1rem 0.5rem !important;
-    }
-    
-    section[data-testid="stSidebar"] {
-        min-width: 200px !important;
-        max-width: 250px !important;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        font-size: 12px !important;
-        padding: 6px !important;
-    }
-}
-
-@media (max-width: 375px) {
-    h1, h2 {
-        font-size: 1rem !important;
-    }
-}
-
-html, body {
-    scroll-behavior: smooth;
-}
-
-@media (max-width: 992px) {
-    /* 1. 헤더 영역 공간 확보 */
-    header[data-testid="stHeader"] {
-        display: flex !important;
-        visibility: visible !important;
-        background-color: transparent !important;
-        z-index: 999999 !important; /* 다른 요소보다 위에 배치 */
-        height: auto !important;
-        min-height: 50px !important;
+    /* 1. 상단 무지개 장식선만 숨김 */
+    [data-testid="stDecoration"] {
+        display: none !important;
     }
 
-    /* 2. 사이드바 열기 버튼(> 모양) 강제 표시 및 색상 지정 */
-    [data-testid="collapsedControl"] {
-        display: block !important;
-        visibility: visible !important;
-        color: #333333 !important; /* 버튼 색상 진하게 (배경이 흰색일 경우) */
-        opacity: 1 !important;
-        z-index: 1000000 !important;
-        top: 0.5rem !important;
-        left: 0.5rem !important;
-    }
-    
-    /* 3. 버튼 내부 아이콘 크기 조정 (터치하기 편하게) */
-    [data-testid="collapsedControl"] svg {
-        height: 2rem !important;
-        width: 2rem !important;
+    /* 2. 하단 푸터만 숨김 */
+    footer {
+        display: none !important;
     }
 
-    /* 4. 본문 내용이 헤더 버튼을 가리지 않도록 상단 여백 추가 */
+    /* 3. 본문 여백만 살짝 조정 */
     .main .block-container {
-        padding-top: 4rem !important; 
+        padding-top: 2rem !important;
     }
-}
-
+    
+    /* 
+       [중요] 헤더(header)와 툴바(stToolbar)를 숨기는 코드를 모두 뺐습니다.
+       이렇게 하면 오른쪽 위에 '점 3개' 메뉴는 보이겠지만,
+       왼쪽 위의 '사이드바 열기 버튼'은 무조건 살아있게 됩니다.
+    */
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
@@ -541,7 +405,7 @@ def initialize_semantic_router():
         # 🔧 임베딩 모델 업그레이드: 축약어, 구어체, 모호한 질문 처리 향상
         encoder = GoogleEncoder(
             name="models/text-embedding-004",  # 구글의 최신 임베딩 모델 (한국어 성능 우수)
-            api_key=st.secrets["GEMINI_API_KEY"]             # 코드 상단에 정의된 API 키 변수 사용
+            api_key=st.secrets["GEMINI_API_KEY"]           # 코드 상단에 정의된 API 키 변수 사용
         )
         routes = [Route(name=intent_name, utterances=utterances) 
                   for intent_name, utterances in INTENT_UTTERANCES.items()]
