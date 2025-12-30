@@ -98,7 +98,7 @@ LocalIndex = None
 try:
     from semantic_router import Route
     from semantic_router.routers import SemanticRouter
-    from semantic_router.encoders import HuggingFaceEncoder
+    from semantic_router.encoders import GoogleEncoder
     from semantic_router.index import LocalIndex
     SEMANTIC_ROUTER_AVAILABLE = True
     SEMANTIC_ROUTER_VERSION = "0.1.x"
@@ -106,7 +106,7 @@ except ImportError:
     try:
         from semantic_router import Route
         from semantic_router.layer import RouteLayer as SemanticRouter
-        from semantic_router.encoders import HuggingFaceEncoder
+        from semantic_router.encoders import GoogleEncoder
         SEMANTIC_ROUTER_AVAILABLE = True
         SEMANTIC_ROUTER_VERSION = "0.0.x"
     except ImportError:
@@ -539,7 +539,10 @@ def initialize_semantic_router():
         return None
     try:
         # 🔧 임베딩 모델 업그레이드: 축약어, 구어체, 모호한 질문 처리 향상
-        encoder = HuggingFaceEncoder(name="BM-K/KoSimCSE-roberta-multitask")
+        encoder = GoogleEncoder(
+            name="models/text-embedding-004",  # 구글의 최신 임베딩 모델 (한국어 성능 우수)
+            api_key=st.secrets["GEMINI_API_KEY"]             # 코드 상단에 정의된 API 키 변수 사용
+        )
         routes = [Route(name=intent_name, utterances=utterances) 
                   for intent_name, utterances in INTENT_UTTERANCES.items()]
         if LocalIndex is not None:

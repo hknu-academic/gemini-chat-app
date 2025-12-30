@@ -51,3 +51,4 @@ semantic-router
 transformers
 sentence-transformers
 tokenizers
+google-generativeai
