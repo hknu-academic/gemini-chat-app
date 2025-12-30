@@ -258,6 +258,41 @@ section[data-testid="stSidebar"] > div {
 html, body {
     scroll-behavior: smooth;
 }
+
+@media (max-width: 992px) {
+    /* 1. 헤더 영역 공간 확보 */
+    header[data-testid="stHeader"] {
+        display: flex !important;
+        visibility: visible !important;
+        background-color: transparent !important;
+        z-index: 999999 !important; /* 다른 요소보다 위에 배치 */
+        height: auto !important;
+        min-height: 50px !important;
+    }
+
+    /* 2. 사이드바 열기 버튼(> 모양) 강제 표시 및 색상 지정 */
+    [data-testid="collapsedControl"] {
+        display: block !important;
+        visibility: visible !important;
+        color: #333333 !important; /* 버튼 색상 진하게 (배경이 흰색일 경우) */
+        opacity: 1 !important;
+        z-index: 1000000 !important;
+        top: 0.5rem !important;
+        left: 0.5rem !important;
+    }
+    
+    /* 3. 버튼 내부 아이콘 크기 조정 (터치하기 편하게) */
+    [data-testid="collapsedControl"] svg {
+        height: 2rem !important;
+        width: 2rem !important;
+    }
+
+    /* 4. 본문 내용이 헤더 버튼을 가리지 않도록 상단 여백 추가 */
+    .main .block-container {
+        padding-top: 4rem !important; 
+    }
+}
+
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
