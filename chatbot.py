@@ -1954,8 +1954,8 @@ def display_courses(major, program_type):
                                         if desc and pd.notna(desc) and str(desc).strip():
                                             st.write(desc)
                                         else:
-                                        st.caption("교과목 개요 정보가 없습니다.")
-                                        
+                                            st.caption("교과목 개요 정보가 없습니다.")
+
                                     # 소단위전공과정: 교과목 운영전공 추가
                                     edu_dept = row.get('교과목 운영전공') or row.get('교과목운영전공', '')
                                     if is_micro and pd.notna(edu_dept) and str(edu_dept).strip():
