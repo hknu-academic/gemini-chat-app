@@ -2469,7 +2469,7 @@ def main():
                     
                     if not MAJORS_INFO.empty:
                         # MAJORS_INFO에서 소단위전공과정 필터링
-                        mask = MAJORS_INFO['제도유형'].apply(lambda x: any(kw in str(x).lower() for kw in ['소단위', '마이크로', 'md']))
+                        mask = MAJORS_INFO['제도유형'].apply(lambda x: any(kw in str(x).lower() for kw in ['소단위', '마이크로', 'md', '연계전공']))
                         micro_df = MAJORS_INFO[mask]
                         
                         # 분야 또는 계열 컬럼 사용
