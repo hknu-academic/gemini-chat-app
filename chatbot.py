@@ -1778,29 +1778,24 @@ def display_curriculum_image(major, program_type):
         st.info(f"💡 '{major}' 또는 '{clean_major}'에 해당하는 이미지 정보를 curriculum_mapping에서 찾을 수 없습니다.")
 
 def render_course_list(df, is_micro):
-    for _, row in df.iterrows():
+    for idx, row in df.iterrows():
         course_name = row.get('과목명', '')
         credit = f"{int(row.get('학점', 0))}학점" if pd.notna(row.get('학점')) else ""
         desc = row.get('교과목개요')
 
-        # 제목
-        st.markdown(f"📘 **{course_name} ({credit})**")
+        title = f"📘 {course_name} ({credit})"
 
-        # 개요 미리보기
-        if desc and pd.notna(desc) and str(desc).strip():
-            preview, has_more = preview_text(desc, max_sentences=2)
-            st.write(preview)
+        with st.expander(title):
+            # 교과목 개요
+            if desc and pd.notna(desc) and str(desc).strip():
+                st.write(desc)
+            else:
+                st.info("교과목 개요 정보가 없습니다.")
 
-            if has_more:
-                with st.expander("🔽 더보기"):
-                    st.write(desc)
-
-        # 소단위전공과정: 교과목 운영전공 표시
-        edu_dept = row.get('교과목 운영전공') or row.get('교과목운영전공', '')
-        if is_micro and pd.notna(edu_dept) and str(edu_dept).strip():
-            st.caption(f"🏫 운영전공: {str(edu_dept).strip()}")
-
-        st.markdown("---")
+            # 소단위전공과정만 운영전공 표시
+            edu_dept = row.get('교과목 운영전공') or row.get('교과목운영전공', '')
+            if is_micro and pd.notna(edu_dept) and str(edu_dept).strip():
+                st.caption(f"🏫 운영전공: {str(edu_dept).strip()}")
 
 # 🔧 수정 #3: 소단위전공 교과목 'XX MD' 패턴으로 검색
 def display_courses(major, program_type):
