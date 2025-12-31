@@ -2204,17 +2204,15 @@ def main():
 
         with tab_credit:
             q_credit = [
-                "다전공 제도별 이수학점은?",
-                "복수전공 몇 학점?",
-                "졸업 요건은?",
-                "제도별 학점은?",
+                "다전공별 이수학점은?",
+                "복수전공 학점은?",
             ]
             render_question_buttons(q_credit, "qc", cols=4)
 
         with tab_etc:
             q_etc = [
                 "경영학전공 연락처 알려줘",
-                "응용수학전공 사무실 위치는?",
+                "응용수학전공 사무실은 어디야?",
                 "기계공학전공 교과목은?",
             ]
             render_question_buttons(q_etc, "qe", cols=4)
