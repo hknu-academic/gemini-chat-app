@@ -1027,7 +1027,7 @@ def handle_program_info(user_input, extracted_info, data_dict):
     )
     
     if is_general:
-        response = create_header_card("다전공(유연학사제도) 안내", "🎓", "#667eea")
+        response = create_header_card("다전공 안내", "🎓", "#667eea")
         
         response += create_simple_card("<p style='margin:0; font-size: 0.95rem;'><strong>다전공 제도</strong>는 주전공(제1전공) 외에 다른 전공을 추가로 이수할 수 있는 <strong>유연학사제도</strong>입니다.</p>", "#f0f4ff", "#667eea")
         
@@ -1559,7 +1559,7 @@ def handle_recommendation(user_input, extracted_info, data_dict):
 def handle_greeting(user_input, extracted_info, data_dict):
     response = create_header_card("안녕하세요!", "👋", "#667eea")
     
-    response += create_simple_card("<p style='margin:0; font-size: 1rem;'><strong>한경국립대학교 다전공(유연학사제도) 안내 AI챗봇</strong>입니다 😊</p>", "#f0f4ff", "#667eea")
+    response += create_simple_card("<p style='margin:0; font-size: 1rem;'><strong>한경국립대학교 다전공 안내 AI챗봇</strong>입니다 😊</p>", "#f0f4ff", "#667eea")
     
     response += """
 <div style="background: white; border-radius: 12px; padding: 16px; margin: 12px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
@@ -1600,7 +1600,7 @@ def handle_blocked(user_input, extracted_info, data_dict):
 def handle_out_of_scope(user_input, extracted_info, data_dict):
     response = create_header_card("모릅니다", "🚫", "#636e72")
     
-    response += create_simple_card("<p style='margin:0;'>저는 <strong>한경국립대학교 다전공(유연학사제도) 전용 AI챗봇</strong>이에요.</p>", "#f8f9fa", "#6c757d")
+    response += create_simple_card("<p style='margin:0;'>저는 <strong>한경국립대학교 다전공 안내 AI챗봇</strong>이에요.</p>", "#f8f9fa", "#6c757d")
     
     response += """
 <div style="background: white; border-radius: 12px; padding: 16px; margin: 12px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
@@ -2178,7 +2178,7 @@ def main():
     
     # 메인 콘텐츠
     if menu == "AI챗봇 상담":
-        st.subheader("💬 AI 상담원과 대화하기")
+        st.subheader("💬 AI챗봇과 대화하기")
         
         tab_apply, tab_program, tab_credit, tab_etc = st.tabs(
             ["📋 신청", "📚 제도", "🎓 학점", "🎯 / 📞"]
@@ -2191,7 +2191,7 @@ def main():
                 "신청 방법은 뭐야?",
                 "다전공을 변경하려면?",
             ]
-            render_question_buttons(q_apply, "qa", cols=5)
+            render_question_buttons(q_apply, "qa", cols=2)
 
         with tab_program:
             q_program = [
@@ -2200,14 +2200,14 @@ def main():
                 "마이크로디그리 알려줘?",
                 "복수·부전공 차이는?",
             ]
-            render_question_buttons(q_program, "qp", cols=5)
+            render_question_buttons(q_program, "qp", cols=2)
 
         with tab_credit:
             q_credit = [
                 "다전공별 이수학점은?",
                 "복수전공 학점은?",
             ]
-            render_question_buttons(q_credit, "qc", cols=4)
+            render_question_buttons(q_credit, "qc", cols=2)
 
         with tab_etc:
             q_etc = [
@@ -2215,7 +2215,7 @@ def main():
                 "응용수학전공 사무실은 어디야?",
                 "기계공학전공 교과목은?",
             ]
-            render_question_buttons(q_etc, "qe", cols=4)
+            render_question_buttons(q_etc, "qe", cols=2)
 
         st.divider()
         
