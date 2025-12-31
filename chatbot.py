@@ -590,7 +590,7 @@ def get_majors_by_category(program_type=None, data_source="majors"):
         특수 제도의 경우: {'전체': ['전공1', '전공2', ...]}
     """
     # 특수 제도는 계열 구분 없음
-    special_programs = ["융합전공", "융합부전공", "소단위전공과정", "연계전공"]
+    special_programs = ["융합전공", "융합부전공", "소단위전공과정"]
     
     if program_type in special_programs:
         majors_list = []
