@@ -1777,6 +1777,30 @@ def display_curriculum_image(major, program_type):
         # 매칭 실패 시 정보 표시
         st.info(f"💡 '{major}' 또는 '{clean_major}'에 해당하는 이미지 정보를 curriculum_mapping에서 찾을 수 없습니다.")
 
+def render_course_list(df, is_micro):
+    for _, row in df.iterrows():
+        course_name = row.get('과목명', '')
+        credit = f"{int(row.get('학점', 0))}학점" if pd.notna(row.get('학점')) else ""
+        desc = row.get('교과목개요')
+
+        # 제목
+        st.markdown(f"📘 **{course_name} ({credit})**")
+
+        # 개요 미리보기
+        if desc and pd.notna(desc) and str(desc).strip():
+            preview, has_more = preview_text(desc, max_lines=3)
+            st.write(preview)
+
+            if has_more:
+                with st.expander("🔽 더보기"):
+                    st.write(desc)
+
+        # 소단위전공과정: 교과목 운영전공 표시
+        edu_dept = row.get('교과목 운영전공') or row.get('교과목운영전공', '')
+        if is_micro and pd.notna(edu_dept) and str(edu_dept).strip():
+            st.caption(f"🏫 운영전공: {str(edu_dept).strip()}")
+
+        st.markdown("---")
 
 # 🔧 수정 #3: 소단위전공 교과목 'XX MD' 패턴으로 검색
 def display_courses(major, program_type):
@@ -1836,7 +1860,7 @@ def display_courses(major, program_type):
                         courses = type_matched[type_matched['전공명'] == course_major]
                         display_major = cm_str
                         break
-    
+
     # 부분 매칭
     if courses.empty:
         keyword = clean_major.replace('전공', '').replace('과정', '').replace('(', '').replace(')', '')[:4]
@@ -1875,38 +1899,12 @@ def display_courses(major, program_type):
                         with col1:
                             if not required.empty:
                                 st.markdown("**🔴 전공필수**")
-                                for _, row in required.iterrows():
-                                    course_name = row.get('과목명', '')
-                                    credit = f"{int(row.get('학점', 0))}학점" if pd.notna(row.get('학점')) else ""
-                                    
-                                    desc = row.get('교과목개요')
-
-                                    with st.expander(f"📘 {course_name} ({credit})"):
-                                        if desc and pd.notna(desc) and str(desc).strip():
-                                            st.write(desc)
-                                        else:
-                                            st.caption("교과목 개요 정보가 없습니다.")
-
-                                    # 소단위전공과정: 교과목 운영전공 추가
-                                    edu_dept = row.get('교과목 운영전공') or row.get('교과목운영전공', '')
-                                    if is_micro and pd.notna(edu_dept) and str(edu_dept).strip():
-                                        st.write(f"• {course_name} ({credit}, {str(edu_dept).strip()})")
-                                    else:
-                                        st.write(f"• {course_name} ({credit})")
-                        
+                                render_course_list(required, is_micro)
+                                                                    
                         with col2:
                             if not elective.empty:
                                 st.markdown("**🟢 전공선택**")
-                                for _, row in elective.iterrows():
-                                    course_name = row.get('과목명', '')
-                                    credit = f"{int(row.get('학점', 0))}학점" if pd.notna(row.get('학점')) else ""
-                                    
-                                    # 소단위전공과정: 교과목 운영전공 추가
-                                    edu_dept = row.get('교과목 운영전공') or row.get('교과목운영전공', '')
-                                    if is_micro and pd.notna(edu_dept) and str(edu_dept).strip():
-                                        st.write(f"• {course_name} ({credit}, {str(edu_dept).strip()})")
-                                    else:
-                                        st.write(f"• {course_name} ({credit})")
+                                render_course_list(elective, is_micro)
                         
                         st.divider()
         else:
@@ -1950,11 +1948,15 @@ def display_courses(major, program_type):
                                     
                                     desc = row.get('교과목개요')
 
-                                    with st.expander(f"📘 {course_name} ({credit})"):
-                                        if desc and pd.notna(desc) and str(desc).strip():
-                                            st.write(desc)
-                                        else:
-                                            st.caption("교과목 개요 정보가 없습니다.")
+                                    if desc and pd.notna(desc) and str(desc).strip():
+                                        preview, has_more = preview_text(desc, max_lines=3)
+
+                                        st.markdown(f"📘 **{course_name} ({credit}학점)**")
+                                        st.write(preview)
+
+                                        if has_more:
+                                            with st.expander("🔽 더보기"):
+                                                st.write(desc)
 
                                     # 소단위전공과정: 교과목 운영전공 추가
                                     edu_dept = row.get('교과목 운영전공') or row.get('교과목운영전공', '')
@@ -2096,6 +2098,14 @@ def render_question_buttons(questions, key_prefix, cols=5):
                 "response_type": res_type
             })
             st.rerun()
+def preview_text(text, max_lines=3):
+    """
+    텍스트를 줄 단위로 잘라 미리보기용으로 반환
+    """
+    lines = str(text).splitlines()
+    if len(lines) <= max_lines:
+        return text, False
+    return "\n".join(lines[:max_lines]), True
 
 # ============================================================
 # 🖥️ 메인 UI
