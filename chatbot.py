@@ -2338,7 +2338,7 @@ def main():
                         available_majors[major_name] = None
             
             if available_majors:
-                target_programs = ["복수전공", "부전공", "융합전공", "융합부전공"]
+                target_programs = ["복수전공", "부전공", "융합전공", "융합부전공", "연계전공"]
                 
                 # 특수 제도 확인 (부분 문자열 매칭)
                 is_special = any(sp in selected_program for sp in ["융합전공", "융합부전공", "소단위", "마이크로"])
