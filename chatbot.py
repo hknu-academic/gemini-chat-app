@@ -2330,6 +2330,10 @@ def main():
             if not MAJORS_INFO.empty and '제도유형' in MAJORS_INFO.columns:
                 mask = MAJORS_INFO['제도유형'].apply(lambda x: match_program_type(x, selected_program))
                 for _, row in MAJORS_INFO[mask].iterrows():
+
+                    if selected_program == "융합부전공":
+                        continue
+
                     major_name = row['전공명']
                     edu_major = row.get('교육운영전공')
                     if pd.notna(edu_major) and str(edu_major).strip():
@@ -2469,7 +2473,7 @@ def main():
                     
                     if not MAJORS_INFO.empty:
                         # MAJORS_INFO에서 소단위전공과정 필터링
-                        mask = MAJORS_INFO['제도유형'].apply(lambda x: any(kw in str(x).lower() for kw in ['소단위', '마이크로', 'md', '연계전공']))
+                        mask = MAJORS_INFO['제도유형'].apply(lambda x: any(kw in str(x).lower() for kw in ['소단위', '마이크로', 'md']))
                         micro_df = MAJORS_INFO[mask]
                         
                         # 분야 또는 계열 컬럼 사용
