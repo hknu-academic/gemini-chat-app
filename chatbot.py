@@ -1489,7 +1489,6 @@ def handle_recommendation(user_input, extracted_info, data_dict):
             "🎓 현재 본전공 (예: 경영학전공)",
             "📊 이수한 전공필수/전공선택 학점"
         ], "#f093fb", "📋")
-        response += create_tip_box("예시: \"저는 2022학번 경영학전공이고, 전필 3학점, 전선 9학점 들었어요. 다전공 추천해주세요!\"")
         response += create_contact_box()
         return response, "RECOMMENDATION"
     
@@ -2158,19 +2157,11 @@ def main():
         st.subheader("💬 AI 상담원과 대화하기")
         
         with st.expander("💡 어떤 질문을 해야 할지 모르겠나요? (클릭)", expanded=False):
-            
-            def click_question(q):
-                st.session_state.chat_history.append({"role": "user", "content": q})
-                response_text, res_type = generate_ai_response(q, st.session_state.chat_history[:-1], ALL_DATA)
-                st.session_state.chat_history.append({"role": "assistant", "content": response_text, "response_type": res_type})
-                st.rerun()
-            
-            # 📋 신청 관련
-            cols = st.columns([0.5, 6.5])
-            with cols[0]:
-                st.markdown("""<div style="padding: 8px 0; text-align: right;"><span style="color: #333; font-weight: bold; font-size: 0.9rem;">📋 신청</span></div>""", unsafe_allow_html=True)
-            with cols[1]:
-                btn_cols = st.columns(5)
+            tab_apply, tab_program, tab_credit, tab_etc = st.tabs(
+                ["📋 신청", "📚 제도", "🎓 학점", "🎯 / 📞"]
+            )
+
+            with tab_apply:
                 q_apply = [
                     "자격이 뭐야?",
                     "기간은 언제야?",
@@ -2178,60 +2169,35 @@ def main():
                     "포기 방법은?",
                     "다전공을 변경하려면?",
                 ]
-                for i, q in enumerate(q_apply):
-                    if btn_cols[i].button(q, key=f"qa_{i}", use_container_width=True):
-                        click_question(q)
-            
-            # 📚 제도 관련
-            cols = st.columns([0.5, 6.5])
-            with cols[0]:
-                st.markdown("""<div style="padding: 8px 0; text-align: right;"><span style="color: #333; font-weight: bold; font-size: 0.9rem;">📚 제도</span></div>""", unsafe_allow_html=True)
-            with cols[1]:
-                btn_cols = st.columns(6)
+                render_question_buttons(q_apply, "qa", cols=5)
+
+            with tab_program:
                 q_program = [
                     "다전공이 뭐야?",
                     "복수전공은 뭐야?",
-                    "부전공은 뭐야?",
                     "융합전공 알려줘",
                     "마이크로디그리 뭐야?",
                     "복수·부전공 차이는?",
                 ]
-                for i, q in enumerate(q_program):
-                    if btn_cols[i].button(q, key=f"qp_{i}", use_container_width=True):
-                        click_question(q)
-            
-            # 🎓 학점 관련
-            cols = st.columns([0.5, 6.5])
-            with cols[0]:
-                st.markdown("""<div style="padding: 8px 0; text-align: right;"><span style="color: #333; font-weight: bold; font-size: 0.9rem;">🎓 학점</span></div>""", unsafe_allow_html=True)
-            with cols[1]:
-                btn_cols = st.columns(4)
+                render_question_buttons(q_program, "qp", cols=5)
+
+            with tab_credit:
                 q_credit = [
                     "이수 학점 알려줘",
                     "복수전공 몇 학점?",
                     "졸업 요건은?",
                     "제도별 학점 비교",
                 ]
-                for i, q in enumerate(q_credit):
-                    if btn_cols[i].button(q, key=f"qc_{i}", use_container_width=True):
-                        click_question(q)
-            
-            # 🎯 추천 / 📞 연락처
-            cols = st.columns([0.5, 6.5])
-            with cols[0]:
-                st.markdown("""<div style="padding: 8px 0; text-align: right;"><span style="color: #333; font-weight: bold; font-size: 0.9rem;">🎯 📞</span></div>""", unsafe_allow_html=True)
-            with cols[1]:
-                btn_cols = st.columns(4)
+                render_question_buttons(q_credit, "qc", cols=4)
+
+            with tab_etc:
                 q_etc = [
-                    "저는 2022학번 경영학전공이고, 전필 3학점, 전선 9학점 들었어요. 다전공 추천해주세요",
                     "경영학전공 연락처 알려줘",
                     "응용수학전공 사무실 위치는?",
                     "기계공학전공 교과목은?",
                 ]
-                for i, q in enumerate(q_etc):
-                    if btn_cols[i].button(q, key=f"qe_{i}", use_container_width=True):
-                        click_question(q)
-        
+                render_question_buttons(q_etc, "qe", cols=4)
+
         st.divider()
         
         for chat in st.session_state.chat_history:
