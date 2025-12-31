@@ -2156,47 +2156,46 @@ def main():
     if menu == "AI챗봇 상담":
         st.subheader("💬 AI 상담원과 대화하기")
         
-        with st.expander("💡 어떤 질문을 해야 할지 모르겠나요? (클릭)", expanded=False):
-            tab_apply, tab_program, tab_credit, tab_etc = st.tabs(
-                ["📋 신청", "📚 제도", "🎓 학점", "🎯 / 📞"]
-            )
+        tab_apply, tab_program, tab_credit, tab_etc = st.tabs(
+            ["📋 신청", "📚 제도", "🎓 학점", "🎯 / 📞"]
+        )
 
-            with tab_apply:
-                q_apply = [
-                    "자격이 뭐야?",
-                    "기간은 언제야?",
-                    "신청 방법은 뭐야?",
-                    "포기 방법은?",
-                    "다전공을 변경하려면?",
-                ]
-                render_question_buttons(q_apply, "qa", cols=5)
+        with tab_apply:
+            q_apply = [
+                "자격이 뭐야?",
+                "기간은 언제야?",
+                "신청 방법은 뭐야?",
+                "포기 방법은?",
+                "다전공을 변경하려면?",
+            ]
+            render_question_buttons(q_apply, "qa", cols=5)
 
-            with tab_program:
-                q_program = [
-                    "다전공이 뭐야?",
-                    "복수전공은 뭐야?",
-                    "융합전공 알려줘",
-                    "마이크로디그리 뭐야?",
-                    "복수·부전공 차이는?",
-                ]
-                render_question_buttons(q_program, "qp", cols=5)
+        with tab_program:
+            q_program = [
+                "다전공이 뭐야?",
+                "복수전공은 뭐야?",
+                "융합전공 알려줘",
+                "마이크로디그리 뭐야?",
+                "복수·부전공 차이는?",
+            ]
+            render_question_buttons(q_program, "qp", cols=5)
 
-            with tab_credit:
-                q_credit = [
-                    "이수 학점 알려줘",
-                    "복수전공 몇 학점?",
-                    "졸업 요건은?",
-                    "제도별 학점 비교",
-                ]
-                render_question_buttons(q_credit, "qc", cols=4)
+        with tab_credit:
+            q_credit = [
+                "이수 학점 알려줘",
+                "복수전공 몇 학점?",
+                "졸업 요건은?",
+                "제도별 학점 비교",
+            ]
+            render_question_buttons(q_credit, "qc", cols=4)
 
-            with tab_etc:
-                q_etc = [
-                    "경영학전공 연락처 알려줘",
-                    "응용수학전공 사무실 위치는?",
-                    "기계공학전공 교과목은?",
-                ]
-                render_question_buttons(q_etc, "qe", cols=4)
+        with tab_etc:
+            q_etc = [
+                "경영학전공 연락처 알려줘",
+                "응용수학전공 사무실 위치는?",
+                "기계공학전공 교과목은?",
+            ]
+            render_question_buttons(q_etc, "qe", cols=4)
 
         st.divider()
         
