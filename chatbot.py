@@ -1788,7 +1788,7 @@ def render_course_list(df, is_micro):
 
         # 개요 미리보기
         if desc and pd.notna(desc) and str(desc).strip():
-            preview, has_more = preview_text(desc, max_lines=3)
+            preview, has_more = preview_text(desc, max_sentences=2)
             st.write(preview)
 
             if has_more:
