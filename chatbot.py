@@ -59,9 +59,9 @@ CONTACT_MESSAGE = MESSAGES.get('contact', {}).get('default', DEFAULT_CONTACT_MES
 
 APP_PERIOD = MESSAGES.get('application_period', {})
 APP_PERIOD_TITLE = APP_PERIOD.get('title', "📅 다전공 신청 기간 안내")
-APP_PERIOD_INTRO = APP_PERIOD.get('intro', "다전공 신청은 **매 학기 2회** 진행됩니다.")
-APP_PERIOD_1ST = APP_PERIOD.get('first_semester', "전학기 **10월** / **12월**")
-APP_PERIOD_2ND = APP_PERIOD.get('second_semester', "전학기 **4월** / **6월**")
+APP_PERIOD_INTRO = APP_PERIOD.get('intro', "다전공 신청은 매 학기 2회 진행됩니다.")
+APP_PERIOD_1ST = APP_PERIOD.get('first_semester', "전학기 10월 / 12월")
+APP_PERIOD_2ND = APP_PERIOD.get('second_semester', "전학기 4월 / 6월")
 
 LINKS = MESSAGES.get('links', {})
 ACADEMIC_NOTICE_URL = LINKS.get('academic_notice', "https://www.hknu.ac.kr/kor/562/subview.do")
@@ -70,7 +70,7 @@ PATHS = SETTINGS.get('paths', {})
 CURRICULUM_IMAGES_PATH = PATHS.get('curriculum_images', "images/curriculum")
 
 APP_CONFIG = SETTINGS.get('app', {})
-APP_TITLE = APP_CONFIG.get('title', "🎓 한경국립대 다전공 안내")
+APP_TITLE = APP_CONFIG.get('title', "🎓 다전공 안내")
 
 DIFFICULTY_STARS = MAPPINGS.get('difficulty_stars', {})
 
@@ -1879,6 +1879,14 @@ def display_courses(major, program_type):
                                     course_name = row.get('과목명', '')
                                     credit = f"{int(row.get('학점', 0))}학점" if pd.notna(row.get('학점')) else ""
                                     
+                                    desc = row.get('교과목개요')
+
+                                    with st.expander(f"📘 {course_name} ({credit})"):
+                                        if desc and pd.notna(desc) and str(desc).strip():
+                                            st.write(desc)
+                                        else:
+                                            st.caption("교과목 개요 정보가 없습니다.")
+
                                     # 소단위전공과정: 교과목 운영전공 추가
                                     edu_dept = row.get('교과목 운영전공') or row.get('교과목운영전공', '')
                                     if is_micro and pd.notna(edu_dept) and str(edu_dept).strip():
@@ -1940,6 +1948,14 @@ def display_courses(major, program_type):
                                     course_name = row.get('과목명', '')
                                     credit = f"{int(row.get('학점', 0))}학점" if pd.notna(row.get('학점')) else ""
                                     
+                                    desc = row.get('교과목개요')
+
+                                    with st.expander(f"📘 {course_name} ({credit})"):
+                                        if desc and pd.notna(desc) and str(desc).strip():
+                                            st.write(desc)
+                                        else:
+                                        st.caption("교과목 개요 정보가 없습니다.")
+                                        
                                     # 소단위전공과정: 교과목 운영전공 추가
                                     edu_dept = row.get('교과목 운영전공') or row.get('교과목운영전공', '')
                                     if is_micro and pd.notna(edu_dept) and str(edu_dept).strip():
@@ -2181,7 +2197,7 @@ def main():
         st.subheader("💬 AI챗봇과 대화하기")
         
         tab_apply, tab_program, tab_credit, tab_etc = st.tabs(
-            ["📋 신청", "📚 제도", "🎓 학점", "🎯 / 📞"]
+            ["📋 신청", "📚 제도", "🎓 학점", "🎯 전공/ 📞 연락처"]
         )
 
         with tab_apply:
