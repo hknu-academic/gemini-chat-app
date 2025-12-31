@@ -2056,7 +2056,31 @@ def display_major_contact(major, program_type="전공"):
     else:
         st.info(f"📞 **문의**: 학사지원팀 031-670-5035")
 
+def render_question_buttons(questions, key_prefix, cols=5):
+    btn_cols = st.columns(cols)
+    for i, q in enumerate(questions):
+        if btn_cols[i % cols].button(
+            q,
+            key=f"{key_prefix}_{i}",
+            use_container_width=True
+        ):
+            st.session_state.chat_history.append(
+                {"role": "user", "content": q}
+            )
 
+            response_text, res_type = generate_ai_response(
+                q,
+                st.session_state.chat_history[:-1],
+                ALL_DATA
+            )
+
+            st.session_state.chat_history.append({
+                "role": "assistant",
+                "content": response_text,
+                "response_type": res_type
+            })
+            st.rerun()
+            
 # ============================================================
 # 🖥️ 메인 UI
 # ============================================================
