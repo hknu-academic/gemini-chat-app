@@ -69,9 +69,6 @@ ACADEMIC_NOTICE_URL = LINKS.get('academic_notice', "https://www.hknu.ac.kr/kor/5
 PATHS = SETTINGS.get('paths', {})
 CURRICULUM_IMAGES_PATH = PATHS.get('curriculum_images', "images/curriculum")
 
-APP_CONFIG = SETTINGS.get('app', {})
-APP_TITLE = APP_CONFIG.get('title', "🎓 다전공 안내")
-
 DIFFICULTY_STARS = MAPPINGS.get('difficulty_stars', {})
 
 def convert_difficulty_to_stars(value):
@@ -2215,7 +2212,7 @@ def main():
                 주전공 외에 복수, 융합전공 등<br>
                 다양한 학위를 취득하여<br>
                 융합형 인재로 성장할 수 있도록<br>
-                지원하는 제도입니다.
+                지원하는 유연학사제도입니다.
             </p>
         </div>
         """, unsafe_allow_html=True)
