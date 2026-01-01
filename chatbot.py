@@ -1651,7 +1651,7 @@ def handle_blocked(user_input, extracted_info, data_dict):
 def handle_out_of_scope(user_input, extracted_info, data_dict):
     response = create_header_card("모릅니다", "🚫", "#636e72")
     
-    response += create_simple_card("<p style='margin:0;'>저는 <strong>한경국립대 다전공 안내 AI챗봇</strong>이에요.</p>", "#f8f9fa", "#6c757d")
+    response += create_simple_card("<p style='margin:0;'>저는 <strong>한경국립대학교 다전공 안내 AI챗봇</strong>이에요.</p>", "#f8f9fa", "#6c757d")
     
     response += """
 <div style="background: white; border-radius: 12px; padding: 16px; margin: 12px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
