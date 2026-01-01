@@ -515,84 +515,80 @@ RECOMMENDATION, GREETING, OUT_OF_SCOPE
         return 'OUT_OF_SCOPE'
 
 def classify_intent(user_input, use_ai_fallback=True):
-    """
-    의도 분류 최종 수정본
-    1. 욕설 차단
-    2. 연락처 문의 (최우선: 학과명+연락처 질문 시 연락처 의도로 빠지게 함)
-    3. 교과목/수업 문의
-    4. 학과/전공 일반 안내 (NEW: "경영학전공 알려줘")
-    5. 제도(프로그램) 상세 문의 (자격, 기간, 방법)
-    6. 제도(프로그램) 정의 (단답형 질문 처리)
-    7. 시맨틱/키워드/AI 폴백
-    """
     user_clean = user_input.lower().replace(' ', '')
     
     # 🚫 1. 욕설 차단
     if any(kw in user_clean for kw in INTENT_KEYWORDS.get('BLOCKED', [])):
         return 'BLOCKED', 'blocked', {}
     
-    # 📞 2. 연락처/전화번호 문의 (최우선 순위)
-    # "경영학전공 사무실 전화번호 좀" -> 학과 안내(MAJOR_INFO)보다 연락처(CONTACT)가 먼저 잡혀야 함
+    # 📞 2. 연락처/전화번호 문의
     contact_keywords = ['연락처', '전화번호', '번호', '문의처', '사무실', '팩스', 'contact', 'call']
     if any(kw in user_clean for kw in contact_keywords):
         return 'CONTACT_SEARCH', 'keyword', extract_additional_info(user_input, 'CONTACT_SEARCH')
 
-    # 📚 3. 교과목/커리큘럼 검색
-    has_course_keyword = any(kw in user_clean for kw in ['교과목', '과목', '커리큘럼', '수업', '강의', '이수체계도'])
-    # 학과명 패턴 감지 (예: 경영학전공, 컴퓨터공학과)
-    major_match = re.search(r'([가-힣]+(?:학|공학|과학|전공))', user_clean)
+    # 🏫 3. [중요] 학과/전공 일반 안내 (여기를 강화했습니다)
+    # 정규식: "00학과", "00전공", "00학부" 등을 찾음
+    major_regex = r'([가-힣A-Za-z0-9]+(?:학과|전공|학부|교실))'
+    major_match = re.search(major_regex, user_clean)
     has_major = bool(major_match)
     
-    if has_course_keyword and has_major:
-        return 'COURSE_SEARCH', 'complex', extract_additional_info(user_input, 'COURSE_SEARCH')
-
-    # 🏫 4. [NEW] 학과/전공 일반 안내 (제도 말고 특정 학과 자체에 대한 질문)
-    # "경영학전공 대해 알려줘", "컴퓨터공학과 홈페이지" 등
+    detected_major_name = ""
     if has_major:
-        detected_word = major_match.group(1)
-        # 시스템 용어(복수전공 등)가 아닌 '진짜 학과명'인 경우만 처리
-        system_keywords = ['복수전공', '부전공', '융합전공', '융합부전공', '연계전공', '다전공', '마이크로전공']
+        detected_major_name = major_match.group(1)
+        # 이 단어들은 학과가 아니라 '제도' 이름이므로 제외
+        system_keywords = ['복수전공', '부전공', '융합전공', '연계전공', '심화전공', '다전공', '마이크로전공', '전공']
         
-        # 감지된 단어가 시스템 용어가 아니면 '학과 안내'로 분류
-        if detected_word not in system_keywords:
+        # 발견된 단어가 시스템 용어가 아니면 -> 진짜 학과 안내로 분류
+        if detected_major_name not in system_keywords:
+            # 교과목 질문이 같이 있는지 확인 ("기계공학전공 수업 뭐 있어?")
+            if any(kw in user_clean for kw in ['교과목', '과목', '커리큘럼', '수업', '강의', '이수체계도']):
+                return 'COURSE_SEARCH', 'complex', extract_additional_info(user_input, 'COURSE_SEARCH')
+            
+            # 그게 아니면 학과 안내 ("기계공학전공 알려줘")
             return 'MAJOR_INFO', 'complex', extract_additional_info(user_input, 'MAJOR_INFO')
 
-    # 🎓 5. 프로그램(제도) 관련 로직 (복수전공, 부전공 등)
+    # 🎓 4. 프로그램(제도) 관련 로직 (오류 수정 핵심 구간)
     found_programs = extract_programs(user_clean)
     
+    # [수정] 학과명이 감지되었다면, 단순 '전공' 키워드로 인한 복수전공 오인식을 제거
+    if found_programs and detected_major_name:
+        # 예: "기계공학전공"이 있는데 "전공" 키워드 때문에 "복수전공"이 잡혔다면 목록에서 제거
+        # (프로그램 키워드가 감지된 학과명 안에 포함되어 있으면 무시)
+        # 로직: 만약 찾은 프로그램 이름이 '다전공/복수전공' 계열이고, 사용자가 입력한 건 '기계공학전공'이라면 -> 프로그램 아님
+        if any(prog in ['복수전공', '부전공', '다전공', '융합전공'] for prog in found_programs):
+             # 여기서 found_programs를 비워버려서 밑의 로직을 안 타게 만듦
+             found_programs = [] 
+
     if found_programs:
         program = found_programs[0]
         
-        # 5-1. 자격 요건
+        # 4-1. 자격 요건
         if any(kw in user_clean for kw in ['자격', '신청할수있', '조건', '대상', '기준', '학점']):
             return 'QUALIFICATION', 'complex', {'program': program, 'programs': found_programs}
         
-        # 5-2. 신청 기간
+        # 4-2. 신청 기간
         if any(kw in user_clean for kw in ['언제', '기간', '마감', '날짜', '일정', '시기']):
             return 'APPLICATION_PERIOD', 'complex', {'program': program}
         
-        # 5-3. 신청 방법
+        # 4-3. 신청 방법
         if any(kw in user_clean for kw in ['어떻게', '방법', '절차', '순서', '경로']):
             return 'APPLICATION_METHOD', 'complex', {'program': program}
         
-        # 5-4. 프로그램 정의/설명 (Fallback)
-        # 위 구체적 질문 키워드가 없어도 프로그램명이 포함되어 있으면 설명을 해줌
-        # 예: "복수전공", "복수전공이 뭐야?", "다전공이란"
+        # 4-4. 프로그램 정의/설명
         return 'PROGRAM_INFO', 'inferred', {'program': program}
     
-    # 🤖 6. Semantic Router (벡터 검색)
+    # 🤖 5. Semantic Router
     if SEMANTIC_ROUTER is not None:
         semantic_intent, score = classify_with_semantic_router(user_input)
         if semantic_intent:
             return semantic_intent, 'semantic', extract_additional_info(user_input, semantic_intent)
     
-    # 🔑 7. 일반 키워드 분류
+    # 🔑 6. 일반 키워드 분류
     keyword_intent = classify_with_keywords(user_input)
     if keyword_intent:
         return keyword_intent, 'keyword', extract_additional_info(user_input, keyword_intent)
     
-    # 🧠 8. AI 분류 (최후의 수단)
-    # "다전공이 뭐야" 같은 질문이 위에서 걸러지지 않았거나, 애매한 질문일 때
+    # 🧠 7. AI 분류
     if use_ai_fallback:
         try:
             ai_intent = classify_with_ai(user_input)
