@@ -524,6 +524,8 @@ def classify_intent(user_input, use_ai_fallback=True):
     if any(kw in user_clean for kw in INTENT_KEYWORDS.get('BLOCKED', [])):
         return 'BLOCKED', 'blocked', {}
     
+     major = extract_major(user_input)  # ← 이 줄이 빠져서 에러 난 것
+
     # 2️⃣ 연락처 ❗❗❗ (설명 단어보다 무조건 우선)
     if major and any(kw in user_clean for kw in ['연락처', '전화', '번호', '사무실', '위치']):
         return 'MAJOR_CONTACT', 'rule', {'major': major}
