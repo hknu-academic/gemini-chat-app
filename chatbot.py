@@ -1610,7 +1610,7 @@ def handle_recommendation(user_input, extracted_info, data_dict):
 def handle_greeting(user_input, extracted_info, data_dict):
     response = create_header_card("안녕하세요!", "👋", "#667eea")
     
-    response += create_simple_card("<p style='margin:0; font-size: 1rem;'><strong>한경국립대 다전공 안내 AI챗봇</strong>입니다 😊</p>", "#f0f4ff", "#667eea")
+    response += create_simple_card("<p style='margin:0; font-size: 1rem;'><strong>한경국립대학교 다전공 안내 AI챗봇</strong>입니다 😊</p>", "#f0f4ff", "#667eea")
     
     response += """
 <div style="background: white; border-radius: 12px; padding: 16px; margin: 12px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
