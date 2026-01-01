@@ -69,6 +69,9 @@ ACADEMIC_NOTICE_URL = LINKS.get('academic_notice', "https://www.hknu.ac.kr/kor/5
 PATHS = SETTINGS.get('paths', {})
 CURRICULUM_IMAGES_PATH = PATHS.get('curriculum_images', "images/curriculum")
 
+APP_CONFIG = SETTINGS.get('app', {})
+APP_TITLE = APP_CONFIG.get('title', "🎓 다전공 안내")
+
 DIFFICULTY_STARS = MAPPINGS.get('difficulty_stars', {})
 
 def convert_difficulty_to_stars(value):
@@ -746,14 +749,6 @@ def format_majors_by_category_html(category_majors):
 # ============================================================
 # 🎨 옵션 A: 컬러박스 + 이모지 강화 스타일
 # ============================================================
-
-def create_header_card(title, emoji="📋", color="#667eea"):
-    """상단 헤더 카드 생성 - 단순 텍스트"""
-    return f"""
-<h3 style="margin: 20px 0 16px 0; font-size: 1.3rem; color: #333; font-weight: 600;">
-    {emoji} {title}
-</h3>
-"""
 
 def create_info_card(title, content_list, border_color="#007bff", emoji="📌"):
     """정보 카드 생성 - 단순 텍스트"""
