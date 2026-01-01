@@ -514,63 +514,6 @@ RECOMMENDATION, GREETING, OUT_OF_SCOPE
     except:
         return 'OUT_OF_SCOPE'
 
-def extract_major(user_input):
-    if MAJORS_INFO.empty or '전공명' not in MAJORS_INFO.columns:
-        return None
-
-    text = user_input.replace(" ", "")
-
-    # 1️⃣ 불필요 키워드 제거
-    for kw in ['연락처', '전화', '번호', '사무실', '위치',
-               '알려줘', '알려', '설명', '소개', '뭐', '무엇']:
-        text = text.replace(kw, '')
-
-    # 2️⃣ 전공명 길이순 정렬 (긴 이름 우선)
-    majors = sorted(
-        MAJORS_INFO['전공명'].dropna().unique(),
-        key=lambda x: len(str(x)),
-        reverse=True
-    )
-
-    # 3️⃣ 정확 포함 매칭
-    for major in majors:
-        m = str(major).replace(" ", "")
-        if m and m in text:
-            return major
-
-    # 4️⃣ 보조 패턴: "경영학" → "경영학전공"
-    match = re.search(r'([가-힣]+학)', text)
-    if match:
-        keyword = match.group(1)
-        for major in majors:
-            if keyword in str(major):
-                return major
-
-    return None
-
-def classify_application_intent(user_input):
-    """
-    신청 관련 질문 전용 분기
-    """
-    user_clean = user_input.replace(" ", "")
-
-    programs = extract_programs(user_clean)
-    if not programs:
-        return None, None, {}
-
-    program = programs[0]
-
-    if any(kw in user_clean for kw in ['자격', '조건']):
-        return 'QUALIFICATION', 'rule', {'program': program}
-
-    if any(kw in user_clean for kw in ['언제', '기간', '마감']):
-        return 'APPLICATION_PERIOD', 'rule', {'program': program}
-
-    if any(kw in user_clean for kw in ['어떻게', '방법', '절차', '신청']):
-        return 'APPLICATION_METHOD', 'rule', {'program': program}
-
-    return None, None, {}
-
 def classify_intent(user_input, use_ai_fallback=True):
     """의도 분류 - 8가지 수정사항 반영"""
     user_clean = user_input.lower().replace(' ', '')
@@ -578,25 +521,6 @@ def classify_intent(user_input, use_ai_fallback=True):
     # 🚫 욕설 차단
     if any(kw in user_clean for kw in INTENT_KEYWORDS.get('BLOCKED', [])):
         return 'BLOCKED', 'blocked', {}
-    
-    major = extract_major(user_input)
-
-    # 2️⃣ 연락처 ❗❗❗ (설명 단어보다 무조건 우선)
-    if major and any(kw in user_clean for kw in ['연락처', '전화', '번호', '사무실', '위치']):
-        return 'MAJOR_CONTACT', 'rule', {'major': major}
-    
-    # 3️⃣ 전공 + 제도
-    programs = extract_programs(user_clean)
-    if major and programs:
-        return 'MAJOR_PROGRAM', 'rule', {
-            'major': major,
-            'program': programs[0]
-        }
-    # 5️⃣ 신청 / 기간 / 자격 (설명 단어 무시)
-    if any(kw in user_clean for kw in ['신청', '기간', '마감', '자격', '조건']):
-        app_intent = classify_application_intent(user_input)
-        if app_intent:
-            return app_intent
     
     # 🔧 수정 #9: "다전공이 뭐야?" 우선 처리
     if '다전공' in user_clean and any(kw in user_clean for kw in ['뭐', '무엇', '알려', '설명', '뭔가', '뭐야']):
@@ -610,6 +534,17 @@ def classify_intent(user_input, use_ai_fallback=True):
     if has_course_keyword and has_major:
         return 'COURSE_SEARCH', 'complex', extract_additional_info(user_input, 'COURSE_SEARCH')
     
+    found_programs = extract_programs(user_clean)
+    
+    if found_programs:
+        program = found_programs[0]
+        if any(kw in user_clean for kw in ['자격', '신청할수있', '조건']):
+            return 'QUALIFICATION', 'complex', {'program': program, 'programs': found_programs}
+        if any(kw in user_clean for kw in ['언제', '기간', '마감']):
+            return 'APPLICATION_PERIOD', 'complex', {'program': program}
+        if any(kw in user_clean for kw in ['어떻게', '방법', '절차']):
+            return 'APPLICATION_METHOD', 'complex', {'program': program}
+    
     # Semantic Router
     if SEMANTIC_ROUTER is not None:
         semantic_intent, score = classify_with_semantic_router(user_input)
@@ -622,15 +557,9 @@ def classify_intent(user_input, use_ai_fallback=True):
         return keyword_intent, 'keyword', extract_additional_info(user_input, keyword_intent)
     
     # 제도 설명 질문
-    INFO_EXCLUDE_KW = ['연락처', '전화', '번호', '이메일', '메일', '어디로', '문의']
-
-    if (
-        found_programs
-        and not major
-        and any(kw in user_clean for kw in ['뭐', '무엇', '알려', '설명'])
-        and not any(kw in user_clean for kw in INFO_EXCLUDE_KW)
-    ):
-        return 'PROGRAM_INFO', 'keyword', {'program': found_programs[0]}
+    if found_programs:
+        if any(kw in user_clean for kw in ['뭐', '무엇', '알려', '설명']):
+            return 'PROGRAM_INFO', 'keyword', {'program': found_programs[0]}
     
     # AI 분류
     if use_ai_fallback:
