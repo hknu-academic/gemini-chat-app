@@ -750,6 +750,46 @@ def format_majors_by_category_html(category_majors):
 # 🎨 옵션 A: 컬러박스 + 이모지 강화 스타일
 # ============================================================
 
+def create_header_card(title, emoji="📋", color="#667eea"):
+    """상단 헤더 카드 생성 - 단순 텍스트"""
+    return f"""
+<h3 style="margin: 20px 0 16px 0; font-size: 1.3rem; color: #333; font-weight: 600;">
+    {emoji} {title}
+</h3>
+"""
+
+def create_info_card(title, content_list, border_color="#007bff", emoji="📌"):
+    """정보 카드 생성 - 단순 텍스트"""
+    items_html = ""
+    for item in content_list:
+        items_html += f'<p style="margin: 6px 0 6px 20px; font-size: 0.95rem; color: #333;">• {item}</p>\n'
+    
+    return f"""
+<div style="margin: 12px 0;">
+    <h4 style="color: #333; margin: 10px 0 8px 0; font-size: 1rem; font-weight: 600;">{emoji} {title}</h4>
+    {items_html}
+</div>
+"""
+
+def create_simple_card(content, bg_color="#f0f7ff", border_color="#007bff"):
+    """간단한 정보 카드 - 단순 텍스트"""
+    return f"""
+<div style="margin: 12px 0; padding: 0;">
+    {content}
+</div>
+"""
+
+def create_step_card(step_num, title, description, color="#007bff"):
+    """단계별 카드 생성"""
+    return f"""
+<div style="display: flex; align-items: flex-start; margin: 12px 0; padding: 12px; background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+    <div style="background: {color}; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 14px; flex-shrink: 0;">{step_num}</div>
+    <div>
+        <strong style="color: #333; font-size: 0.95rem;">{title}</strong>
+        <p style="margin: 4px 0 0 0; color: #666; font-size: 0.9rem;">{description}</p>
+    </div>
+</div>
+"""
 
 def create_tip_box(text, emoji="💡"):
     """팁 박스 생성 - 단순 텍스트"""
@@ -2119,8 +2159,6 @@ def preview_text(text, max_lines=3):
 
 def main():
     initialize_session_state()
-    
-    st.title(APP_TITLE)
     
     # 사이드바
     with st.sidebar:
