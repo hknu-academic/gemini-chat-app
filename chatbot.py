@@ -524,6 +524,21 @@ def classify_intent(user_input, use_ai_fallback=True):
     if any(kw in user_clean for kw in INTENT_KEYWORDS.get('BLOCKED', [])):
         return 'BLOCKED', 'blocked', {}
     
+    # 2️⃣ 연락처 ❗❗❗ (설명 단어보다 무조건 우선)
+    if major and any(kw in user_clean for kw in ['연락처', '전화', '번호', '사무실', '위치']):
+        return 'MAJOR_CONTACT', 'rule', {'major': major}
+    
+    # 3️⃣ 전공 + 제도
+    programs = extract_programs(user_clean)
+    if major and programs:
+        return 'MAJOR_PROGRAM', 'rule', {
+            'major': major,
+            'program': programs[0]
+        }
+    # 5️⃣ 신청 / 기간 / 자격 (설명 단어 무시)
+    if any(kw in user_clean for kw in ['신청', '기간', '마감', '자격', '조건']):
+        return classify_application_intent(user_input)
+    
     # 🔧 수정 #9: "다전공이 뭐야?" 우선 처리
     if '다전공' in user_clean and any(kw in user_clean for kw in ['뭐', '무엇', '알려', '설명', '뭔가', '뭐야']):
         if not any(prog in user_clean for prog in ['복수전공', '부전공', '융합전공', '융합부전공', '연계전공', '마이크로']):
