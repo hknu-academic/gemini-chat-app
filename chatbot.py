@@ -525,29 +525,6 @@ def extract_major(user_input):
 
     return None
 
-def classify_application_intent(user_input):
-    """
-    신청 관련 질문 전용 분기
-    """
-    user_clean = user_input.replace(" ", "")
-
-    programs = extract_programs(user_clean)
-    if not programs:
-        return None, None, {}
-
-    program = programs[0]
-
-    if any(kw in user_clean for kw in ['자격', '조건']):
-        return 'QUALIFICATION', 'rule', {'program': program}
-
-    if any(kw in user_clean for kw in ['언제', '기간', '마감']):
-        return 'APPLICATION_PERIOD', 'rule', {'program': program}
-
-    if any(kw in user_clean for kw in ['어떻게', '방법', '절차', '신청']):
-        return 'APPLICATION_METHOD', 'rule', {'program': program}
-
-    return None, None, {}
-
 def classify_with_ai(user_input):
     prompt = """당신은 질문 분류 AI입니다. 의도를 분류하세요.
 [의도]: QUALIFICATION, APPLICATION_PERIOD, APPLICATION_METHOD, CANCEL, CHANGE, 
@@ -571,6 +548,29 @@ RECOMMENDATION, GREETING, OUT_OF_SCOPE
         return 'OUT_OF_SCOPE'
     except:
         return 'OUT_OF_SCOPE'
+
+def classify_application_intent(user_input):
+    """
+    신청 관련 질문 전용 분기
+    """
+    user_clean = user_input.replace(" ", "")
+
+    programs = extract_programs(user_clean)
+    if not programs:
+        return None, None, {}
+
+    program = programs[0]
+
+    if any(kw in user_clean for kw in ['자격', '조건']):
+        return 'QUALIFICATION', 'rule', {'program': program}
+
+    if any(kw in user_clean for kw in ['언제', '기간', '마감']):
+        return 'APPLICATION_PERIOD', 'rule', {'program': program}
+
+    if any(kw in user_clean for kw in ['어떻게', '방법', '절차', '신청']):
+        return 'APPLICATION_METHOD', 'rule', {'program': program}
+
+    return None, None, {}
 
 def classify_intent(user_input, use_ai_fallback=True):
     """의도 분류 - 8가지 수정사항 반영"""
