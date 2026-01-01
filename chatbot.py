@@ -551,7 +551,7 @@ def classify_intent(user_input, use_ai_fallback=True):
     if has_major:
         detected_word = major_match.group(1)
         # 시스템 용어(복수전공 등)가 아닌 '진짜 학과명'인 경우만 처리
-        system_keywords = ['복수전공', '부전공', '융합전공', '융합부전공', '연계전공', '다전공', '마이크로전공', '전공']
+        system_keywords = ['복수전공', '부전공', '융합전공', '융합부전공', '연계전공', '다전공', '마이크로전공']
         
         # 감지된 단어가 시스템 용어가 아니면 '학과 안내'로 분류
         if detected_word not in system_keywords:
