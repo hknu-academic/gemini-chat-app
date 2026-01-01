@@ -465,7 +465,6 @@ def extract_additional_info(user_input, intent):
     
     return info
 
-
 def classify_with_semantic_router(user_input):
     if SEMANTIC_ROUTER is None:
         return None, 0.0
@@ -611,17 +610,6 @@ def classify_intent(user_input, use_ai_fallback=True):
     if has_course_keyword and has_major:
         return 'COURSE_SEARCH', 'complex', extract_additional_info(user_input, 'COURSE_SEARCH')
     
-    found_programs = extract_programs(user_clean)
-    
-    if found_programs:
-        program = found_programs[0]
-        if any(kw in user_clean for kw in ['자격', '신청할수있', '조건']):
-            return 'QUALIFICATION', 'complex', {'program': program, 'programs': found_programs}
-        if any(kw in user_clean for kw in ['언제', '기간', '마감']):
-            return 'APPLICATION_PERIOD', 'complex', {'program': program}
-        if any(kw in user_clean for kw in ['어떻게', '방법', '절차']):
-            return 'APPLICATION_METHOD', 'complex', {'program': program}
-    
     # Semantic Router
     if SEMANTIC_ROUTER is not None:
         semantic_intent, score = classify_with_semantic_router(user_input)
@@ -634,9 +622,15 @@ def classify_intent(user_input, use_ai_fallback=True):
         return keyword_intent, 'keyword', extract_additional_info(user_input, keyword_intent)
     
     # 제도 설명 질문
-    if found_programs:
-        if any(kw in user_clean for kw in ['뭐', '무엇', '알려', '설명']):
-            return 'PROGRAM_INFO', 'keyword', {'program': found_programs[0]}
+    INFO_EXCLUDE_KW = ['연락처', '전화', '번호', '이메일', '메일', '어디로', '문의']
+
+    if (
+        found_programs
+        and not major
+        and any(kw in user_clean for kw in ['뭐', '무엇', '알려', '설명'])
+        and not any(kw in user_clean for kw in INFO_EXCLUDE_KW)
+    ):
+    return 'PROGRAM_INFO', 'keyword', {'program': found_programs[0]}
     
     # AI 분류
     if use_ai_fallback:
