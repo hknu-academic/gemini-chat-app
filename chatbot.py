@@ -130,7 +130,7 @@ st.set_page_config(
     menu_items={
         'Get help': 'https://www.hknu.ac.kr', # 도움말 링크
         'Report a bug': 'https://www.hknu.ac.kr', # 버그 보고 링크
-        'About': "# 한경국립대 다전공 안내 AI 챗봇" # About 텍스트
+        'About': "# 한경국립대학교 다전공 안내 AI 챗봇" # About 텍스트
     }
 )
 
@@ -2167,7 +2167,7 @@ def main():
         st.markdown("""
         <div style='text-align: center; padding: 10px 0;'>
             <h1 style='font-size: 3rem; margin-bottom: 0;'>🎓</h1>
-            <h3 style='margin-top: 0;'>HKNU 다전공 안내</h3>
+            <h3 style='margin-top: 0;'>HKNU 다전공</h3>
         </div>
         """, unsafe_allow_html=True)
         
