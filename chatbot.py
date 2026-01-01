@@ -516,7 +516,21 @@ RECOMMENDATION, GREETING, OUT_OF_SCOPE
     except:
         return 'OUT_OF_SCOPE'
 
+def extract_major(user_input):
+    """
+    사용자 입력에서 전공명 추출
+    예: '경영학전공 알려줘' → '경영학전공'
+    """
+    if MAJORS_INFO.empty:
+        return None
 
+    user_clean = user_input.replace(" ", "")
+
+    for major in MAJORS_INFO['전공명'].unique():
+        if major.replace(" ", "") in user_clean:
+            return major
+
+    return None
 def classify_intent(user_input, use_ai_fallback=True):
     """의도 분류 - 8가지 수정사항 반영"""
     user_clean = user_input.lower().replace(' ', '')
