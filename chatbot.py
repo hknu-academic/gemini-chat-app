@@ -515,58 +515,68 @@ RECOMMENDATION, GREETING, OUT_OF_SCOPE
         return 'OUT_OF_SCOPE'
 
 def classify_intent(user_input, use_ai_fallback=True):
-    """의도 분류 - 8가지 수정사항 반영"""
     user_clean = user_input.lower().replace(' ', '')
     
-    # 🚫 욕설 차단
+    # 🚫 1. 욕설 차단 (최우선)
     if any(kw in user_clean for kw in INTENT_KEYWORDS.get('BLOCKED', [])):
         return 'BLOCKED', 'blocked', {}
-    
-    # 🔧 수정 #9: "다전공이 뭐야?" 우선 처리
-    if '다전공' in user_clean and any(kw in user_clean for kw in ['뭐', '무엇', '알려', '설명', '뭔가', '뭐야']):
-        if not any(prog in user_clean for prog in ['복수전공', '부전공', '융합전공', '융합부전공', '연계전공', '마이크로']):
-            return 'PROGRAM_INFO', 'complex', {'program': '다전공'}
-    
-    # 복합 조건 검사
-    has_course_keyword = any(kw in user_clean for kw in ['교과목', '과목', '커리큘럼', '수업'])
+
+    # 📞 2. 연락처/전화번호 문의 (우선순위 상향 조정)
+    # "경영학전공 연락처 알려줘" 처럼 학과명이 있어도 '연락처' 의도가 더 중요하므로 먼저 체크합니다.
+    contact_keywords = ['연락처', '전화번호', '번호', '문의처', '사무실', '팩스', 'contact']
+    if any(kw in user_clean for kw in contact_keywords):
+        return 'CONTACT_SEARCH', 'keyword', extract_additional_info(user_input, 'CONTACT_SEARCH')
+
+    # 🔍 프로그램명 추출 (복수전공, 부전공 등)
+    found_programs = extract_programs(user_clean)
+    program = found_programs[0] if found_programs else None
+
+    # 📚 3. 교과목/커리큘럼 검색
+    # "경영학전공 교과목" 등
+    has_course_keyword = any(kw in user_clean for kw in ['교과목', '과목', '커리큘럼', '수업', '강의'])
     has_major = bool(re.search(r'([가-힣]+(?:학|공학|과학|전공))', user_clean))
     
     if has_course_keyword and has_major:
         return 'COURSE_SEARCH', 'complex', extract_additional_info(user_input, 'COURSE_SEARCH')
-    
-    found_programs = extract_programs(user_clean)
-    
-    if found_programs:
-        program = found_programs[0]
-        if any(kw in user_clean for kw in ['자격', '신청할수있', '조건']):
+
+    # 🏫 4. 특정 프로그램(제도)에 대한 세부 질문 처리
+    if program:
+        # 4-1. 자격 요건
+        if any(kw in user_clean for kw in ['자격', '신청할수있', '조건', '대상', '기준']):
             return 'QUALIFICATION', 'complex', {'program': program, 'programs': found_programs}
-        if any(kw in user_clean for kw in ['언제', '기간', '마감']):
+        
+        # 4-2. 신청 기간
+        if any(kw in user_clean for kw in ['언제', '기간', '마감', '날짜', '일정', '시기']):
             return 'APPLICATION_PERIOD', 'complex', {'program': program}
-        if any(kw in user_clean for kw in ['어떻게', '방법', '절차']):
+        
+        # 4-3. 신청 방법
+        if any(kw in user_clean for kw in ['어떻게', '방법', '절차', '순서', '경로']):
             return 'APPLICATION_METHOD', 'complex', {'program': program}
-    
-    # Semantic Router
+        
+        # 4-4. [수정됨] 프로그램 정의 (PROGRAM_INFO)
+        # "복수전공이 뭐야?" (질문형) OR 그냥 "복수전공" (명사형) 모두 처리
+        # 다른 구체적 의도(기간, 방법 등)가 없는데 프로그램명이 발견되었다면 '제도 설명'으로 간주
+        return 'PROGRAM_INFO', 'inferred', {'program': program}
+
+    # 🤖 5. Semantic Router (프로그램명이 발견 안 됐을 때 의미 기반 검색)
     if SEMANTIC_ROUTER is not None:
         semantic_intent, score = classify_with_semantic_router(user_input)
         if semantic_intent:
             return semantic_intent, 'semantic', extract_additional_info(user_input, semantic_intent)
     
-    # 키워드 분류
+    # 🔑 6. 일반 키워드 분류
     keyword_intent = classify_with_keywords(user_input)
     if keyword_intent:
         return keyword_intent, 'keyword', extract_additional_info(user_input, keyword_intent)
     
-    # 제도 설명 질문
-    if found_programs:
-        if any(kw in user_clean for kw in ['뭐', '무엇', '알려', '설명']):
-            return 'PROGRAM_INFO', 'keyword', {'program': found_programs[0]}
-    
-    # AI 분류
+    # 🧠 7. AI 분류 (최후의 수단)
+    # "알려줘", "뭐야" 같이 모호한 말만 있을 때는 AI로 넘겨서 문맥 파악 시도
     if use_ai_fallback:
         try:
             ai_intent = classify_with_ai(user_input)
-            if ai_intent != 'GENERAL':
-                return ai_intent, 'ai', extract_additional_info(user_input, ai_intent)
+            # AI가 엉뚱하게 GREETING이나 OUT_OF_SCOPE가 아닌 유효한 의도를 뱉으면 채택
+            if ai_intent not in ['OUT_OF_SCOPE', 'BLOCKED']: 
+                 return ai_intent, 'ai', extract_additional_info(user_input, ai_intent)
         except:
             pass
     
