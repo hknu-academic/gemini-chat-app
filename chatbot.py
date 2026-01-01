@@ -491,6 +491,30 @@ def classify_with_keywords(user_input):
             return intent
     return None
 
+def classify_with_ai(user_input):
+    prompt = """당신은 질문 분류 AI입니다. 의도를 분류하세요.
+[의도]: QUALIFICATION, APPLICATION_PERIOD, APPLICATION_METHOD, CANCEL, CHANGE, 
+PROGRAM_COMPARISON, PROGRAM_INFO, CREDIT_INFO, COURSE_SEARCH, CONTACT_SEARCH, 
+RECOMMENDATION, GREETING, OUT_OF_SCOPE
+규칙: 의도 이름만 출력. "다전공이 뭐야?"는 PROGRAM_INFO"""
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=f"질문: {user_input}\n\n의도를 분류하세요.",
+            config={'system_instruction': prompt, 'temperature': 0, 'max_output_tokens': 50}
+        )
+        intent = response.text.strip().upper()
+        valid_intents = ['QUALIFICATION', 'APPLICATION_PERIOD', 'APPLICATION_METHOD',
+                         'CANCEL', 'CHANGE', 'PROGRAM_COMPARISON', 'PROGRAM_INFO',
+                         'CREDIT_INFO', 'COURSE_SEARCH', 'CONTACT_SEARCH',
+                         'RECOMMENDATION', 'GREETING', 'OUT_OF_SCOPE']
+        for valid in valid_intents:
+            if valid in intent:
+                return valid
+        return 'OUT_OF_SCOPE'
+    except:
+        return 'OUT_OF_SCOPE'
+
 def extract_major(user_input):
     if MAJORS_INFO.empty or '전공명' not in MAJORS_INFO.columns:
         return None
@@ -524,30 +548,6 @@ def extract_major(user_input):
                 return major
 
     return None
-
-def classify_with_ai(user_input):
-    prompt = """당신은 질문 분류 AI입니다. 의도를 분류하세요.
-[의도]: QUALIFICATION, APPLICATION_PERIOD, APPLICATION_METHOD, CANCEL, CHANGE, 
-PROGRAM_COMPARISON, PROGRAM_INFO, CREDIT_INFO, COURSE_SEARCH, CONTACT_SEARCH, 
-RECOMMENDATION, GREETING, OUT_OF_SCOPE
-규칙: 의도 이름만 출력. "다전공이 뭐야?"는 PROGRAM_INFO"""
-    try:
-        response = client.models.generate_content(
-            model='gemini-2.0-flash',
-            contents=f"질문: {user_input}\n\n의도를 분류하세요.",
-            config={'system_instruction': prompt, 'temperature': 0, 'max_output_tokens': 50}
-        )
-        intent = response.text.strip().upper()
-        valid_intents = ['QUALIFICATION', 'APPLICATION_PERIOD', 'APPLICATION_METHOD',
-                         'CANCEL', 'CHANGE', 'PROGRAM_COMPARISON', 'PROGRAM_INFO',
-                         'CREDIT_INFO', 'COURSE_SEARCH', 'CONTACT_SEARCH',
-                         'RECOMMENDATION', 'GREETING', 'OUT_OF_SCOPE']
-        for valid in valid_intents:
-            if valid in intent:
-                return valid
-        return 'OUT_OF_SCOPE'
-    except:
-        return 'OUT_OF_SCOPE'
 
 def classify_application_intent(user_input):
     """
