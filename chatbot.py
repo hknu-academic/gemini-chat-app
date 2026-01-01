@@ -630,7 +630,7 @@ def classify_intent(user_input, use_ai_fallback=True):
         and any(kw in user_clean for kw in ['뭐', '무엇', '알려', '설명'])
         and not any(kw in user_clean for kw in INFO_EXCLUDE_KW)
     ):
-    return 'PROGRAM_INFO', 'keyword', {'program': found_programs[0]}
+        return 'PROGRAM_INFO', 'keyword', {'program': found_programs[0]}
     
     # AI 분류
     if use_ai_fallback:
