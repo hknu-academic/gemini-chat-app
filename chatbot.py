@@ -595,7 +595,9 @@ def classify_intent(user_input, use_ai_fallback=True):
         }
     # 5️⃣ 신청 / 기간 / 자격 (설명 단어 무시)
     if any(kw in user_clean for kw in ['신청', '기간', '마감', '자격', '조건']):
-        return classify_application_intent(user_input)
+        app_intent = classify_application_intent(user_input)
+        if app_intent:
+            return app_intent
     
     # 🔧 수정 #9: "다전공이 뭐야?" 우선 처리
     if '다전공' in user_clean and any(kw in user_clean for kw in ['뭐', '무엇', '알려', '설명', '뭔가', '뭐야']):
