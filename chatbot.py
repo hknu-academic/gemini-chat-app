@@ -130,7 +130,7 @@ st.set_page_config(
     menu_items={
         'Get help': 'https://www.hknu.ac.kr', # 도움말 링크
         'Report a bug': 'https://www.hknu.ac.kr', # 버그 보고 링크
-        'About': "# 한경국립대학교 다전공 안내 AI 챗봇" # About 텍스트
+        'About': "# 한경국립대 다전공 안내 AI 챗봇" # About 텍스트
     }
 )
 
@@ -1610,7 +1610,7 @@ def handle_recommendation(user_input, extracted_info, data_dict):
 def handle_greeting(user_input, extracted_info, data_dict):
     response = create_header_card("안녕하세요!", "👋", "#667eea")
     
-    response += create_simple_card("<p style='margin:0; font-size: 1rem;'><strong>한경국립대학교 다전공 안내 AI챗봇</strong>입니다 😊</p>", "#f0f4ff", "#667eea")
+    response += create_simple_card("<p style='margin:0; font-size: 1rem;'><strong>한경국립대 다전공 안내 AI챗봇</strong>입니다 😊</p>", "#f0f4ff", "#667eea")
     
     response += """
 <div style="background: white; border-radius: 12px; padding: 16px; margin: 12px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
@@ -1651,7 +1651,7 @@ def handle_blocked(user_input, extracted_info, data_dict):
 def handle_out_of_scope(user_input, extracted_info, data_dict):
     response = create_header_card("모릅니다", "🚫", "#636e72")
     
-    response += create_simple_card("<p style='margin:0;'>저는 <strong>한경국립대학교 다전공 안내 AI챗봇</strong>이에요.</p>", "#f8f9fa", "#6c757d")
+    response += create_simple_card("<p style='margin:0;'>저는 <strong>한경국립대 다전공 안내 AI챗봇</strong>이에요.</p>", "#f8f9fa", "#6c757d")
     
     response += """
 <div style="background: white; border-radius: 12px; padding: 16px; margin: 12px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
@@ -2194,7 +2194,7 @@ def main():
                 🤖 AI챗봇 소개
             </h4>
             <p style="color: #555; font-size: 0.82rem; margin: 0 0 8px 0; line-height: 1.6;">
-                한경국립대학교 다전공 제도에 관한<br>
+                한경국립대 다전공 제도에 관한<br>
                 궁금한 사항을 AI챗봇이<br>
                 친절하게 답변해드립니다!
             </p>
