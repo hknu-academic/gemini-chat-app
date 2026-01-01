@@ -516,41 +516,6 @@ RECOMMENDATION, GREETING, OUT_OF_SCOPE
     except:
         return 'OUT_OF_SCOPE'
 
-def extract_major(user_input):
-    if MAJORS_INFO.empty or '전공명' not in MAJORS_INFO.columns:
-        return None
-
-    text = user_input.replace(" ", "")
-
-    text = text.replace("학과", "전공")
-
-    # 1️⃣ 불필요 키워드 제거
-    for kw in ['연락처', '전화', '번호', '사무실', '위치', '알려줘', '알려', '소개', '설명']:
-        text = text.replace(kw, '')
-
-    # 2️⃣ 전공명 길이순 정렬 (긴 이름 우선 매칭)
-    majors = sorted(
-        MAJORS_INFO['전공명'].dropna().unique(),
-        key=lambda x: len(str(x)),
-        reverse=True
-    )
-
-    # 3️⃣ 정확 매칭
-    for major in majors:
-        m = str(major).replace(" ", "")
-        if m and m in text:
-            return major
-
-    # 4️⃣ 보조 패턴: "경영학" → "경영학전공"
-    match = re.search(r'([가-힣]+학)', text)
-    if match:
-        keyword = match.group(1)
-        for major in majors:
-            if keyword in str(major):
-                return major
-
-    return None
-
 def classify_intent(user_input, use_ai_fallback=True):
     """의도 분류 - 8가지 수정사항 반영"""
     user_clean = user_input.lower().replace(' ', '')
@@ -559,44 +524,46 @@ def classify_intent(user_input, use_ai_fallback=True):
     if any(kw in user_clean for kw in INTENT_KEYWORDS.get('BLOCKED', [])):
         return 'BLOCKED', 'blocked', {}
     
-    # 1️⃣ 전공 추출 (가장 먼저!)
-    major = extract_major(user_input)  # 없으면 None
-
-    # 2️⃣ 전공 + 연락처
-    if major and any(kw in user_clean for kw in ['연락처', '전화', '번호', '사무실', '위치']):
-        return 'MAJOR_CONTACT', 'rule', {'major': major}
-
-    # 3️⃣ 전공 + 제도 (복수전공 등)
-    if major:
-        programs = extract_programs(user_clean)
-        if programs:
-            return 'MAJOR_PROGRAM', 'rule', {
-                'major': major,
-                'program': programs[0]
-            }
-
-    # 4️⃣ 전공 단독 질문 ⭐⭐⭐
-    if major and any(kw in user_clean for kw in ['알려', '뭐', '설명', '소개']):
-        return 'MAJOR_INFO', 'rule', {'major': major}
-
-    # 5️⃣ 교과목 + 전공
+    # 🔧 수정 #9: "다전공이 뭐야?" 우선 처리
+    if '다전공' in user_clean and any(kw in user_clean for kw in ['뭐', '무엇', '알려', '설명', '뭔가', '뭐야']):
+        if not any(prog in user_clean for prog in ['복수전공', '부전공', '융합전공', '융합부전공', '연계전공', '마이크로']):
+            return 'PROGRAM_INFO', 'complex', {'program': '다전공'}
+    
+    # 복합 조건 검사
     has_course_keyword = any(kw in user_clean for kw in ['교과목', '과목', '커리큘럼', '수업'])
-    if has_course_keyword and major:
+    has_major = bool(re.search(r'([가-힣]+(?:학|공학|과학|전공))', user_clean))
+    
+    if has_course_keyword and has_major:
         return 'COURSE_SEARCH', 'complex', extract_additional_info(user_input, 'COURSE_SEARCH')
-
-    # 6️⃣ 제도 단독 질문
+    
     found_programs = extract_programs(user_clean)
+    
     if found_programs:
         program = found_programs[0]
-        if any(kw in user_clean for kw in ['뭐', '무엇', '알려', '설명']):
-            return 'PROGRAM_INFO', 'keyword', {'program': program}
-
-    # 7️⃣ Semantic / AI fallback
-    if SEMANTIC_ROUTER:
+        if any(kw in user_clean for kw in ['자격', '신청할수있', '조건']):
+            return 'QUALIFICATION', 'complex', {'program': program, 'programs': found_programs}
+        if any(kw in user_clean for kw in ['언제', '기간', '마감']):
+            return 'APPLICATION_PERIOD', 'complex', {'program': program}
+        if any(kw in user_clean for kw in ['어떻게', '방법', '절차']):
+            return 'APPLICATION_METHOD', 'complex', {'program': program}
+    
+    # Semantic Router
+    if SEMANTIC_ROUTER is not None:
         semantic_intent, score = classify_with_semantic_router(user_input)
         if semantic_intent:
             return semantic_intent, 'semantic', extract_additional_info(user_input, semantic_intent)
-
+    
+    # 키워드 분류
+    keyword_intent = classify_with_keywords(user_input)
+    if keyword_intent:
+        return keyword_intent, 'keyword', extract_additional_info(user_input, keyword_intent)
+    
+    # 제도 설명 질문
+    if found_programs:
+        if any(kw in user_clean for kw in ['뭐', '무엇', '알려', '설명']):
+            return 'PROGRAM_INFO', 'keyword', {'program': found_programs[0]}
+    
+    # AI 분류
     if use_ai_fallback:
         try:
             ai_intent = classify_with_ai(user_input)
@@ -604,7 +571,7 @@ def classify_intent(user_input, use_ai_fallback=True):
                 return ai_intent, 'ai', extract_additional_info(user_input, ai_intent)
         except:
             pass
-
+    
     return 'OUT_OF_SCOPE', 'fallback', {}
 
 # ============================================================
