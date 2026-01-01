@@ -517,20 +517,40 @@ RECOMMENDATION, GREETING, OUT_OF_SCOPE
         return 'OUT_OF_SCOPE'
 
 def extract_major(user_input):
-    """
-    사용자 입력에서 전공명 추출
-    예: '경영학전공 알려줘' → '경영학전공'
-    """
-    if MAJORS_INFO.empty:
+    if MAJORS_INFO.empty or '전공명' not in MAJORS_INFO.columns:
         return None
 
-    user_clean = user_input.replace(" ", "")
+    text = user_input.replace(" ", "")
 
-    for major in MAJORS_INFO['전공명'].unique():
-        if major.replace(" ", "") in user_clean:
+    text = text.replace("학과", "전공")
+
+    # 1️⃣ 불필요 키워드 제거
+    for kw in ['연락처', '전화', '번호', '사무실', '위치', '알려줘', '알려', '소개', '설명']:
+        text = text.replace(kw, '')
+
+    # 2️⃣ 전공명 길이순 정렬 (긴 이름 우선 매칭)
+    majors = sorted(
+        MAJORS_INFO['전공명'].dropna().unique(),
+        key=lambda x: len(str(x)),
+        reverse=True
+    )
+
+    # 3️⃣ 정확 매칭
+    for major in majors:
+        m = str(major).replace(" ", "")
+        if m and m in text:
             return major
 
+    # 4️⃣ 보조 패턴: "경영학" → "경영학전공"
+    match = re.search(r'([가-힣]+학)', text)
+    if match:
+        keyword = match.group(1)
+        for major in majors:
+            if keyword in str(major):
+                return major
+
     return None
+
 def classify_intent(user_input, use_ai_fallback=True):
     """의도 분류 - 8가지 수정사항 반영"""
     user_clean = user_input.lower().replace(' ', '')
