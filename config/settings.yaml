@@ -22,8 +22,8 @@ data_files:
 
 # 앱 설정
 app:
-  title: "🎓 한경국립대 유연학사제도(다전공) 안내"
-  sidebar_title: "HKNU 다전공 안내"
+  title: "🎓 한경국립대 다전공 안내"
+  sidebar_title: "HKNU 다전공"
   page_icon: "🎓"
   layout: "wide"
 
