@@ -524,71 +524,71 @@ def classify_intent(user_input, use_ai_fallback=True):
     # 📞 2. 연락처/전화번호 문의 (최우선)
     contact_keywords = ['연락처', '전화번호', '번호', '문의처', '사무실', '팩스', 'contact', 'call']
     if any(kw in user_clean for kw in contact_keywords):
+        # 연락처는 정보 추출이 단순하므로 기존 함수 사용
         return 'CONTACT_SEARCH', 'keyword', extract_additional_info(user_input, 'CONTACT_SEARCH')
 
     # ==========================================================
-    # 🧠 [핵심 로직] 학과(Major) vs 프로그램(Program) 관계 정리
+    # 🔍 정보 추출 단계 (Logic Split)
     # ==========================================================
     
-    # A. 학과명 추출 ("기계공학전공", "경영학과")
+    # A. 학과(Major) 이름 찾기
+    # 기존보다 더 강력한 정규식 사용
     major_regex = r'([가-힣A-Za-z0-9]+(?:학과|전공|학부|교실|스쿨))'
     major_match = re.search(major_regex, user_clean)
     
     detected_major_name = None
-    is_real_major = False # 시스템 용어가 아닌 진짜 학과명인지
+    is_real_major = False 
 
     if major_match:
         detected_major_name = major_match.group(1)
+        # 시스템 용어(복수전공 등)는 학과가 아님
         system_keywords = ['복수전공', '부전공', '융합전공', '연계전공', '심화전공', '다전공', '마이크로전공', '전공']
         if detected_major_name not in system_keywords:
             is_real_major = True
 
-    # B. 프로그램 추출 ("복수전공", "부전공")
+    # B. 프로그램(제도) 키워드 추출
     found_programs = extract_programs(user_clean)
 
-    # C. [스마트 필터링] 충돌 해결
-    # 학과명이 감지되었는데 프로그램도 감지된 경우 -> 이게 "오탐"인지 "의도된 것"인지 판별
-    if is_real_major and found_programs:
-        # 사용자가 명시적으로 '복수', '부', '다', '융합', '연계' 등의 단어를 썼는지 확인
-        explicit_program_keywords = ['복수', '부전공', '다전공', '융합', '연계', '마이크로', '트랙']
-        has_explicit_program = any(kw in user_clean for kw in explicit_program_keywords)
-        
-        # 1. "기계공학전공 알려줘" -> 명시적 프로그램 키워드가 없음 ('전공' 글자 때문에 겹침)
-        if not has_explicit_program:
-            found_programs = [] # 프로그램 감지 취소 (Major Info로 가기 위함)
-        
-        # 2. "복수전공으로 경영학전공 신청하고 싶어" -> '복수'라는 단어가 있음 -> found_programs 유지
+    # C. [스마트 필터링] 학과명 vs 프로그램명 충돌 해결
+    # 사용자가 '복수', '부전공' 같은 단어를 직접 썼는지 확인
+    explicit_program_keywords = ['복수', '부전공', '다전공', '융합', '연계', '마이크로', '트랙', '심화']
+    has_explicit_program = any(kw in user_clean for kw in explicit_program_keywords)
     
+    # 학과명은 있는데, 명시적인 프로그램 단어는 없는 경우 (예: "기계공학전공 알려줘")
+    # -> 이때 found_programs에 '복수전공'이 들어있다면, 그건 '전공' 글자 때문에 잘못 딸려온 것이므로 제거
+    if is_real_major and found_programs and not has_explicit_program:
+        found_programs = [] 
+
     # ==========================================================
-    # 🚦 의도 분류 라우팅
+    # 🚦 의도 분류 라우팅 (Routing)
     # ==========================================================
 
-    # 📚 3. 교과목 검색 ("기계공학전공 커리큘럼")
+    # 📚 3. 교과목/커리큘럼 검색
     has_course_keyword = any(kw in user_clean for kw in ['교과목', '과목', '커리큘럼', '수업', '강의', '이수체계도'])
     if is_real_major and has_course_keyword:
-         return 'COURSE_SEARCH', 'complex', extract_additional_info(user_input, 'COURSE_SEARCH')
+         # 정보를 직접 주입 (extract_additional_info 실패 방지)
+         return 'COURSE_SEARCH', 'complex', {'major': detected_major_name}
 
     # 🤝 4. [복합 의도] 학과 + 프로그램 ("경영학전공 복수전공 신청 방법")
-    # 필터링을 거치고도 둘 다 살아남았다면, 사용자가 둘 다 언급한 것임.
     if is_real_major and found_programs:
         program = found_programs[0]
-        # 신청/방법 관련 키워드가 있으면 APPLICATION_METHOD로 강력 연결
+        
+        # 신청/방법
         if any(kw in user_clean for kw in ['신청', '지원', '하고싶', '원해', '어떻게', '방법']):
-             # 정보 딕셔너리에 명시적으로 major와 program을 다 넣어줍니다.
              return 'APPLICATION_METHOD', 'complex', {'program': program, 'major': detected_major_name}
         
-        # 자격 관련
+        # 자격
         if any(kw in user_clean for kw in ['자격', '조건', '가능', '되나요']):
              return 'QUALIFICATION', 'complex', {'program': program, 'major': detected_major_name}
              
-        # 그 외에는 프로그램 정보로 처리하되 학과 정보 함께 전달
+        # 그 외 복합 질문 (Default)
         return 'PROGRAM_INFO', 'complex', {'program': program, 'major': detected_major_name}
 
     # 🏫 5. 학과 안내 (MAJOR_INFO) - "기계공학전공 알려줘"
-    # 프로그램 리스트가 비워졌거나 원래 없었다면 여기로 옴
+    # 여기까지 왔는데 is_real_major가 참이면, 프로그램 질문이 아니라 순수 학과 질문임
     if is_real_major:
-        # 시스템이 모른다고 하지 않도록, 정보를 강제로 주입해서 리턴
-        return 'MAJOR_INFO', 'keyword', {'major': detected_major_name}
+        # [중요 수정] extract_additional_info에 의존하지 않고, 찾은 이름을 직접 넣어서 리턴
+        return 'MAJOR_INFO', 'complex', {'major': detected_major_name}
 
     # 🎓 6. 프로그램(제도) 단독 문의 ("복수전공 신청기간")
     if found_programs:
@@ -603,21 +603,19 @@ def classify_intent(user_input, use_ai_fallback=True):
         if any(kw in user_clean for kw in ['어떻게', '방법', '절차', '순서', '경로']):
             return 'APPLICATION_METHOD', 'complex', {'program': program}
         
-        # 단순 정의 질문 ("복수전공이 뭐야")
+        # Fallback: 제도 설명
         return 'PROGRAM_INFO', 'inferred', {'program': program}
     
-    # 🤖 7. Semantic Router
+    # 🤖 7. Semantic Router / Keyword / AI Fallback
     if SEMANTIC_ROUTER is not None:
         semantic_intent, score = classify_with_semantic_router(user_input)
         if semantic_intent:
             return semantic_intent, 'semantic', extract_additional_info(user_input, semantic_intent)
     
-    # 🔑 8. 키워드 분류
     keyword_intent = classify_with_keywords(user_input)
     if keyword_intent:
         return keyword_intent, 'keyword', extract_additional_info(user_input, keyword_intent)
     
-    # 🧠 9. AI 분류
     if use_ai_fallback:
         try:
             ai_intent = classify_with_ai(user_input)
