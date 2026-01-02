@@ -96,7 +96,7 @@ except ImportError:
         SEMANTIC_ROUTER_VERSION = None
 
 # Gemini API 설정
-GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY")
+GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "")
 if not GEMINI_API_KEY:
     st.error("⚠️ GEMINI_API_KEY가 설정되지 않았습니다!")
     st.stop()
@@ -350,7 +350,7 @@ def initialize_semantic_router():
     try:
         encoder = GoogleEncoder(
             name="models/text-embedding-004",
-            api_key=st.secrets.get("GEMINI_API_KEY")
+            api_key=st.secrets.get("GEMINI_API_KEY", "")
         )
         routes = [Route(name=intent_name, utterances=utterances) 
                   for intent_name, utterances in INTENT_UTTERANCES.items()]
