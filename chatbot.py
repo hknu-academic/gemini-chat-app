@@ -104,9 +104,6 @@ if not GEMINI_API_KEY:
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 
-
-
-
 # 페이지 설정
 st.set_page_config(
     page_title="다전공 안내 AI챗봇",
@@ -1009,7 +1006,7 @@ def search_faq_mapping(user_input, faq_df):
     detected_program = extract_program_from_text(user_input)
     
     # 학사제도 키워드 감지
-    academic_keywords = ['증명서', '학점교류', '교직', '휴학', '복학', '전과', '재입학', '수강신청']
+    academic_keywords = ['증명서', '학점교류', '교직', '교원자격', '휴학', '복학', '전과', '전공변경', '재입학', '수강신청', '학점인정', '이수구분', '성적처리', '졸업식', '학위수여식', '유예', '졸업유예', '조기졸업', '계절학기']
     is_academic_system = any(kw in user_clean for kw in academic_keywords)
     
     if is_academic_system and not detected_program:
@@ -2298,15 +2295,15 @@ def handle_out_of_scope(user_input, extracted_info, data_dict):
 <div style="background: white; border-radius: 12px; padding: 16px; margin: 12px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
     <h4 style="margin: 0 0 12px 0; color: #333;">💬 이런 질문은 답변할 수 있어요!</h4>
     <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; font-size: 0.9rem;">
-        <div style="padding: 8px; background: #e3f2fd; border-radius: 6px;">📝 다전공 신청/기간/방법</div>
-        <div style="padding: 8px; background: #e8f5e9; border-radius: 6px;">📊 융합전공, 융합부전공 비교</div>
-        <div style="padding: 8px; background: #fff3e0; border-radius: 6px;">📖 다전공 이수학점 정보</div>
-        <div style="padding: 8px; background: #fce4ec; border-radius: 6px;">📞 경영학전공 연락처</div>
-        <div style="padding: 8px; background: #fce4ec; border-radius: 6px;">📖 전자공학전공 교과목</div>
-        <div style="padding: 8px; background: #fce4ec; border-radius: 6px;">📖 응용수학전공 소개</div>
-
-
-    </div>
+        <div style="padding: 8px; background: #e3f2fd; border-radius: 6px;">📝 다전공 신청 기간 알려줘</div>
+        <div style="padding: 8px; background: #e3f2fd; border-radius: 6px;">📝 복수전공이 뭐야</div>
+        <div style="padding: 8px; background: #e8f5e9; border-radius: 6px;">📊 융합전공, 융합부전공 비교해줘</div>
+        <div style="padding: 8px; background: #fce4ec; border-radius: 6px;">📖 응용수학전공 소개해줘</div>
+        <div style="padding: 8px; background: #fce4ec; border-radius: 6px;">📖 전자공학전공 교과목 알려줘</div>
+        <div style="padding: 8px; background: #fce4ec; border-radius: 6px;">📞 경영학전공 연락처 뭐야?</div>
+        <div style="padding: 8px; background: #fce4ec; border-radius: 6px;">📖 마이크로디그리 과정 목록 알려줘</div>
+        <div style="padding: 8px; background: #fce4ec; border-radius: 6px;">📖 반려동물 MD 교과목 알려줘</div>
+</div>
 </div>
 """
     
@@ -2594,13 +2591,13 @@ def render_course_list(df, is_micro):
             else:
                 st.info("교과목 개요 정보가 없습니다.")
 
-            edu_dept = row.get('교과목 운영전공') or row.get('교과목운영전공', '')
+            edu_dept = row.get('교육 운영전공') or row.get('교육운영전공', '')
             if is_micro and pd.notna(edu_dept) and str(edu_dept).strip():
                 st.caption(f"🏫 운영전공: {str(edu_dept).strip()}")
 
 
 def display_courses(major, program_type):
-    """과목 정보 표시"""
+    """과목 정보 표시 - 수정 버전"""
     if not major or major == "선택 안 함":
         return False
     
@@ -2611,14 +2608,26 @@ def display_courses(major, program_type):
     is_micro = "소단위" in program_type or "마이크로" in program_type
     
     def match_program_type_for_courses(type_value):
-        type_str = str(type_value).strip().lower()
+        """제도유형 매칭 - 개선 버전"""
+        type_str = str(type_value).strip()
+        type_list = [t.strip() for t in type_str.split(',')]
+        
         if is_micro:
-            return any(kw in type_str for kw in ['소단위', '마이크로', 'md'])
+            return any(kw in type_str.lower() for kw in ['소단위', '마이크로', 'md'])
+        
         if program_type == "부전공":
-            return "부전공" in type_str and "융합부전공" not in type_str
+            return "부전공" in type_list and "융합부전공" not in type_list
+        
         if program_type == "융합전공":
-            return "융합전공" in type_str and "융합부전공" not in type_str
-        return program_type in type_str
+            return "융합전공" in type_list
+        
+        if program_type == "융합부전공":
+            return "융합부전공" in type_list
+        
+        if program_type == "연계전공":
+            return "연계전공" in type_list
+        
+        return program_type in type_list
     
     clean_major = major
     display_major = major
@@ -2661,7 +2670,7 @@ def display_courses(major, program_type):
     display_program_type = "소단위전공과정(마이크로디그리)" if is_micro else program_type
     
     if not courses.empty:
-        st.subheader(f"📚 ({display_program_type}) {display_major} 교과목 안내")
+        st.subheader(f"📚 교과목 안내")
         
         years = sorted([int(y) for y in courses['학년'].unique() if pd.notna(y)])
         
@@ -2718,27 +2727,17 @@ def display_courses(major, program_type):
                             if not elective.empty:
                                 st.markdown("**🟢 전공선택**")
                                 render_course_list(elective, is_micro)
+                    
+                    # 🔥 수정: else 블록에서도 render_course_list 사용!
                     else:
-                        for _, row in semester_courses.iterrows():
-                            course_name = row.get('과목명', '')
-                            credit = f"{int(row.get('학점', 0))}학점" if pd.notna(row.get('학점')) else ""
-                            edu_dept = row.get('교과목 운영전공') or row.get('교과목운영전공', '')
-                            if is_micro and pd.notna(edu_dept) and str(edu_dept).strip():
-                                st.write(f"• {course_name} ({credit}, {str(edu_dept).strip()})")
-                            else:
-                                st.write(f"• {course_name} ({credit})")
+                        st.markdown("**📚 교과목 목록**")
+                        render_course_list(semester_courses, is_micro)
                     
                     st.divider()
             else:
+                # 🔥 수정: 여기서도 render_course_list 사용!
                 st.markdown("**📚 교과목 목록**")
-                for _, row in courses.iterrows():
-                    course_name = row.get('과목명', '')
-                    credit = f"{int(row.get('학점', 0))}학점" if pd.notna(row.get('학점')) else ""
-                    edu_dept = row.get('교과목 운영전공') or row.get('교과목운영전공', '')
-                    if is_micro and pd.notna(edu_dept) and str(edu_dept).strip():
-                        st.write(f"• {course_name} ({credit}, {str(edu_dept).strip()})")
-                    else:
-                        st.write(f"• {course_name} ({credit})")
+                render_course_list(courses, is_micro)
         
         st.markdown("---")
         display_major_contact(display_major, program_type)
@@ -2747,9 +2746,68 @@ def display_courses(major, program_type):
         st.info(f"'{display_major}' 교과목 정보가 없습니다.")
         return False
 
-
 def display_major_contact(major, program_type="전공"):
-    """전공 연락처 표시"""
+    """전공 연락처 표시 - 마이크로디그리 지원"""
+    
+    # 🔥 마이크로디그리 체크
+    is_micro = "소단위" in program_type or "마이크로" in program_type
+    
+    # 마이크로디그리인 경우 MICRODEGREE_INFO에서 찾기
+    if is_micro and not MICRODEGREE_INFO.empty:
+        clean_major = major
+        
+        # 괄호 제거
+        if major.endswith(')') and '(' in major:
+            last_open_paren = major.rfind('(')
+            if last_open_paren > 0:
+                clean_major = major[:last_open_paren].strip()
+        
+        # MD 제거
+        clean_major = clean_major.replace(' MD', '').replace('MD', '').strip()
+        
+        # 🔥 MICRODEGREE_INFO에서 검색
+        contact_row = pd.DataFrame()
+        
+        # 1차: 정확한 과정명 매칭
+        if '과정명' in MICRODEGREE_INFO.columns:
+            contact_row = MICRODEGREE_INFO[MICRODEGREE_INFO['과정명'] == major]
+        
+        # 2차: 괄호 제거 후 매칭
+        if contact_row.empty:
+            contact_row = MICRODEGREE_INFO[MICRODEGREE_INFO['과정명'] == clean_major]
+        
+        # 3차: 부분 매칭
+        if contact_row.empty:
+            keyword = clean_major.replace('전공', '').replace('과정', '').replace('전문가', '')
+            if keyword:
+                contact_row = MICRODEGREE_INFO[
+                    MICRODEGREE_INFO['과정명'].str.contains(keyword, na=False, regex=False)
+                ]
+        
+        # 마이크로디그리 정보 표시
+        if not contact_row.empty:
+            row = contact_row.iloc[0]
+            
+            course_name = row.get('과정명', major)
+            edu_major = row.get('교육운영전공', '')
+            phone = row.get('연락처', '')
+            location = row.get('위치', row.get('사무실위치', ''))
+            
+            contact_parts = [f"🎓 **과정명**: {course_name}"]
+            
+            if pd.notna(edu_major) and str(edu_major).strip():
+                contact_parts.append(f"🏛️ **교육운영전공**: {edu_major}")
+            
+            if pd.notna(phone) and str(phone).strip():
+                contact_parts.append(f"📞 **연락처**: {phone}")
+            
+            if pd.notna(location) and str(location).strip():
+                contact_parts.append(f"📍 **사무실 위치**: {location}")
+            
+            st.info(f"**📋 소단위전공과정 문의처**\n\n" + "\n\n".join(contact_parts))
+            return
+    
+    # 일반 전공인 경우 MAJORS_INFO에서 찾기
     if MAJORS_INFO.empty:
         st.info(f"📞 **문의**: 학사지원팀 031-670-5035")
         return
@@ -2765,11 +2823,9 @@ def display_major_contact(major, program_type="전공"):
     clean_major = clean_major.replace(' MD', '').replace('MD', '').strip()
     
     contact_row = pd.DataFrame()
-    if edu_major and ("소단위" in program_type or "마이크로" in program_type):
+    if edu_major:
         contact_row = MAJORS_INFO[MAJORS_INFO['전공명'] == edu_major]
-        if contact_row.empty:
-            contact_row = MAJORS_INFO[MAJORS_INFO['교육운영전공'] == edu_major]
-    
+
     if contact_row.empty:
         contact_row = MAJORS_INFO[MAJORS_INFO['전공명'] == clean_major]
     
@@ -2780,24 +2836,11 @@ def display_major_contact(major, program_type="전공"):
     
     if not contact_row.empty:
         row = contact_row.iloc[0]
-        
-        if "소단위" in program_type or "마이크로" in program_type:
-            if edu_major:
-                major_name = edu_major
-            elif pd.notna(row.get('교육운영전공')) and str(row.get('교육운영전공')).strip():
-                major_name = str(row.get('교육운영전공')).strip()
-            else:
-                major_name = row.get('전공명', major)
-        else:
-            major_name = row.get('전공명', major)
-        
+        major_name = row.get('전공명', major)
         phone = row.get('연락처', '')
         location = row.get('사무실위치', row.get('위치', ''))
         
-        if "소단위" in program_type or "마이크로" in program_type:
-            contact_title = "소단위전공과정 문의처"
-        else:
-            contact_title = f"{program_type} 문의처"
+        contact_title = f"{program_type} 문의처"
         
         contact_parts = [f"🎓 **전공명**: {major_name}"]
         if pd.notna(phone) and str(phone).strip():
@@ -3044,7 +3087,7 @@ def main():
                 if selected_prog == "부전공":
                     return "부전공" in type_str and "융합부전공" not in type_str
                 if selected_prog == "융합전공":
-                    return "융합전공" in type_str and "융합부전공" not in type_str
+                    return "융합전공" in type_str
                 return selected_prog in type_str
             
             if not COURSES_DATA.empty and '제도유형' in COURSES_DATA.columns:
@@ -3066,15 +3109,72 @@ def main():
             
             if available_majors:
                 target_programs = ["복수전공", "부전공", "융합전공", "융합부전공", "연계전공"]
-                is_special = any(sp in selected_program for sp in ["융합전공", "융합부전공", "소단위", "마이크로"])
-                
-                if is_special:
+    
+                # 🔥 구분 명확히
+                is_microdegree = any(sp in selected_program for sp in ["소단위", "마이크로"])
+                is_linked = "연계전공" in selected_program
+                is_convergence = any(sp in selected_program for sp in ["융합전공", "융합부전공"])
+    
+                # [수정] 카테고리 설정 로직 변경
+                category_majors = {}
+
+                if is_microdegree or is_convergence:
+                    # 융합전공, 마이크로는 '전체' 하나로 통일
                     category_majors = {"전체": sorted(available_majors.keys())}
+                elif is_linked:
+                    # 🔥 [핵심 수정] 연계전공을 '계열' 별로 분류하는 로직 추가
+                    target_col = '계열' if '계열' in MAJORS_INFO.columns else ('단과대학' if '단과대학' in MAJORS_INFO.columns else None)
+                
+                    if target_col:
+                        for major_name in available_majors.keys():
+                            # MAJORS_INFO에서 해당 전공의 행을 찾음
+                            major_row = MAJORS_INFO[MAJORS_INFO['전공명'] == major_name]
+                        
+                            if not major_row.empty:
+                                # 해당 전공의 계열 정보를 가져옴 (여러 개일 경우 첫 번째 것 사용)
+                                cat_val = major_row.iloc[0].get(target_col)
+                                category = str(cat_val).strip() if pd.notna(cat_val) else "기타"
+                            else:
+                                category = "기타"
+                        
+                            if category not in category_majors:
+                                category_majors[category] = []
+                            category_majors[category].append(major_name)
+                    
+                        # 딕셔너리 키 정렬 (가나다순)
+                        category_majors = dict(sorted(category_majors.items()))
+                    else:
+                        # 계열 컬럼을 못 찾으면 전체로 표시
+                        category_majors = {"전체": sorted(available_majors.keys())}
                 else:
                     category_majors = get_majors_by_category(selected_program)
-                
+    
                 if selected_program in target_programs:
-                    if is_special or len(category_majors) <= 1:
+                    # 🔥 1. 연계전공: 단일 컬럼만
+                    if is_linked:
+                        major_options_with_dividers = ["선택 안 함"]
+
+                        for category in sorted(category_majors.keys()):
+                            divider = f"━━━━━━ {category} ━━━━━━"
+                            major_options_with_dividers.append(divider)
+                            for major in sorted(category_majors[category]):
+                                major_options_with_dividers.append(major)
+
+                        selected_major = st.selectbox(
+                        f"🎓 이수하려는 {selected_program}",
+                        major_options_with_dividers
+                        )
+
+                        # [수정 3] 구분선 선택 시 경고 및 null 처리
+                        if selected_major and "━━━" in selected_major:
+                            st.warning("⚠️ 계열 구분선이 아닌 구체적인 전공명을 선택해주세요.")
+                            selected_major = None
+                            
+                        my_primary = "선택 안 함"
+                        admission_year = datetime.now().year
+        
+                    # 🔥 2. 융합전공: 전공 + 본전공 + 학번
+                    elif is_convergence or len(category_majors) <= 1:
                         col_m1, col_m2, col_m3 = st.columns([3, 3, 1.5])
                         with col_m1:
                             all_majors = []
@@ -3111,42 +3211,44 @@ def main():
                                 value=datetime.now().year,
                                 key=f"special_admission_year_{selected_program}"
                             )
+        
+                    # 🔥 3. 복수전공/부전공: 일반 처리 (기존 코드)
                     else:
                         major_options_with_dividers = ["선택 안 함"]
                         major_to_category = {}
-                        
+            
                         for category in sorted(category_majors.keys()):
                             divider = f"━━━━━━ {category} ━━━━━━"
                             major_options_with_dividers.append(divider)
                             for major in sorted(category_majors[category]):
                                 major_options_with_dividers.append(major)
                                 major_to_category[major] = category
-                        
+            
                         primary_categories = get_majors_by_category("복수전공")
                         primary_options_with_dividers = ["선택 안 함"]
-                        
+            
                         for category in sorted(primary_categories.keys()):
                             divider = f"━━━━━━ {category} ━━━━━━"
                             primary_options_with_dividers.append(divider)
                             for major in sorted(primary_categories[category]):
                                 primary_options_with_dividers.append(major)
-                        
+            
                         col1, col2, col3 = st.columns([3, 3, 1.5])
-                        
+            
                         with col1:
                             selected_major = st.selectbox(
                                 f"🎓 이수하려는 {selected_program}",
                                 major_options_with_dividers,
                                 key=f"major_select_{selected_program}"
                             )
-                        
+            
                         with col2:
                             my_primary = st.selectbox(
                                 "🏠 나의 본전공",
                                 primary_options_with_dividers,
                                 key=f"primary_select_{selected_program}"
                             )
-                        
+            
                         with col3:
                             admission_year = st.number_input(
                                 "📅 본인 학번",
@@ -3155,15 +3257,15 @@ def main():
                                 value=datetime.now().year,
                                 key=f"admission_year_{selected_program}"
                             )
-                        
+            
                         if selected_major and "━━━" in selected_major:
                             st.warning("⚠️ 계열 구분선이 아닌 구체적인 전공명을 선택해주세요.")
                             selected_major = None
-                        
+            
                         if my_primary and "━━━" in my_primary:
                             st.warning("⚠️ 계열 구분선이 아닌 구체적인 전공명을 선택해주세요.")
                             my_primary = "선택 안 함"
-                        
+        
                 else:
                     # 🔥 소단위전공과정(마이크로디그리) - MICRODEGREE_INFO 사용
                     field_majors = {}
@@ -3244,7 +3346,7 @@ def main():
                     admission_year = datetime.now().year
                 
                 if selected_major:
-                    if selected_program in target_programs:
+                    if selected_program in target_programs and "연계전공" not in selected_program:
                         col_l, col_r = st.columns(2)
                         with col_l:
                             st.subheader(f"🎯 {selected_program} 이수학점")
@@ -3269,17 +3371,52 @@ def main():
                                 if not pri_data.empty:
                                     pri_data['기준학번'] = pd.to_numeric(pri_data['기준학번'], errors='coerce')
                                     pri_valid = pri_data[pri_data['기준학번'] <= admission_year].sort_values('기준학번', ascending=False)
+                                    
+                                    found_req = False
+
                                     for _, p_row in pri_valid.iterrows():
                                         if selected_program in str(p_row['제도유형']):
-                                            st.write(f"전공필수: **{int(p_row.get('본전공_전공필수', 0))}**학점")
-                                            st.write(f"전공선택: **{int(p_row.get('본전공_전공선택', 0))}**학점")
-                                            st.markdown(f"#### 👉 합계 {int(p_row.get('본전공_계', 0))}학점")
+                                            # ✅ [수정 핵심] NaN(빈값) 처리를 위한 안전한 변환 로직
+                                            def safe_int(val):
+                                                try:
+                                                    # 값이 없거나 NaN이면 0 반환
+                                                    if pd.isna(val) or str(val).strip() == "":
+                                                        return 0
+                                                    # 실수형(3.0)도 정수(3)로 변환
+                                                    return int(float(val))
+                                                except:
+                                                    return 0
+
+                                            p_req = safe_int(p_row.get('본전공_전공필수'))
+                                            p_sel = safe_int(p_row.get('본전공_전공선택'))
+                                            p_total = safe_int(p_row.get('본전공_계'))
+
+                                            st.write(f"전공필수: **{p_req}**학점")
+                                            st.write(f"전공선택: **{p_sel}**학점")
+                                            st.markdown(f"#### 👉 합계 {p_total}학점")
+                                            found_req = True
                                             break
+                                    
+                                    if not found_req:
+                                        st.info("해당 학번/과정에 대한 본전공 요건 정보가 없습니다.")
                             else:
                                 st.info("본전공을 선택하면 변동 학점을 확인할 수 있습니다.")
                     
                     st.divider()
-                    
+
+                    if not MAJORS_INFO.empty and '전공설명' in MAJORS_INFO.columns:
+                        # 선택된 전공에 해당하는 행 찾기
+                        desc_row = MAJORS_INFO[MAJORS_INFO['전공명'] == selected_major]
+                        
+                        if not desc_row.empty:
+                            # 전공설명 값 가져오기
+                            description = desc_row.iloc[0].get('전공설명')
+                            
+                            # 내용이 비어있지 않다면(NaN이나 빈 문자열이 아니면) 출력
+                            if pd.notna(description) and str(description).strip():
+                                st.markdown(f"### 📘 ({selected_program}) {selected_major} 전공 소개")
+                                st.info(str(description).strip())
+
                     if selected_program == "융합전공":
                         st.subheader("📋 이수체계도")
                         display_curriculum_image(selected_major, selected_program)
