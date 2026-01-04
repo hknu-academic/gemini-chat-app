@@ -130,7 +130,7 @@ class SimulationResult:
     
     # 졸업 가능 여부
     can_graduate: bool = False
-    graduation_status: str = "불가능"
+    graduation_status: str = "어려움"
     
     # 학점 분석
     credit_analysis: CreditAnalysis = field(default_factory=CreditAnalysis)
@@ -399,7 +399,7 @@ def determine_graduation_status(
         return "가능", True
     
     if deficit_total > max_additional:
-        return "불가능", False
+        return "어려움", False
     
     # 필수 과목 이수 가능 여부
     total_required_deficit = deficit_major_required + deficit_multi_required
@@ -412,7 +412,7 @@ def determine_graduation_status(
     elif margin >= 0:
         return "위험", True
     else:
-        return "불가능", False
+        return "어려움", False
 
 
 # ============================================================
@@ -713,8 +713,8 @@ def rank_recommendations(results: List[SimulationResult]) -> Tuple[List[Simulati
     
     def get_score(r: SimulationResult) -> Tuple:
         """정렬 점수 계산 (낮을수록 좋음)"""
-        # 1. 졸업 가능 여부 (가능 > 위험 > 불가능)
-        grad_score = {"가능": 0, "위험": 1, "불가능": 2}.get(r.graduation_status, 2)
+        # 1. 졸업 가능 여부 (가능 > 위험 > 어려움)
+        grad_score = {"가능": 0, "위험": 1, "어려움": 2}.get(r.graduation_status, 2)
         
         # 2. 총 부족 학점 (±3학점 동일 취급을 위해 3으로 나눔)
         total_deficit = (
