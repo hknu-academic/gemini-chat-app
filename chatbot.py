@@ -96,12 +96,16 @@ except ImportError:
         SEMANTIC_ROUTER_VERSION = None
 
 # Gemini API 설정
-GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "")
+GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 if not GEMINI_API_KEY:
     st.error("⚠️ GEMINI_API_KEY가 설정되지 않았습니다!")
     st.stop()
 
 client = genai.Client(api_key=GEMINI_API_KEY)
+
+
+
+
 
 # 페이지 설정
 st.set_page_config(
@@ -285,6 +289,298 @@ PROGRAM_KEYWORDS = {
     '마이크로디그리': ['마이크로디그리', '마이크로', 'md', '마디'],
 }
 
+def find_matching_majors(query_text, majors_df, microdegree_df):
+    print("\n" + "="*60)
+    print("🔍 반도체 관련 전공 확인")
+    print("="*60)
+    if not MAJORS_INFO.empty and '전공명' in MAJORS_INFO.columns:
+        semiconductor = MAJORS_INFO[MAJORS_INFO['전공명'].str.contains('반도체', na=False)]
+        print(f"반도체 포함 전공: {len(semiconductor)}개")
+        for idx, row in semiconductor.iterrows():
+            print(f"  - {row['전공명']}")
+    else:
+        print("MAJORS_INFO가 비어있거나 '전공명' 컬럼이 없습니다!")
+    print("="*60 + "\n")
+
+    print(f"\n[DEBUG find_matching_majors] 입력: {query_text}")
+    
+    query_clean = query_text.replace(' ', '').lower()
+    print(f"[DEBUG] query_clean: {query_clean}")
+    
+    exact_matches = []
+    partial_matches = []
+    
+    # 1. 일반전공에서 검색
+    if not majors_df.empty and '전공명' in majors_df.columns:
+        print(f"[DEBUG] 일반전공 검색 시작 ({len(majors_df)}개)")
+        for idx, row in majors_df.iterrows():
+            major_name = str(row.get('전공명', ''))
+            major_clean = major_name.replace(' ', '').lower()
+            
+            # 🔥 괄호 제거: 정규식 사용
+            import re
+            major_no_paren = re.sub(r'[(\(].*?[)\)]', '', major_clean)
+            query_no_paren = re.sub(r'[(\(].*?[)\)]', '', query_clean)
+            
+            # 디버깅 출력
+            if 'ai반도체' in major_clean or '반도체융합' in major_clean:
+                print(f"[DEBUG]   검사: {major_name}")
+                print(f"[DEBUG]     major_clean: {major_clean}")
+                print(f"[DEBUG]     major_no_paren: {major_no_paren}")
+                print(f"[DEBUG]     query_clean: {query_clean}")
+                print(f"[DEBUG]     query_no_paren: {query_no_paren}")
+
+            # 정확 매칭 (원본)
+            if major_clean == query_clean:
+                print(f"[DEBUG]   ✅ 정확 매칭: {major_name}")
+                candidate = {
+                    'name': major_name,
+                    'type': 'major',
+                    'program_type': row.get('제도유형', ''),
+                    'category': row.get('계열', ''),
+                    'department': row.get('소속학부', ''),
+                    'match_score': len(major_clean),
+                    'exact_match': True
+                }
+                exact_matches.append(candidate)
+            
+            # 🔥 정확 매칭 (괄호무시)
+            elif major_no_paren and major_no_paren == query_no_paren:
+                print(f"[DEBUG]   ✅ 정확 매칭(괄호무시): {major_name}")
+                candidate = {
+                    'name': major_name,
+                    'type': 'major',
+                    'program_type': row.get('제도유형', ''),
+                    'category': row.get('계열', ''),
+                    'department': row.get('소속학부', ''),
+                    'match_score': len(major_no_paren),
+                    'exact_match': True
+                }
+                exact_matches.append(candidate)
+
+            # 부분 매칭 (원본)
+            elif major_clean and len(major_clean) > 2 and major_clean in query_clean:
+                print(f"[DEBUG]   부분 매칭: {major_name}")
+                candidate = {
+                    'name': major_name,
+                    'type': 'major',
+                    'program_type': row.get('제도유형', ''),
+                    'category': row.get('계열', ''),
+                    'department': row.get('소속학부', ''),
+                    'match_score': len(major_clean),
+                    'exact_match': False
+                }
+                partial_matches.append(candidate)
+
+            # 🔥 부분 매칭 (괄호무시)
+            elif major_no_paren and len(major_no_paren) > 2 and major_no_paren in query_no_paren:
+                print(f"[DEBUG]   부분 매칭(괄호무시): {major_name}")
+                candidate = {
+                    'name': major_name,
+                    'type': 'major',
+                    'program_type': row.get('제도유형', ''),
+                    'category': row.get('계열', ''),
+                    'department': row.get('소속학부', ''),
+                    'match_score': len(major_no_paren),
+                    'exact_match': False
+                }
+                partial_matches.append(candidate)
+
+            # 🔥 부분 매칭 (괄호무시) - candidate 새로 정의!
+            elif major_no_paren and len(major_no_paren) > 2 and major_no_paren in query_no_paren:
+                print(f"[DEBUG]   부분 매칭(괄호무시): {major_name}")
+                candidate = {
+                    'name': major_name,
+                    'type': 'major',
+                    'program_type': row.get('제도유형', ''),
+                    'category': row.get('계열', ''),
+                    'department': row.get('소속학부', ''),
+                    'match_score': len(major_no_paren),
+                    'exact_match': False
+                }
+                partial_matches.append(candidate)
+    
+    # 2. 마이크로디그리에서 검색
+    if not microdegree_df.empty and '과정명' in microdegree_df.columns:
+        print(f"[DEBUG] 마이크로디그리 검색 시작 ({len(microdegree_df)}개)")
+        for idx, row in microdegree_df.iterrows():
+            course_name = str(row.get('과정명', ''))
+            course_clean = course_name.replace(' ', '').lower()
+            
+            print(f"[DEBUG]   과정명: {course_name} → clean: {course_clean}")
+            
+            # 정확한 매칭
+            if course_clean == query_clean:
+                print(f"[DEBUG]   ✅ 마이크로 정확 매칭: {course_name}")
+                candidate = {
+                    'name': course_name,
+                    'type': 'microdegree',
+                    'program_type': '소단위전공과정',
+                    'category': row.get('계열', ''),
+                    'department': row.get('교육운영전공', ''),
+                    'match_score': len(course_clean),
+                    'exact_match': True
+                }
+                exact_matches.append(candidate)
+            # 전체 과정명 포함
+            elif course_clean and course_clean in query_clean:
+                print(f"[DEBUG]   마이크로 부분 매칭: {course_name}")
+                candidate = {
+                    'name': course_name,
+                    'type': 'microdegree',
+                    'program_type': '소단위전공과정',
+                    'category': row.get('계열', ''),
+                    'department': row.get('교육운영전공', ''),
+                    'match_score': len(course_clean),
+                    'exact_match': False
+                }
+                partial_matches.append(candidate)
+            # MD 제거 후 키워드 매칭
+            else:
+                keyword = course_clean.replace('md', '').strip()
+                if keyword and len(keyword) >= 2 and keyword in query_clean:
+                    print(f"[DEBUG]   마이크로 키워드 매칭: {course_name} (키워드: {keyword})")
+                    candidate = {
+                        'name': course_name,
+                        'type': 'microdegree',
+                        'program_type': '소단위전공과정',
+                        'category': row.get('계열', ''),
+                        'department': row.get('교육운영전공', ''),
+                        'match_score': len(keyword),
+                        'exact_match': False
+                    }
+                    partial_matches.append(candidate)
+    else:
+        print(f"[DEBUG] ❌ 마이크로디그리 데이터 없음 또는 '과정명' 컬럼 없음")
+    
+    # 3. 정확한 매칭 우선
+    if exact_matches:
+        candidates = exact_matches
+        print(f"[DEBUG] 정확 매칭 사용: {len(exact_matches)}개")
+    else:
+        candidates = partial_matches
+        print(f"[DEBUG] 부분 매칭 사용: {len(partial_matches)}개")
+    
+    # 4. 부분 문자열 중복 제거
+    if len(candidates) > 1:
+        print(f"[DEBUG] 부분 문자열 중복 체크 시작")
+        filtered_candidates = []
+        
+        # 길이 순으로 정렬 (긴 것부터)
+        candidates_sorted = sorted(candidates, key=lambda x: len(x['name']), reverse=True)
+        
+        for i, cand in enumerate(candidates_sorted):
+            cand_clean = cand['name'].replace(' ', '').lower()
+            
+            # 이 후보보다 긴 후보 중에 이 후보를 포함하는 게 있는지 확인
+            is_substring = False
+            for j in range(i):
+                longer_cand_clean = candidates_sorted[j]['name'].replace(' ', '').lower()
+                if cand_clean in longer_cand_clean and cand_clean != longer_cand_clean:
+                    is_substring = True
+                    print(f"[DEBUG]   '{cand['name']}'은(는) '{candidates_sorted[j]['name']}'의 부분 문자열 → 제외")
+                    break
+            
+            if not is_substring:
+                filtered_candidates.append(cand)
+        
+        candidates = filtered_candidates
+        print(f"[DEBUG] 부분 문자열 제거 후: {len(candidates)}개")
+    
+    # 5. 점수 순으로 정렬
+    candidates.sort(key=lambda x: (x['match_score'], len(x['name'])), reverse=True)
+    
+    # 6. 중복 제거 (이름 기준)
+    unique_candidates = []
+    seen_names = set()
+    for cand in candidates:
+        if cand['name'] not in seen_names:
+            unique_candidates.append(cand)
+            seen_names.add(cand['name'])
+    
+    needs_filtering = len(unique_candidates) > 1
+    
+    print(f"[DEBUG] 최종 후보: {len(unique_candidates)}개, 필터링 필요: {needs_filtering}")
+    
+    return unique_candidates, needs_filtering
+
+def check_microdegree_data():
+    """마이크로디그리 데이터 확인"""
+    global MICRODEGREE_INFO
+    
+    print("\n" + "="*60)
+    print("🔍 마이크로디그리 데이터 체크")
+    print("="*60)
+    
+    if 'MICRODEGREE_INFO' not in globals():
+        print("❌ MICRODEGREE_INFO 전역 변수가 없습니다!")
+        return
+    
+    if MICRODEGREE_INFO.empty:
+        print("❌ MICRODEGREE_INFO가 비어있습니다!")
+        print("원인: load_microdegree_info() 함수 확인 필요")
+        return
+    
+    print(f"✅ MICRODEGREE_INFO: {len(MICRODEGREE_INFO)}개 과정")
+    print(f"\n컬럼: {list(MICRODEGREE_INFO.columns)}")
+    
+    if '과정명' in MICRODEGREE_INFO.columns:
+        print(f"\n과정명 목록:")
+        for idx, name in enumerate(MICRODEGREE_INFO['과정명'].head(10), 1):
+            print(f"  {idx}. {name}")
+    else:
+        print("❌ '과정명' 컬럼이 없습니다!")
+    
+    print("="*60)
+
+def apply_major_filters(candidates, query_text, detected_program=None):
+    """제도유형 및 소속학부 필터 적용"""
+    if len(candidates) <= 1:
+        return candidates
+    
+    query_clean = query_text.replace(' ', '').lower()
+    filtered = candidates.copy()
+    
+    # 1. 제도유형 필터
+    if detected_program:
+        program_filtered = [c for c in filtered if detected_program in c.get('program_type', '')]
+        if program_filtered:
+            filtered = program_filtered
+    
+    # 2. 융합전공 vs 일반전공 구분
+    if len(filtered) > 1:
+        has_convergence = any('융합' in c.get('program_type', '') for c in filtered)
+        has_regular = any('복수전공' in c.get('program_type', '') or '부전공' in c.get('program_type', '') for c in filtered)
+        
+        if has_convergence and has_regular:
+            if '융합' in query_clean:
+                filtered = [c for c in filtered if '융합' in c.get('program_type', '')]
+            else:
+                filtered = [c for c in filtered if c.get('type') == 'major' and '융합' not in c.get('program_type', '')]
+    
+    # 3. 소속학부 필터
+    if len(filtered) > 1:
+        for candidate in filtered:
+            dept = candidate.get('department', '')
+            if dept and dept.replace(' ', '').lower() in query_clean:
+                return [candidate]
+            
+    # 4. 필터링 후 다시 정렬! (이 2줄 추가)
+    filtered.sort(key=lambda x: (x.get('match_score', 0), len(x.get('name', ''))), reverse=True)
+
+    return filtered
+
+
+def resolve_major_candidate(candidates, query_text):
+    """최종 후보 확정"""
+    if not candidates:
+        return None, None
+    
+    if len(candidates) == 1:
+        return candidates[0]['name'], candidates[0]['type']
+    
+    # 여러 후보: 첫 번째 반환
+    return candidates[0]['name'], candidates[0]['type']
 
 # ============================================================
 # 🔍 [신규] 엔티티 추출 시스템
@@ -292,51 +588,54 @@ PROGRAM_KEYWORDS = {
 
 def extract_entity_from_text(text):
     """
-    [STEP 1] 텍스트에서 전공/과정 엔티티 추출
-    Returns: (entity_name, entity_type)
-    entity_type: 'major' (일반전공) or 'microdegree' (마이크로디그리 과정)
+    [디버깅 버전] 텍스트에서 전공/과정 엔티티 추출
     """
-    text_clean = text.replace(' ', '').lower()
+    print(f"\n[DEBUG extract_entity_from_text] 입력: {text}")
     
-    # 1. 마이크로디그리(과정) 먼저 확인 - microdegree_info.xlsx 사용
-    if not MICRODEGREE_INFO.empty and '과정명' in MICRODEGREE_INFO.columns:
-        for _, row in MICRODEGREE_INFO.iterrows():
-            course_name = str(row.get('과정명', ''))
-            course_clean = course_name.replace(' ', '').lower()
-            
-            # 정확한 매칭 (MD 포함)
-            if course_clean and course_clean in text_clean:
-                return course_name, 'microdegree'
-            
-            # MD 제거 후 핵심 키워드 매칭 (예: "식물원학 MD" → "식물원학")
-            keyword = course_clean.replace('md', '').strip()
-            if keyword and len(keyword) >= 2 and keyword in text_clean:
-                return course_name, 'microdegree'
-            
-            # 부분 매칭 (예: "식물원" → "식물원학 MD")
-            if len(keyword) >= 3:
-                # 사용자 입력에서 핵심 단어 추출하여 매칭
-                for i in range(len(keyword) - 1, 1, -1):  # 긴 것부터 매칭
-                    partial = keyword[:i]
-                    if len(partial) >= 2 and partial in text_clean:
-                        return course_name, 'microdegree'
+    # MAJORS_INFO, MICRODEGREE_INFO가 전역 변수로 존재하는지 확인
+    global MAJORS_INFO, MICRODEGREE_INFO
     
-    # 2. 일반 전공 확인 - majors_info.xlsx 사용
-    if not MAJORS_INFO.empty and '전공명' in MAJORS_INFO.columns:
-        for _, row in MAJORS_INFO.iterrows():
-            major_name = str(row.get('전공명', ''))
-            major_clean = major_name.replace(' ', '').lower()
-            
-            # 정확한 매칭
-            if major_clean and major_clean in text_clean:
-                return major_name, 'major'
-            
-            # 키워드 매칭 (전공 제거 후)
-            keyword = major_clean.replace('전공', '').strip()
-            if keyword and len(keyword) >= 2 and keyword in text_clean:
-                return major_name, 'major'
+    if 'MAJORS_INFO' not in globals():
+        print("[DEBUG] ❌ MAJORS_INFO가 정의되지 않음!")
+        return None, None
     
-    return None, None
+    if 'MICRODEGREE_INFO' not in globals():
+        print("[DEBUG] ❌ MICRODEGREE_INFO가 정의되지 않음!")
+        return None, None
+    
+    print(f"[DEBUG] MAJORS_INFO: {len(MAJORS_INFO)}개")
+    print(f"[DEBUG] MICRODEGREE_INFO: {len(MICRODEGREE_INFO)}개")
+    
+    # 1. 매칭 후보 찾기
+    candidates, needs_filtering = find_matching_majors(text, MAJORS_INFO, MICRODEGREE_INFO)
+    
+    print(f"[DEBUG] 후보 개수: {len(candidates)}")
+    for i, cand in enumerate(candidates):
+        print(f"[DEBUG]   후보 {i+1}: {cand['name']} (타입: {cand['type']}, 점수: {cand.get('match_score', 0)})")
+    
+    # 2. 필터링 불필요하면 바로 반환
+    if not needs_filtering:
+        if candidates:
+            result = (candidates[0]['name'], candidates[0]['type'])
+            print(f"[DEBUG] ✅ 결과 (필터링 불필요): {result}")
+            return result
+        print(f"[DEBUG] ❌ 후보 없음")
+        return None, None
+    
+    # 3. 필터링 적용
+    detected_program = extract_program_from_text(text)
+    print(f"[DEBUG] 감지된 제도: {detected_program}")
+    
+    filtered_candidates = apply_major_filters(candidates, text, detected_program)
+    
+    print(f"[DEBUG] 필터링 후 개수: {len(filtered_candidates)}")
+    for i, cand in enumerate(filtered_candidates):
+        print(f"[DEBUG]   필터 후 {i+1}: {cand['name']} (타입: {cand['type']})")
+    
+    # 4. 최종 후보 확정
+    result = resolve_major_candidate(filtered_candidates, text)
+    print(f"[DEBUG] ✅ 최종 결과: {result}")
+    return result
 
 def detect_course_keywords(text):
     """[STEP 2] 교과목 관련 키워드 감지"""
@@ -439,7 +738,7 @@ def initialize_semantic_router():
     try:
         encoder = GoogleEncoder(
             name="models/text-embedding-004",
-            api_key=st.secrets.get("GEMINI_API_KEY", "")
+            api_key=st.secrets["GEMINI_API_KEY"]
 
         )
         routes = [Route(name=intent_name, utterances=utterances) 
@@ -463,7 +762,16 @@ def extract_program_from_text(text):
     """텍스트에서 프로그램(제도) 추출"""
     text_lower = text.lower().replace(' ', '')
     
-    # 우선순위: 더 긴 키워드 먼저 매칭
+    PROGRAM_KEYWORDS = {
+        '복수전공': ['복수전공', '복전', '복수'],
+        '부전공': ['부전공', '부전'],
+        '융합전공': ['융합전공', '융합'],
+        '융합부전공': ['융합부전공'],
+        '연계전공': ['연계전공', '연계'],
+        '소단위전공과정': ['소단위전공과정', '소단위전공', '소단위'],
+        '마이크로디그리': ['마이크로디그리', '마이크로', 'md', '마디'],
+    }
+    
     program_order = ['소단위전공과정', '마이크로디그리', '융합부전공', '융합전공', '복수전공', '부전공', '연계전공']
     
     for program in program_order:
@@ -472,15 +780,164 @@ def extract_program_from_text(text):
             if kw.lower().replace(' ', '') in text_lower:
                 return program
     
-    # '다전공' 일반 키워드
     if '다전공' in text_lower:
         return '다전공'
     
     return None
 
+def needs_question_completion(user_input, intent, extracted_info, faq_result):
+    """
+    [개선] 질문 보완이 필요한지 판단
+    """
+    user_clean = user_input.replace(' ', '').lower()
+    
+    # 1. 제도 키워드만 있고 구체적 질문 없음 (예: "복수전공")
+    program_only_keywords = ['복수전공', '부전공', '융합전공', '마이크로디그리', '소단위전공과정']
+    is_program_only = any(kw in user_clean for kw in program_only_keywords) and len(user_clean) < 15
+    
+    # 2. 리스트/목록 질문에서 대상 누락
+    list_keywords = ['목록', '리스트', '종류', '어떤', '무슨', '뭐가있어', '뭐있어']
+    if any(kw in user_clean for kw in list_keywords):
+        if not extracted_info.get('program'):
+            return True, 'target_missing'
+    
+    # 3. 🔥 신청 관련 키워드만 있고 제도 타입 없음
+    intent_only_keywords = {
+        '기간': ['기간', '언제', '마감', '일정'],
+        '자격': ['자격', '조건', '대상'],
+        '방법': ['방법', '어떻게', '절차'],
+        '학점': ['학점', '몇학점', '이수'],
+    }
+    
+    for category, keywords in intent_only_keywords.items():
+        if any(kw in user_clean for kw in keywords):
+            # 신청/기간/자격/방법 등의 키워드는 있지만 제도나 전공이 없음
+            target = extracted_info.get('entity') or extracted_info.get('program')
+            if not target:
+                return True, 'target_missing'
+    
+    # 4. FAQ 매핑 결과 분석
+    if faq_result:
+        if isinstance(faq_result, list) and len(faq_result) > 1:
+            return True, 'intent_missing'
+    
+    # 5. target과 intent 분석
+    target = extracted_info.get('entity') or extracted_info.get('major') or extracted_info.get('program')
+    
+    has_intent = False
+    for category, keywords in intent_only_keywords.items():
+        if any(kw in user_clean for kw in keywords):
+            has_intent = True
+            break
+    
+    # target은 있는데 intent가 없는 경우 (예: "경영학전공 알려줘")
+    if target and not has_intent and not is_program_only:
+        # 이 경우는 전공 정보 요청이므로 보완 불필요
+        return False, None
+    
+    # intent는 있는데 target이 없는 경우 (예: "신청 기간은?")
+    if has_intent and not target:
+        return True, 'target_missing'
+    
+    return False, None
+
+
+def complete_question_with_ai(user_input, previous_question=None):
+    """AI를 사용하여 질문 보완"""
+    try:
+        context = ""
+        if previous_question:
+            context = f"\n\n[이전 질문]\n{previous_question}\n"
+        
+        prompt = f"""당신은 대학 다전공 안내 챗봇입니다.
+학생의 질문이 불완전할 때, 문맥을 파악하여 질문을 보완해주세요.
+
+{context}
+[현재 질문]
+{user_input}
+
+[지침]
+1. 질문에서 빠진 정보(전공명, 제도명, 의도)를 파악하세요
+2. 이전 질문 맥락을 활용하여 보완하세요
+3. 보완된 완전한 질문을 한 문장으로 출력하세요
+4. 추가 설명 없이 질문만 출력하세요
+
+보완된 질문:"""
+
+        response = client.models.generate_content(
+            model='gemini-2.0-flash-exp',
+            contents=prompt,
+            config={'temperature': 0.3, 'max_output_tokens': 100}
+        )
+        
+        completed = response.text.strip()
+        completed = completed.replace('"', '').replace("'", '').replace('출력:', '').strip()
+        
+        return completed
+    except Exception as e:
+        print(f"[ERROR] 질문 보완 실패: {e}")
+        return user_input
+
+
+def complete_question_with_context(user_input, extracted_info, previous_question=None):
+    """
+    [개선] 컨텍스트 기반 질문 보완
+    """
+    user_clean = user_input.replace(' ', '').lower()
+    
+    # 1. 🔥 신청 관련 질문 (기간/자격/방법) - 제도 타입 누락
+    intent_keywords = {
+        '기간': ['기간', '언제', '마감'],
+        '자격': ['자격', '조건'],
+        '방법': ['방법', '어떻게'],
+        '학점': ['학점', '몇학점'],
+    }
+    
+    has_intent = False
+    intent_type = None
+    for category, keywords in intent_keywords.items():
+        if any(kw in user_clean for kw in keywords):
+            has_intent = True
+            intent_type = category
+            break
+    
+    has_target = bool(extracted_info.get('entity') or extracted_info.get('program'))
+    
+    if has_intent and not has_target:
+        # 이전 질문에서 제도/전공 추출
+        if previous_question:
+            prev_entity, _ = extract_entity_from_text(previous_question)
+            prev_program = extract_program_from_text(previous_question)
+            
+            if prev_entity:
+                # 이전에 특정 전공 언급했으면
+                return f"{prev_entity} {user_input}"
+            elif prev_program:
+                # 이전에 제도 언급했으면
+                return f"{prev_program} {user_input}"
+        
+        # 이전 질문이 없거나 추출 실패 시 AI로 보완
+        return complete_question_with_ai(user_input, previous_question)
+    
+    # 2. 목록 질문에서 제도 타입 누락
+    list_keywords = ['목록', '리스트', '종류']
+    if any(kw in user_clean for kw in list_keywords):
+        if not extracted_info.get('program'):
+            if previous_question:
+                prev_program = extract_program_from_text(previous_question)
+                if prev_program:
+                    return f"{prev_program} {user_input}"
+            
+            return complete_question_with_ai(user_input, previous_question)
+    
+    return user_input
 
 def search_faq_mapping(user_input, faq_df):
-    """FAQ 매핑 검색"""
+    """
+    [하이브리드] FAQ 매핑 검색
+    - 세부 과정명 우선 체크 (코드)
+    - 구체적 키워드 매칭 (FAQ 파일)
+    """
     if faq_df.empty:
         return None, 0
     
@@ -493,26 +950,62 @@ def search_faq_mapping(user_input, faq_df):
     if len(programs_mentioned) >= 2:
         return None, 0
     
-    # 🔥 STEP 1.5: "목록" 질문 감지 (FAQ 스킵)
+    # STEP 1.5: "목록" 질문 감지
     list_keywords = ['목록', '리스트', '전공은', '어떤전공']
     is_list_query = any(kw in user_clean for kw in list_keywords)
     
     if is_list_query:
         return None, 0
     
-    # STEP 2: 일반 전공명 먼저 확인 (FAQ 매칭 전에!)
+    # 🔥 STEP 1.7: 세부 전공/과정명 감지 (개선: 가장 긴 것 우선)
+    has_specific_entity = False
+    
+    # 일반 전공명 체크
     if not MAJORS_INFO.empty:
+        matched_majors = []
         for _, row in MAJORS_INFO.iterrows():
             major_name = str(row.get('전공명', ''))
             major_clean = major_name.replace(' ', '').lower()
             
-            # 일반 전공명이 질문에 정확히 포함되어 있으면
             if major_clean and len(major_clean) > 3 and major_clean in user_clean:
-                # 🔥 FAQ 매칭 스킵 (일반 전공 질문임)
-                print(f"[DEBUG] 일반 전공명 감지: {major_name} → FAQ 스킵")
-                return None, 0
+                matched_majors.append((major_name, len(major_clean)))
+        
+        # 가장 긴 전공명 선택
+        if matched_majors:
+            matched_majors.sort(key=lambda x: x[1], reverse=True)
+            best_major = matched_majors[0][0]
+            print(f"[DEBUG] 일반 전공명 감지: {best_major} → FAQ 스킵")
+            has_specific_entity = True
     
-    # STEP 3: 프로그램 추출 (다전공 제도)
+    # 🔥 마이크로디그리 세부 과정명 체크 (개선: 가장 긴 것 우선)
+    if not has_specific_entity and not MICRODEGREE_INFO.empty and '과정명' in MICRODEGREE_INFO.columns:
+        matched_courses = []
+        
+        for _, row in MICRODEGREE_INFO.iterrows():
+            course_name = str(row.get('과정명', ''))
+            course_clean = course_name.replace(' ', '').lower()
+            keyword = course_clean.replace('md', '').strip()
+            
+            # 조건 1: 과정명 전체 매칭
+            if course_clean and course_clean in user_clean:
+                matched_courses.append((course_name, len(course_clean), 'full'))
+            # 조건 2: 핵심 키워드(3자 이상) + MD 동시 존재
+            elif keyword and len(keyword) >= 3 and keyword in user_clean and 'md' in user_clean:
+                matched_courses.append((course_name, len(keyword), 'keyword'))
+        
+        # 가장 긴 과정명 선택 (점수가 높은 것)
+        if matched_courses:
+            matched_courses.sort(key=lambda x: x[1], reverse=True)
+            best_course = matched_courses[0][0]
+            match_type = matched_courses[0][2]
+            print(f"[DEBUG] 마이크로 과정명 감지({match_type}): {best_course} → FAQ 스킵")
+            has_specific_entity = True
+    
+    # 세부 엔티티가 있으면 FAQ 스킵
+    if has_specific_entity:
+        return None, 0
+    
+    # STEP 3: 프로그램 추출
     detected_program = extract_program_from_text(user_input)
     
     # 학사제도 키워드 감지
@@ -552,12 +1045,18 @@ def search_faq_mapping(user_input, faq_df):
         if any(ex in user_clean for ex in exclude_kws):
             continue
         
-        keyword_matches = sum(1 for kw in keywords if kw in user_clean)
+        keyword_matches = 0
+        total_keyword_length = 0
+        
+        for kw in keywords:
+            if kw in user_clean:
+                keyword_matches += 1
+                total_keyword_length += len(kw)
         
         if keyword_matches == 0:
             continue
         
-        score = keyword_matches * 10
+        score = keyword_matches * 10 + total_keyword_length
         
         row_program = str(row.get('program', '')).strip()
         if row_program == detected_program:
@@ -569,7 +1068,7 @@ def search_faq_mapping(user_input, faq_df):
             best_score = score
             best_match = row
     
-    if best_score >= 10:
+    if best_score >= 20:
         return best_match, best_score
     
     return None, 0
@@ -792,43 +1291,94 @@ RECOMMENDATION, GREETING, OUT_OF_SCOPE
 
 def classify_intent(user_input, use_ai_fallback=True):
     """
-    통합 의도 분류 함수 (새로운 쿼리 처리 흐름)
-    [1] 전공/과정 엔티티 추출
-    [2] 교과목 키워드 감지
-    [3] LIST vs COURSE_LIST 구분
-    [4] FAQ_mapping → AI fallback
+    [디버깅 버전] 통합 의도 분류 함수
     """
+    print(f"\n[DEBUG classify_intent] 입력: {user_input}")
+    
     user_clean = user_input.lower().replace(' ', '')
     
     # 1. 욕설 차단
+    BLOCKED_KEYWORDS = ['시발', '씨발', 'ㅅㅂ', '병신', 'ㅂㅅ', '지랄', 'ㅈㄹ', '개새끼', '꺼져', '닥쳐', '죽어', '미친', '존나', 'fuck']
     if any(kw in user_clean for kw in BLOCKED_KEYWORDS):
+        print("[DEBUG] ❌ 욕설 차단")
         return 'BLOCKED', 'blocked', {}
     
     # 2. 인사말 처리
     greeting_keywords = ['안녕', '하이', '헬로', 'hello', 'hi', '반가워']
     if any(kw in user_clean for kw in greeting_keywords) and len(user_clean) < 15:
+        print("[DEBUG] ✅ 인사말")
         return 'GREETING', 'keyword', {}
     
     # 3. 연락처/전화번호 문의 (최우선)
     contact_keywords = ['연락처', '전화번호', '번호', '문의처', '사무실', '팩스', 'contact', 'call']
     if any(kw in user_clean for kw in contact_keywords):
+        print("[DEBUG] ✅ 연락처 문의")
         entity_name, entity_type = extract_entity_from_text(user_input)
         return 'CONTACT_SEARCH', 'keyword', {'entity': entity_name, 'entity_type': entity_type}
     
     # [STEP 1] 전공/과정 엔티티 추출
     entity_name, entity_type = extract_entity_from_text(user_input)
+    print(f"[DEBUG] 엔티티 추출 결과: name={entity_name}, type={entity_type}")
     
     # [STEP 2] 교과목 키워드 감지
-    has_course_keyword = detect_course_keywords(user_input)
+    course_keywords = ['교과목', '과목', '커리큘럼', '수업', '강의', '이수체계도', '교육과정', '뭐들어', '뭐배워']
+    has_course_keyword = any(kw in user_clean for kw in course_keywords)
+    print(f"[DEBUG] 교과목 키워드: {has_course_keyword}")
     
     # [STEP 3] 목록 키워드 감지
-    has_list_keyword = detect_list_keywords(user_input)
+    list_keywords = ['목록', '리스트', '종류', '어떤전공', '어떤과정', '무슨전공', '무슨과정', '뭐가있어', '뭐있어']
+    has_list_keyword = any(kw in user_clean for kw in list_keywords)
+    print(f"[DEBUG] 목록 키워드: {has_list_keyword}")
     
     # 제도 유형 추출
     program_type = extract_program_from_text(user_input)
+    print(f"[DEBUG] 제도 유형: {program_type}")
+    
+    # 추출된 정보 저장
+    extracted_info = {
+        'entity': entity_name,
+        'entity_type': entity_type,
+        'program': program_type,
+        'major': entity_name
+    }
+    
+    # [STEP 4] 질문 보완 필요 여부 판단
+    import streamlit as st
+    previous_question = st.session_state.get('previous_question') if 'st' in dir() else None
+    
+    needs_completion, completion_type = needs_question_completion(
+        user_input, None, extracted_info, None
+    )
+    
+    if needs_completion:
+        print(f"[DEBUG] 질문 보완 필요: {completion_type}")
+        completed_question = complete_question_with_context(
+            user_input, extracted_info, previous_question
+        )
+        
+        print(f"[DEBUG] 원래 질문: {user_input}")
+        print(f"[DEBUG] 보완된 질문: {completed_question}")
+        
+        # 보완된 질문으로 재처리
+        if completed_question != user_input:
+            entity_name, entity_type = extract_entity_from_text(completed_question)
+            program_type = extract_program_from_text(completed_question)
+            has_course_keyword = any(kw in completed_question.lower().replace(' ', '') 
+                                    for kw in course_keywords)
+            has_list_keyword = any(kw in completed_question.lower().replace(' ', '') 
+                                  for kw in list_keywords)
+            
+            extracted_info = {
+                'entity': entity_name,
+                'entity_type': entity_type,
+                'program': program_type,
+                'major': entity_name
+            }
+            print(f"[DEBUG] 재처리 후 엔티티: {entity_name}")
     
     # 3-1. 특정 전공/과정 + 교과목 키워드 → COURSE_SEARCH
     if entity_name and has_course_keyword:
+        print(f"[DEBUG] ✅ 분류: COURSE_SEARCH (엔티티={entity_name}, 교과목 키워드=True)")
         return 'COURSE_SEARCH', 'entity', {
             'entity': entity_name, 
             'entity_type': entity_type,
@@ -838,10 +1388,12 @@ def classify_intent(user_input, use_ai_fallback=True):
     
     # 3-2. 제도 유형 + 목록 키워드 → MAJOR_SEARCH (전공 목록)
     if program_type and has_list_keyword:
+        print(f"[DEBUG] ✅ 분류: MAJOR_SEARCH (제도={program_type}, 목록 키워드=True)")
         return 'MAJOR_SEARCH', 'keyword', {'program': program_type}
     
     # 3-3. 특정 전공/과정 엔티티만 있음 → MAJOR_INFO (전공 정보)
     if entity_name:
+        print(f"[DEBUG] ✅ 분류: MAJOR_INFO (엔티티={entity_name})")
         return 'MAJOR_INFO', 'entity', {
             'entity': entity_name,
             'entity_type': entity_type,
@@ -849,44 +1401,81 @@ def classify_intent(user_input, use_ai_fallback=True):
             'major': entity_name
         }
     
+    print(f"[DEBUG] ⚠️ 엔티티 없음, 계속 진행...")
+    
     # 4. 프로그램 관련 질문 분류 (기존 로직 유지)
+    def extract_programs(text):
+        found = []
+        text_lower = text.lower()
+        PROGRAM_KEYWORDS = {
+            '복수전공': ['복수전공', '복전', '복수'],
+            '부전공': ['부전공', '부전'],
+            '융합전공': ['융합전공', '융합'],
+            '융합부전공': ['융합부전공'],
+            '연계전공': ['연계전공', '연계'],
+            '소단위전공과정': ['소단위전공과정', '소단위전공', '소단위'],
+            '마이크로디그리': ['마이크로디그리', '마이크로', 'md', '마디'],
+        }
+        for program, keywords in PROGRAM_KEYWORDS.items():
+            for kw in keywords:
+                if kw in text_lower:
+                    if program not in found:
+                        found.append(program)
+                    break
+        return found
+    
     found_programs = extract_programs(user_clean)
     
     if found_programs:
         program = found_programs[0]
+        print(f"[DEBUG] 프로그램 발견: {program}")
         if any(kw in user_clean for kw in ['자격', '신청할수있', '조건', '대상', '기준']):
+            print(f"[DEBUG] ✅ 분류: APPLY_QUALIFICATION")
             return 'APPLY_QUALIFICATION', 'complex', {'program': program}
         if any(kw in user_clean for kw in ['언제', '기간', '마감', '날짜', '일정', '시기']):
+            print(f"[DEBUG] ✅ 분류: APPLY_PERIOD")
             return 'APPLY_PERIOD', 'complex', {'program': program}
         if any(kw in user_clean for kw in ['어떻게', '방법', '절차', '순서', '경로']):
+            print(f"[DEBUG] ✅ 분류: APPLY_METHOD")
             return 'APPLY_METHOD', 'complex', {'program': program}
         if any(kw in user_clean for kw in ['학점', '몇학점', '이수학점']):
+            print(f"[DEBUG] ✅ 분류: CREDIT_INFO")
             return 'CREDIT_INFO', 'complex', {'program': program}
         if any(kw in user_clean for kw in ['등록금', '수강료', '학비', '장학금']):
+            print(f"[DEBUG] ✅ 분류: PROGRAM_TUITION")
             return 'PROGRAM_TUITION', 'complex', {'program': program}
         if any(kw in user_clean for kw in ['취소', '포기', '철회', '그만']):
+            print(f"[DEBUG] ✅ 분류: APPLY_CANCEL")
             return 'APPLY_CANCEL', 'complex', {'program': program}
         if any(kw in user_clean for kw in ['변경', '바꾸', '전환']):
+            print(f"[DEBUG] ✅ 분류: APPLY_CHANGE")
             return 'APPLY_CHANGE', 'complex', {'program': program}
         if any(kw in user_clean for kw in ['차이', '비교', 'vs']):
+            print(f"[DEBUG] ✅ 분류: PROGRAM_COMPARISON")
             return 'PROGRAM_COMPARISON', 'complex', {'program': program}
+        print(f"[DEBUG] ✅ 분류: PROGRAM_INFO")
         return 'PROGRAM_INFO', 'inferred', {'program': program}
     
     # 5. Semantic Router
     if SEMANTIC_ROUTER is not None:
+        print("[DEBUG] Semantic Router 시도")
         semantic_intent, score = classify_with_semantic_router(user_input)
         if semantic_intent:
+            print(f"[DEBUG] ✅ Semantic Router: {semantic_intent}")
             return semantic_intent, 'semantic', extract_additional_info(user_input, semantic_intent)
     
     # 6. AI Fallback
     if use_ai_fallback:
+        print("[DEBUG] AI Fallback 시도")
         try:
             ai_intent = classify_with_ai(user_input)
             if ai_intent not in ['OUT_OF_SCOPE', 'BLOCKED']:
+                print(f"[DEBUG] ✅ AI 분류: {ai_intent}")
                 return ai_intent, 'ai', extract_additional_info(user_input, ai_intent)
         except:
             pass
     
+    print("[DEBUG] ❌ 분류: OUT_OF_SCOPE")
     return 'OUT_OF_SCOPE', 'fallback', {}
 
 
@@ -1191,7 +1780,29 @@ def handle_course_search(user_input, extracted_info, data_dict):
                     # 3. 괄호 포맷팅: (3학점, 행정학전공)
                     detail_str = f" ({', '.join(details)})" if details else ""
                     
-                    items += f'<li style="margin: 4px 0; padding: 6px 10px; background: {bg_color}; border-radius: 4px;">• {course_title}{detail_str}</li>\n'
+                    # --- 과목개요 ---
+                    outline = row.get('교과목개요') if '교과목개요' in row.index else None
+                    has_outline = pd.notna(outline) and str(outline).strip() != ""
+
+                    if has_outline:
+                        items += f"""
+<li style="margin: 4px 0;">
+    <details>
+        <summary style="cursor: pointer; padding: 6px 10px; border-radius: 4px;">
+            • {course_title}{detail_str}
+        </summary>
+        <div style="margin: 6px 0 0 18px; font-size: 13px; color: #555;">
+            {outline}
+        </div>
+    </details>
+</li>
+"""
+                    else:
+                        items += f"""
+<li style="margin: 4px 0; padding: 6px 10px;">
+    • {course_title}{detail_str}
+</li>
+"""
                 return items
 
             # 각 섹션 출력
@@ -1200,7 +1811,7 @@ def handle_course_search(user_input, extracted_info, data_dict):
 <div style="margin: 8px 0;">
     <strong style="color: #dc3545;">🔴 전공필수</strong>
     <ul style="list-style: none; padding-left: 0; margin: 8px 0;">
-        {create_course_list(required, "#fff5f5")}
+        {create_course_list(required, "")}
 </ul>
 </div>"""
             
@@ -1209,16 +1820,16 @@ def handle_course_search(user_input, extracted_info, data_dict):
 <div style="margin: 8px 0;">
     <strong style="color: #28a745;">🟢 전공선택</strong>
     <ul style="list-style: none; padding-left: 0; margin: 8px 0;">
-         {create_course_list(elective, "#f0fff4")}
+         {create_course_list(elective, "")}
 </ul>
 </div>"""
                 
             if not others.empty:
                 response += f"""
 <div style="margin: 8px 0;">
-    <strong style="color: #007bff;">🔵 일반/기타</strong>
+    <strong style="color: #007bff;">🔵 전공/자유</strong>
     <ul style="list-style: none; padding-left: 0; margin: 8px 0;">
-         {create_course_list(others, "#f0f7ff")}
+         {create_course_list(others, "")}
 </ul>
 </div>"""
             
@@ -1230,157 +1841,11 @@ def handle_course_search(user_input, extracted_info, data_dict):
     if is_md:
         response += create_tip_box(f"💡 {actual_name}에 대해 더 알고 싶으시면 '{actual_name} 설명해줘'라고 물어보세요!")
     else:
-        response += create_tip_box(f"💡 {actual_name}을(를) 복수전공으로 신청하고 싶으시다면 '복수전공 신청 방법'을 물어보세요!")
+        response += create_tip_box(f"💡 더 자세한 사항이 궁금하시면 왼쪽 메뉴의 '다잔공 제도 안내'를 참고해 주세요!")
     
     response += create_contact_box()
     
     return response, "COURSE_SEARCH"
-
-    # ---------------------------------------------------------
-    # 4. 결과 출력 및 헤더 정보 구성
-    # ---------------------------------------------------------
-    actual_name = major_courses['전공명'].iloc[0]
-    
-    # MD 여부 확인 (소단위전공 체크)
-    is_md = (entity_type == 'microdegree') or ('MD' in actual_name) or ('md' in actual_name.lower())
-    header_color = "#a8edea" if is_md else "#667eea" # MD는 민트, 일반은 블루
-    
-    response = create_header_card(f"{actual_name} 교과목", "📚", header_color)
-    
-    # [추가됨] 정보 박스 구성 (제도유형 + 교육운영전공)
-    info_items = []
-    
-    # (1) 제도유형
-    program_types = major_courses['제도유형'].dropna().unique().tolist()
-    program_str = ', '.join([str(pt) for pt in program_types])
-    if program_str:
-        info_items.append(f"📋 <strong>제도유형:</strong> {program_str}")
-
-    # (2) 교육운영전공 (MD인 경우에만 표시)
-    if is_md and '교육운영전공' in major_courses.columns:
-        op_majors = major_courses['교육운영전공'].dropna().unique()
-        # 값이 비어있지 않은 경우에만 추출
-        op_major_str = ', '.join([str(m) for m in op_majors if str(m).strip()])
-        if op_major_str:
-            info_items.append(f"🏫 <strong>교육운영전공:</strong> {op_major_str}")
-
-    # 정보 박스 출력 (항목이 하나라도 있으면)
-    if info_items:
-        response += '<div style="background: #f8f9fa; border-radius: 8px; padding: 12px; margin: 8px 0; font-size: 0.95em; line-height: 1.6;">'
-        for item in info_items:
-            response += f'<div style="color: #555; margin-bottom: 2px;">{item}</div>'
-        response += '</div>'
-
-    # ---------------------------------------------------------
-    # 5. 학년별/학기별 교과목 리스트 출력
-    # ---------------------------------------------------------
-    
-    # 학년 이모티콘 매핑 (성장형)
-    emoji_map = {1: "🌱", 2: "🌿", 3: "🌳", 4: "🎓", 999: "♾️"}
-
-    # 학년 정렬 (NaN -> 999)
-    major_courses['sort_year'] = pd.to_numeric(major_courses['학년'], errors='coerce').fillna(999)
-    years = sorted(major_courses['sort_year'].unique())
-
-    for sort_year in years:
-        if sort_year == 999:
-            year_data = major_courses[major_courses['학년'].isna()]
-            emoji = emoji_map.get(999)
-            year_display = f"{emoji} 학년 무관" # 요청하신 표현 적용
-        else:
-            year_data = major_courses[major_courses['sort_year'] == sort_year]
-            emoji = emoji_map.get(int(sort_year), "📅")
-            year_display = f"{emoji} {int(sort_year)}학년"
-
-        if year_data.empty: continue
-
-        response += f"""
-<div style="background: white; border-radius: 8px; padding: 16px; margin: 12px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-     <h4 style="margin: 0 0 12px 0; color: #333; border-bottom: 2px solid {header_color}; padding-bottom: 8px;">{year_display}</h4>
-"""
-
-        # 학기별 정렬
-        semesters = sorted([int(s) for s in year_data['학기'].dropna().unique()])
-        if not semesters and not year_data.empty: semesters = [0] # 학기 미지정 처리
-
-        for sem in semesters:
-            if sem == 0:
-                sem_data = year_data[year_data['학기'].isna()]
-                sem_display = "학기 미지정"
-            else:
-                sem_data = year_data[year_data['학기'] == sem]
-                sem_display = f"📆 {sem}학기"
-            
-            if sem_data.empty: continue
-
-            response += f"""
-<div style="margin: 12px 0;">
-    <h5 style="margin: 0 0 8px 0; color: #555;">{sem_display}</h5>
-"""
-            
-            # 이수구분 분류
-            mask_required = sem_data['이수구분'].str.contains('필수', na=False)
-            mask_elective = sem_data['이수구분'].str.contains('선택', na=False)
-            mask_others = ~(mask_required | mask_elective)
-            
-            required = sem_data[mask_required]
-            elective = sem_data[mask_elective]
-            others = sem_data[mask_others]
-
-            # 리스트 아이템 생성 헬퍼
-            def create_course_list(rows, bg_color):
-                items = ""
-                for _, row in rows.iterrows():
-                    course_title = row.get('과목명', '-')
-                    try:
-                        c_val = row.get('학점')
-                        credit_str = f" ({int(c_val)}학점)" if pd.notna(c_val) else ""
-                    except:
-                        credit_str = ""
-                    items += f'<li style="margin: 4px 0; padding: 6px 10px; background: {bg_color}; border-radius: 4px;">• {course_title}{credit_str}</li>\n'
-                return items
-
-            if not required.empty:
-                response += f"""
-<div style="margin: 8px 0;">
-    <strong style="color: #dc3545;">🔴 전공필수</strong>
-    <ul style="list-style: none; padding-left: 0; margin: 8px 0;">
-        {create_course_list(required, "#fff5f5")}
-</ul>
-</div>"""
-            
-            if not elective.empty:
-                response += f"""
-<div style="margin: 8px 0;">
-    <strong style="color: #28a745;">🟢 전공선택</strong>
-    <ul style="list-style: none; padding-left: 0; margin: 8px 0;">
-         {create_course_list(elective, "#f0fff4")}
-</ul>
-</div>"""
-                
-            if not others.empty:
-                response += f"""
-<div style="margin: 8px 0;">
-    <strong style="color: #007bff;">🔵 일반/기타</strong>
-    <ul style="list-style: none; padding-left: 0; margin: 8px 0;">
-         {create_course_list(others, "#f0f7ff")}
-</ul>
-</div>"""
-            
-            response += """</div>""" # 학기 div 닫기
-        
-        response += """</div>""" # 학년 div 닫기
-
-    # 6. 하단 안내 문구
-    if is_md:
-        response += create_tip_box(f"💡 {actual_name}에 대해 더 알고 싶으시면 '{actual_name} 설명해줘'라고 물어보세요!")
-    else:
-        response += create_tip_box(f"💡 {actual_name}을(를) 복수전공으로 신청하고 싶으시다면 '복수전공 신청 방법'을 물어보세요!")
-    
-    response += create_contact_box()
-    
-    return response, "COURSE_SEARCH"
-
 
 def handle_contact_search(user_input, extracted_info, data_dict):
     """연락처 검색 - 마이크로디그리는 microdegree_info 사용"""
@@ -1521,7 +1986,7 @@ def handle_major_info(user_input, extracted_info, data_dict):
     majors_info = data_dict.get('majors', MAJORS_INFO)
     microdegree_info = data_dict.get('microdegree', MICRODEGREE_INFO)
     
-    # 🔥 엔티티가 없으면 새로 추출
+    # 엔티티가 없으면 새로 추출
     if not entity:
         entity, entity_type = extract_entity_from_text(user_input)
     
@@ -1539,11 +2004,50 @@ def handle_major_info(user_input, extracted_info, data_dict):
         response += create_contact_box()
         return response, "MAJOR_INFO"
     
-    # 🔥 마이크로디그리 과정인 경우 - microdegree_info 사용
+    # 🔥 마이크로디그리 과정인 경우 - 개선된 검색
     if entity_type == 'microdegree' and not microdegree_info.empty:
-        keyword = entity.replace('MD', '').replace('md', '').replace(' ', '').strip()
-        result = microdegree_info[microdegree_info['과정명'].str.contains(keyword, case=False, na=False, regex=False)]
+        print(f"[DEBUG handle_major_info] 마이크로디그리 검색: {entity}")
         
+        result = pd.DataFrame()
+        
+        # 1차: 정확한 매칭 (대소문자, 띄어쓰기 무시)
+        entity_clean = entity.replace(' ', '').lower()
+        for idx, row in microdegree_info.iterrows():
+            course_name = str(row.get('과정명', ''))
+            course_clean = course_name.replace(' ', '').lower()
+            
+            if course_clean == entity_clean:
+                result = microdegree_info.iloc[[idx]]
+                print(f"[DEBUG] ✅ 정확 매칭: {course_name}")
+                break
+        
+        # 2차: 과정명이 엔티티를 포함
+        if result.empty:
+            for idx, row in microdegree_info.iterrows():
+                course_name = str(row.get('과정명', ''))
+                course_clean = course_name.replace(' ', '').lower()
+                
+                if entity_clean in course_clean or course_clean in entity_clean:
+                    result = microdegree_info.iloc[[idx]]
+                    print(f"[DEBUG] ✅ 부분 매칭: {course_name}")
+                    break
+        
+        # 3차: 키워드 검색 (MD 제거)
+        if result.empty:
+            keyword = entity.replace('MD', '').replace('md', '').replace(' ', '').strip()
+            print(f"[DEBUG] 키워드 검색: {keyword}")
+            
+            # 키워드가 과정명에 포함되는지 확인
+            result = microdegree_info[
+                microdegree_info['과정명'].apply(
+                    lambda x: keyword.lower() in str(x).replace(' ', '').lower()
+                )
+            ]
+            
+            if not result.empty:
+                print(f"[DEBUG] ✅ 키워드 매칭: {result.iloc[0]['과정명']}")
+        
+        # 검색 성공
         if not result.empty:
             row = result.iloc[0]
             course_name = row.get('과정명', entity)
@@ -1566,28 +2070,50 @@ def handle_major_info(user_input, extracted_info, data_dict):
     <div style="color: #11998e; font-weight: 600; margin-bottom: 12px;">ℹ️ 기본 정보</div>
 """
             
-            category = row.get('계열', '')
-            if category and pd.notna(category):
-                response += f'    <p style="margin: 8px 0; color: #333;"><strong>🏛️ 분야:</strong> {category}</p>\n'
+            # 소속 계열
+            category = row.get('계열', '-')
+            if category and category != '-' and pd.notna(category):
+                response += f'    <p style="margin: 8px 0; color: #333;"><strong>🏛️ 소속:</strong> {category}</p>\n'
             
+            # 제도유형
+            program_types = row.get('제도유형', '')
+            if program_types and pd.notna(program_types):
+                response += f'    <p style="margin: 8px 0; color: #333;"><strong>📋 신청 가능 제도:</strong> {program_types}</p>\n'
+            
+            # 교육운영전공
             edu_major = row.get('교육운영전공', '')
             if edu_major and pd.notna(edu_major):
                 response += f'    <p style="margin: 8px 0; color: #333;"><strong>🎓 교육운영전공:</strong> {edu_major}</p>\n'
             
-            contact = row.get('연락처', '')
-            if contact and pd.notna(contact):
+            # 연락처
+            contact = row.get('연락처', '-')
+            if contact and contact != '-' and pd.notna(contact):
                 response += f'    <p style="margin: 8px 0; color: #333;"><strong>📱 연락처:</strong> {contact}</p>\n'
             
-            location = row.get('위치', '')
-            if location and pd.notna(location):
+            # 위치
+            location = row.get('위치', row.get('사무실위치', '-'))
+            if location and location != '-' and pd.notna(location):
                 response += f'    <p style="margin: 8px 0; color: #333;"><strong>📍 위치:</strong> {location}</p>\n'
+            
+            # 홈페이지
+            homepage = row.get('홈페이지', '-')
+            if homepage and homepage != '-' and pd.notna(homepage) and str(homepage).startswith('http'):
+                response += f'    <p style="margin: 8px 0; color: #333;"><strong>🌐 홈페이지:</strong> <a href="{homepage}" target="_blank" style="color: #667eea; text-decoration: none;">{homepage} 🔗</a></p>\n'
             
             response += "</div>"
             
+            # 🔥 수정: course_name 사용, 마이크로디그리 전용 팁
             response += create_tip_box(f"💡 {course_name}의 교과목이 궁금하시면 '{course_name} 교과목 알려줘'라고 물어보세요!")
             response += create_contact_box()
             
             return response, "MAJOR_INFO"
+        
+        # 🔥 마이크로디그리에서 찾지 못한 경우
+        else:
+            response = create_header_card("전공/과정 정보", "🎓", "#ff6b6b")
+            response += create_warning_box(f"'{entity}' 정보를 찾을 수 없습니다.")
+            response += create_contact_box()
+            return response, "ERROR"
     
     # 🔥 일반 전공인 경우 - majors_info 사용
     if not majors_info.empty:
@@ -1605,9 +2131,7 @@ def handle_major_info(user_input, extracted_info, data_dict):
             if description and description != '-' and pd.notna(description):
                 response += f"""
 <div style="background: white; border-left: 4px solid #667eea; border-radius: 8px; padding: 16px; margin: 8px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-    <div style="color: #667eea; font-weight: 600; margin-bottom: 8px;">
-        📖 전공 소개
-    </div>
+    <div style="color: #667eea; font-weight: 600; margin-bottom: 8px;">📖 전공 소개</div>
     <p style="margin: 0; color: #333; line-height: 1.6;">{description}</p>
 </div>
 """
@@ -1615,9 +2139,7 @@ def handle_major_info(user_input, extracted_info, data_dict):
             # 기본 정보
             response += f"""
 <div style="background: white; border-left: 4px solid #11998e; border-radius: 8px; padding: 16px; margin: 8px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-    <div style="color: #11998e; font-weight: 600; margin-bottom: 12px;">
-        ℹ️ 기본 정보
-    </div>
+    <div style="color: #11998e; font-weight: 600; margin-bottom: 12px;">ℹ️ 기본 정보</div>
 """
             
             # 소속 계열
@@ -1647,6 +2169,7 @@ def handle_major_info(user_input, extracted_info, data_dict):
             
             response += "</div>"
             
+            # 🔥 일반 전공용 팁
             response += create_tip_box(f"💡 {major_name}을(를) 복수전공/부전공으로 신청하고 싶으시다면 '복수전공 신청 방법'을 물어보세요!")
             response += create_contact_box()
             
@@ -1814,6 +2337,13 @@ FALLBACK_HANDLERS = {
 # 🤖 통합 응답 생성 함수
 # ============================================================
 
+def save_previous_question(user_input):
+    """세션 상태에 이전 질문 저장"""
+    if 'previous_question' not in st.session_state:
+        st.session_state.previous_question = None
+    
+    st.session_state.previous_question = user_input
+    
 def generate_ai_response(user_input, chat_history, data_dict):
     """
     통합 응답 생성 함수
@@ -2306,11 +2836,11 @@ def main():
         </div>
         """, unsafe_allow_html=True)
         
-        # FAQ 메뉴 삭제 - 2개 메뉴만 유지
+        # FAQ 메뉴 삭제 - 3개 메뉴로 변경 (시뮬레이션 추가)
         menu = option_menu(
             menu_title=None,
-            options=["AI챗봇 상담", "다전공 제도 안내"], 
-            icons=["chat-dots-fill", "journal-bookmark-fill"],
+            options=["AI챗봇 상담", "다전공 제도 안내", "다전공 추천 시뮬레이션"], 
+            icons=["chat-dots-fill", "journal-bookmark-fill", "calculator-fill"],
             default_index=0,
             styles={
                 "container": {"padding": "0!important", "background-color": "#fafafa"},
@@ -2764,6 +3294,10 @@ def main():
                 st.warning(f"⚠️ {selected_program}에 해당하는 전공 목록을 찾을 수 없습니다.")
                 st.info("💡 데이터 파일에 해당 제도의 전공 정보가 있는지 확인해주세요.")
 
+    # 🎯 다전공 추천 시뮬레이션
+    elif menu == "다전공 추천 시뮬레이션":
+        from simulation import render_simulation_page
+        render_simulation_page()
 
 if __name__ == "__main__":
     initialize_session_state()
