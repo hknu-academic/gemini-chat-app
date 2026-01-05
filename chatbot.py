@@ -106,14 +106,14 @@ client = genai.Client(api_key=GEMINI_API_KEY)
 
 # 페이지 설정
 st.set_page_config(
-    page_title="다전공 안내 AI챗봇",
+    page_title="다전공 안내 챗봇",
     page_icon="🎓",
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
         'Get help': 'https://www.hknu.ac.kr',
         'Report a bug': 'https://www.hknu.ac.kr',
-        'About': "# 한경국립대 다전공 안내 AI 챗봇"
+        'About': "# 한경국립대 다전공 안내 AI기반 챗봇"
     }
 )
 
@@ -1838,7 +1838,7 @@ def handle_course_search(user_input, extracted_info, data_dict):
     if is_md:
         response += create_tip_box(f"💡 {actual_name}에 대해 더 알고 싶으시면 '{actual_name} 설명해줘'라고 물어보세요!")
     else:
-        response += create_tip_box(f"💡 더 자세한 사항이 궁금하시면 왼쪽 메뉴의 '다잔공 제도 안내'를 참고해 주세요!")
+        response += create_tip_box(f"💡 더 자세한 사항이 궁금하시면 왼쪽 메뉴의 '다전공 제도 안내'를 참고해 주세요!")
     
     response += create_contact_box()
     
@@ -2882,7 +2882,7 @@ def main():
         # FAQ 메뉴 삭제 - 3개 메뉴로 변경 (시뮬레이션 추가)
         menu = option_menu(
             menu_title=None,
-            options=["AI챗봇 상담", "다전공 제도 안내", "다전공 추천 시뮬레이션"], 
+            options=["챗봇 상담", "다전공 제도 안내", "다전공 추천 시뮬레이션"], 
             icons=["chat-dots-fill", "journal-bookmark-fill", "calculator-fill"],
             default_index=0,
             styles={
