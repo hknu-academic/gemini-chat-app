@@ -2882,7 +2882,7 @@ def main():
         # FAQ 메뉴 삭제 - 3개 메뉴로 변경 (시뮬레이션 추가)
         menu = option_menu(
             menu_title=None,
-            options=["챗봇 상담", "다전공 제도 안내", "다전공 추천 시뮬레이션"], 
+            options=["AI챗봇 상담", "다전공 제도 안내", "다전공 추천 시뮬레이션"], 
             icons=["chat-dots-fill", "journal-bookmark-fill", "calculator-fill"],
             default_index=0,
             styles={
@@ -3387,9 +3387,9 @@ def main():
                                                 except:
                                                     return 0
 
-                                            p_req = safe_int(p_row.get('본전공_전공필수'))
-                                            p_sel = safe_int(p_row.get('본전공_전공선택'))
-                                            p_total = safe_int(p_row.get('본전공_계'))
+                                            p_req = safe_int(p_row.get('본전공변화_전공필수'))
+                                            p_sel = safe_int(p_row.get('본전공변화_전공선택'))
+                                            p_total = safe_int(p_row.get('본전공변화_계'))
 
                                             st.write(f"전공필수: **{p_req}**학점")
                                             st.write(f"전공선택: **{p_sel}**학점")

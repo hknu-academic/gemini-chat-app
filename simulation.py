@@ -99,6 +99,11 @@ class CreditAnalysis:
     req_multi_elective: int = 0
     req_graduation_credits: int = 120
     
+    # 교양 기준 학점
+    req_basic_literacy: int = 0
+    req_basic_science: int = 0
+    req_core_liberal: int = 0
+    
     # 이수 학점
     completed_major_required: int = 0
     completed_major_elective: int = 0
@@ -106,12 +111,22 @@ class CreditAnalysis:
     completed_multi_elective: int = 0
     completed_total: int = 0
     
+    # 교양 이수 학점
+    completed_basic_literacy: int = 0
+    completed_basic_science: int = 0
+    completed_core_liberal: int = 0
+    
     # 부족 학점
     deficit_major_required: int = 0
     deficit_major_elective: int = 0
     deficit_multi_required: int = 0
     deficit_multi_elective: int = 0
     deficit_graduation: int = 0
+    
+    # 교양 부족 학점
+    deficit_basic_literacy: int = 0
+    deficit_basic_science: int = 0
+    deficit_core_liberal: int = 0
     
     # 학기 정보
     remaining_semesters: int = 0
@@ -221,7 +236,7 @@ def get_primary_requirement(
     if pr_df.empty:
         return None
     
-    # 정확한 매칭
+    # 1차: 정확한 매칭 (전공명, 제도유형, 기준학번 모두 일치)
     result = pr_df[
         (pr_df['전공명'] == primary_major) &
         (pr_df['제도유형'] == program_type) &
@@ -229,7 +244,7 @@ def get_primary_requirement(
     ]
     
     if result.empty:
-        # 부분 매칭 시도 (전공명에 키워드 포함)
+        # 2차: 부분 매칭 시도 (전공명에 키워드 포함)
         keyword = primary_major.replace('전공', '').replace('(평캠)', '').replace('(평택)', '').strip()
         if keyword:
             result = pr_df[
@@ -239,7 +254,7 @@ def get_primary_requirement(
             ]
     
     if result.empty:
-        # 가장 가까운 학번으로 대체
+        # 3차: 가장 가까운 학번으로 대체 (전공명, 제도유형은 일치)
         result = pr_df[
             (pr_df['전공명'] == primary_major) &
             (pr_df['제도유형'] == program_type)
@@ -249,24 +264,53 @@ def get_primary_requirement(
             result = result[result['기준학번'] == closest_year]
     
     if result.empty:
-        # 기본값 반환
-        return {
-            'major_name': primary_major,
-            'program_type': program_type,
-            'admission_year': admission_year,
-            'req_major_required': 15,
-            'req_major_elective': 33,
-            'req_total': 48,
-        }
+        # 4차: 제도유형만 일치하고 전공명으로 검색
+        keyword = primary_major.replace('전공', '').replace('(평캠)', '').replace('(평택)', '').strip()
+        if keyword:
+            result = pr_df[
+                (pr_df['전공명'].str.contains(keyword, case=False, na=False)) &
+                (pr_df['제도유형'] == program_type)
+            ]
+            if not result.empty:
+                # 가장 가까운 학번 선택
+                closest_year = min(result['기준학번'].unique(), key=lambda x: abs(x - admission_year))
+                result = result[result['기준학번'] == closest_year]
+    
+    if result.empty:
+        # 데이터를 찾지 못함
+        return None
     
     row = result.iloc[0]
+    
+    # 안전하게 값 추출 (여러 컬럼명 패턴 시도)
+    def safe_get_multi_pattern(patterns, default=None):
+        """여러 컬럼명 패턴을 시도하여 값 가져오기"""
+        for pattern in patterns:
+            if pattern in row.index:
+                val = row[pattern]
+                if pd.notna(val):
+                    return safe_int(val, default)
+        return default
+    
     return {
         'major_name': row['전공명'],
         'program_type': row['제도유형'],
-        'admission_year': safe_int(row['기준학번'], admission_year),
-        'req_major_required': safe_int(row['본전공_전공필수'], 15),
-        'req_major_elective': safe_int(row['본전공_전공선택'], 33),
-        'req_total': safe_int(row['본전공_계'], 48),
+        'admission_year': safe_int(row.get('기준학번'), admission_year),
+        'req_major_required': safe_get_multi_pattern(['본전공_전공필수', '본전공 전공필수'], 15),
+        'req_major_elective': safe_get_multi_pattern(['본전공_전공선택', '본전공 전공선택'], 33),
+        'req_total': safe_get_multi_pattern(['본전공_계', '본전공 계'], 48),
+        'req_major_required_changed': safe_get_multi_pattern(
+            ['본전공변화_전공필수', '본전공변화 전공필수', '본전공_전공필수', '본전공 전공필수'], 
+            15
+        ),
+        'req_major_elective_changed': safe_get_multi_pattern(
+            ['본전공변화_전공선택', '본전공변화 전공선택', '본전공_전공선택', '본전공 전공선택'], 
+            33
+        ),
+        'req_basic_literacy': safe_get_multi_pattern(['기초교양(기초문해)', '기초교양_기초문해', '기초문해'], None),
+        'req_basic_science': safe_get_multi_pattern(['기초교양(기초과학)', '기초교양_기초과학', '기초과학'], None),
+        'req_core_liberal': safe_get_multi_pattern(['핵심교양', '핵심 교양'], None),
+        'req_graduation_credits': safe_get_multi_pattern(['졸업학점', '졸업 학점'], 120),
     }
 
 
@@ -377,11 +421,15 @@ def calculate_deficit(completed: int, required: int) -> int:
 def calculate_graduation_credits(
     program_type: str,
     primary_grad_credits: int,
-    multi_grad_credits: int
+    multi_grad_credits: int,
+    multi_major_name: str = ""
 ) -> int:
     """제도별 졸업학점 계산"""
     if program_type == "복수전공":
-        # 둘 중 큰 값, 최대 130
+        # 건축학전공(5년제)는 164학점
+        if multi_major_name == "건축학전공(5년제)":
+            return min(max(primary_grad_credits, multi_grad_credits), 164)
+        # 일반 복수전공은 최대 130학점
         return min(max(primary_grad_credits, multi_grad_credits), MAX_DOUBLE_MAJOR_CREDITS)
     else:
         return primary_grad_credits
@@ -430,23 +478,32 @@ def analyze_current_status(student: StudentInput, pr_df: pd.DataFrame) -> Credit
     )
     analysis.max_additional_credits = calculate_max_additional_credits(analysis.remaining_semesters)
     
-    # 기본 졸업학점 (다전공 미참여 시 본전공 기준 = 120학점 가정)
-    analysis.req_graduation_credits = DEFAULT_GRADUATION_CREDITS
-    
-    # 본전공 기준 조회 (복수전공 기준으로 조회하여 기본값 사용)
+    # 본전공 기준 조회 (복수전공 기준으로 조회)
     pr_req = get_primary_requirement(student.primary_major, "복수전공", student.admission_year, pr_df)
     
     if pr_req:
         analysis.req_major_required = pr_req['req_major_required']
         analysis.req_major_elective = pr_req['req_major_elective']
+        # 교양 기준 (None이면 0으로 설정)
+        analysis.req_basic_literacy = pr_req['req_basic_literacy'] if pr_req['req_basic_literacy'] is not None else 0
+        analysis.req_basic_science = pr_req['req_basic_science'] if pr_req['req_basic_science'] is not None else 0
+        analysis.req_core_liberal = pr_req['req_core_liberal'] if pr_req['req_core_liberal'] is not None else 0
+        analysis.req_graduation_credits = pr_req['req_graduation_credits']
     else:
-        # 기본값
+        # 데이터를 찾지 못한 경우 기본값
         analysis.req_major_required = 15
         analysis.req_major_elective = 33
+        analysis.req_basic_literacy = 0
+        analysis.req_basic_science = 0
+        analysis.req_core_liberal = 0
+        analysis.req_graduation_credits = DEFAULT_GRADUATION_CREDITS
     
     # 이수 학점
     analysis.completed_major_required = student.credits_major_required
     analysis.completed_major_elective = student.credits_major_elective
+    analysis.completed_basic_literacy = student.credits_basic_literacy
+    analysis.completed_basic_science = student.credits_basic_science
+    analysis.completed_core_liberal = student.credits_core_liberal
     
     # 전공필수 초과분 이월
     adj_required, adj_elective = apply_excess_to_elective(
@@ -458,6 +515,9 @@ def analyze_current_status(student: StudentInput, pr_df: pd.DataFrame) -> Credit
     # 부족 학점
     analysis.deficit_major_required = calculate_deficit(adj_required, analysis.req_major_required)
     analysis.deficit_major_elective = calculate_deficit(adj_elective, analysis.req_major_elective)
+    analysis.deficit_basic_literacy = calculate_deficit(student.credits_basic_literacy, analysis.req_basic_literacy)
+    analysis.deficit_basic_science = calculate_deficit(student.credits_basic_science, analysis.req_basic_science)
+    analysis.deficit_core_liberal = calculate_deficit(student.credits_core_liberal, analysis.req_core_liberal)
     
     # 총 이수 학점
     if student.admission_type == "신입학":
@@ -512,15 +572,23 @@ def simulate_program(
     pr_req = get_primary_requirement(student.primary_major, program_type, student.admission_year, pr_df)
     
     if pr_req:
-        analysis.req_major_required = pr_req['req_major_required']
-        analysis.req_major_elective = pr_req['req_major_elective']
-        analysis.req_major_required_changed = pr_req['req_major_required']
-        analysis.req_major_elective_changed = pr_req['req_major_elective']
+        # 다전공 참여 시 변화된 본전공 학점 사용
+        analysis.req_major_required = pr_req['req_major_required_changed']
+        analysis.req_major_elective = pr_req['req_major_elective_changed']
+        analysis.req_major_required_changed = pr_req['req_major_required_changed']
+        analysis.req_major_elective_changed = pr_req['req_major_elective_changed']
+        # 교양 기준 (None이면 0으로 설정)
+        analysis.req_basic_literacy = pr_req['req_basic_literacy'] if pr_req['req_basic_literacy'] is not None else 0
+        analysis.req_basic_science = pr_req['req_basic_science'] if pr_req['req_basic_science'] is not None else 0
+        analysis.req_core_liberal = pr_req['req_core_liberal'] if pr_req['req_core_liberal'] is not None else 0
     else:
         analysis.req_major_required = 15
         analysis.req_major_elective = 33
         analysis.req_major_required_changed = 15
         analysis.req_major_elective_changed = 33
+        analysis.req_basic_literacy = 0
+        analysis.req_basic_science = 0
+        analysis.req_core_liberal = 0
     
     # 다전공 기준
     gr_req = get_graduation_requirement(multi_major, program_type, student.admission_year, gr_df)
@@ -547,7 +615,8 @@ def simulate_program(
     analysis.req_graduation_credits = calculate_graduation_credits(
         program_type,
         DEFAULT_GRADUATION_CREDITS,
-        gr_req['req_total'] + DEFAULT_GRADUATION_CREDITS if gr_req else DEFAULT_GRADUATION_CREDITS
+        gr_req['req_total'] + DEFAULT_GRADUATION_CREDITS if gr_req else DEFAULT_GRADUATION_CREDITS,
+        multi_major
     )
     
     # 이수 학점
@@ -730,28 +799,22 @@ def rank_recommendations(results: List[SimulationResult]) -> Tuple[List[Simulati
         
         return (grad_score, deficit_score, priority_score)
     
-    # 보조 추천 분리 (연계전공)
-    main_results = [r for r in results if r.program_type != "연계전공"]
-    supplementary = [r for r in results if r.program_type == "연계전공"]
+    # 모든 결과를 일반 추천으로 처리
+    main_results = results
+    supplementary = []
     
     # 정렬
     main_results.sort(key=get_score)
-    supplementary.sort(key=get_score)
     
     # 순위 부여 및 추천 사유 생성
     for idx, r in enumerate(main_results):
         r.recommendation_rank = idx + 1
         r.recommendation_reason = generate_recommendation_reason(r, idx + 1)
     
-    for idx, r in enumerate(supplementary):
-        r.recommendation_rank = idx + 1
-        r.is_supplementary = True
-        r.recommendation_reason = generate_recommendation_reason(r, idx + 1, is_supplementary=True)
-    
     return main_results, supplementary
 
 
-def generate_recommendation_reason(result: SimulationResult, rank: int, is_supplementary: bool = False) -> str:
+def generate_recommendation_reason(result: SimulationResult, rank: int) -> str:
     """추천 사유 생성"""
     reasons = []
     
@@ -783,9 +846,8 @@ def generate_recommendation_reason(result: SimulationResult, rank: int, is_suppl
         reasons.append("융합적 역량 강화")
     elif result.program_type == "융합부전공":
         reasons.append("적은 학점으로 융합 역량 확보")
-    
-    if is_supplementary:
-        reasons.insert(0, "[보조 추천]")
+    elif result.program_type == "연계전공":
+        reasons.append("다양한 학문 간 연계 학습")
     
     return " / ".join(reasons)
 
@@ -815,8 +877,27 @@ def run_simulation(student: StudentInput) -> AnalysisOutput:
     )
     
     if student.student_type == "신규 신청자" and student.desired_multi_major:
-        # 모든 제도에 대해 시뮬레이션
-        programs = ["복수전공", "부전공", "융합전공", "융합부전공"]
+        # 선택한 전공이 융합전공인지 확인
+        try:
+            majors_info_df = pd.read_excel('data/majors_info.xlsx')
+            selected_major_info = majors_info_df[majors_info_df['전공명'] == student.desired_multi_major]
+            
+            is_convergence_major = False
+            if not selected_major_info.empty:
+                # 제도유형에 '융합전공'이 포함되어 있으면 융합전공으로 판단
+                major_type = selected_major_info.iloc[0]['제도유형']
+                if pd.notna(major_type) and '융합전공' in str(major_type):
+                    is_convergence_major = True
+        except:
+            is_convergence_major = False
+        
+        # 융합전공 여부에 따라 시뮬레이션할 제도 결정
+        if is_convergence_major:
+            # 융합전공: 융합전공, 융합부전공, 연계전공만
+            programs = ["융합전공", "융합부전공", "연계전공"]
+        else:
+            # 일반전공: 복수전공, 부전공, 연계전공만
+            programs = ["복수전공", "부전공", "연계전공"]
         
         for program in programs:
             result = simulate_program(
@@ -972,9 +1053,26 @@ def render_step2_basic_info():
     </div>
     """, unsafe_allow_html=True)
     
-    majors = load_majors_list()
-    if not majors:
-        majors = ["경영학전공", "컴퓨터공학전공", "영미언어문화전공"]  # 기본값
+    # 본전공 목록을 계열별로 구분하여 가져오기 (융합전공 제외)
+    try:
+        majors_info_df = pd.read_excel('data/majors_info.xlsx')
+        
+        # 융합전공 제외 - 제도유형에 '융합전공'이 포함되지 않은 전공만
+        primary_majors_df = majors_info_df[~majors_info_df['제도유형'].str.contains('융합전공', na=False)]
+        
+        # 계열별로 그룹화하여 정렬된 리스트 생성
+        primary_majors_options = []
+        for category in sorted(primary_majors_df['계열'].unique()):
+            # 계열 구분선 추가
+            primary_majors_options.append(f"━━━━━ 📚 {category} ━━━━━")
+            # 해당 계열의 전공들 추가
+            category_majors = sorted(primary_majors_df[primary_majors_df['계열'] == category]['전공명'].tolist())
+            primary_majors_options.extend(category_majors)
+        
+        if not primary_majors_options:
+            primary_majors_options = ["경영학전공", "컴퓨터공학전공", "영미언어문화전공"]
+    except:
+        primary_majors_options = ["경영학전공", "컴퓨터공학전공", "영미언어문화전공"]
     
     col1, col2 = st.columns(2)
     
@@ -987,9 +1085,13 @@ def render_step2_basic_info():
         
         primary_major = st.selectbox(
             "🎓 본전공",
-            options=majors,
+            options=primary_majors_options,
             help="현재 소속된 전공을 선택하세요"
         )
+        
+        # 구분선이 선택된 경우 처리
+        if primary_major and primary_major.startswith("━━━━━"):
+            primary_major = None
     
     with col2:
         admission_type = st.selectbox(
@@ -1020,18 +1122,49 @@ def render_step2_basic_info():
     desired_multi_major = None
     if st.session_state.sim_student_type == "신규 신청자":
         st.markdown("---")
-        st.markdown("### 🎯 희망 다전공")
+        st.markdown("### 🎯 희망하는 다전공")
         
-        # 다전공 목록 (복수전공 기준으로 가져옴)
-        multi_majors = load_multi_majors_by_program("복수전공")
-        if not multi_majors:
-            multi_majors = majors
+        # 다전공 목록을 계열별로 구분하여 가져오기
+        try:
+            majors_info_df = pd.read_excel('data/majors_info.xlsx')
+            gr_df = pd.read_excel('data/graduation_requirements.xlsx')
+            
+            # 복수전공 또는 융합전공으로 가능한 전공들 필터링
+            double_majors = gr_df[gr_df['제도유형'] == '복수전공']['전공명'].unique()
+            
+            # majors_info에서 복수전공 가능한 전공들 + 융합전공 제도 전공들 가져오기
+            # 제도유형에 '융합전공'이 포함된 전공들도 추가
+            available_majors = majors_info_df[
+                (majors_info_df['전공명'].isin(double_majors)) | 
+                (majors_info_df['제도유형'].str.contains('융합전공', na=False))
+            ]
+            
+            # 계열별로 그룹화하여 정렬된 리스트 생성
+            multi_majors_options = []
+            for category in sorted(available_majors['계열'].unique()):
+                # 계열 구분선 추가
+                multi_majors_options.append(f"━━━━━ 📚 {category} ━━━━━")
+                # 해당 계열의 전공들 추가
+                category_majors = sorted(available_majors[available_majors['계열'] == category]['전공명'].tolist())
+                multi_majors_options.extend(category_majors)
+            
+            if not multi_majors_options:
+                multi_majors_options = majors
+        except:
+            multi_majors = load_multi_majors_by_program("복수전공")
+            if not multi_majors:
+                multi_majors = majors
+            multi_majors_options = multi_majors
         
         desired_multi_major = st.selectbox(
             "다전공으로 이수하고 싶은 전공",
-            options=multi_majors,
+            options=multi_majors_options,
             help="시뮬레이션할 다전공을 선택하세요"
         )
+        
+        # 구분선이 선택된 경우 처리
+        if desired_multi_major and desired_multi_major.startswith("━━━━━"):
+            desired_multi_major = None
     
     # 기존 참여자 정보
     current_program = None
@@ -1048,13 +1181,46 @@ def render_step2_basic_info():
             )
         
         with col2:
-            multi_majors = load_multi_majors_by_program(current_program)
-            if not multi_majors:
-                multi_majors = majors
+            # 계열별로 구분된 다전공 목록 생성
+            try:
+                majors_info_df = pd.read_excel('data/majors_info.xlsx')
+                gr_df = pd.read_excel('data/graduation_requirements.xlsx')
+                
+                # 선택된 제도에 해당하는 전공들 필터링
+                program_majors = gr_df[gr_df['제도유형'] == current_program]['전공명'].unique()
+                
+                # majors_info에서 해당 전공들 가져오기
+                # 제도유형 문자열에 현재 선택한 제도가 포함된 전공들도 추가
+                available_majors = majors_info_df[
+                    (majors_info_df['전공명'].isin(program_majors)) | 
+                    (majors_info_df['제도유형'].str.contains(current_program, na=False))
+                ]
+                
+                # 계열별로 그룹화하여 정렬된 리스트 생성
+                current_multi_majors_options = []
+                for category in sorted(available_majors['계열'].unique()):
+                    # 계열 구분선 추가
+                    current_multi_majors_options.append(f"━━━━━ 📚 {category} ━━━━━")
+                    # 해당 계열의 전공들 추가
+                    category_majors = sorted(available_majors[available_majors['계열'] == category]['전공명'].tolist())
+                    current_multi_majors_options.extend(category_majors)
+                
+                if not current_multi_majors_options:
+                    current_multi_majors_options = majors
+            except:
+                multi_majors = load_multi_majors_by_program(current_program)
+                if not multi_majors:
+                    multi_majors = majors
+                current_multi_majors_options = multi_majors
+            
             current_multi_major = st.selectbox(
                 "참여 중인 다전공명",
-                options=multi_majors
+                options=current_multi_majors_options
             )
+            
+            # 구분선이 선택된 경우 처리
+            if current_multi_major and current_multi_major.startswith("━━━━━"):
+                current_multi_major = None
     
     # 세션에 저장
     st.session_state.sim_admission_year = admission_year
@@ -1100,7 +1266,7 @@ def render_step3_credits():
     credits_core_liberal = 0
     
     if st.session_state.sim_admission_type == "신입학":
-        st.markdown("### 📚 교양 학점")
+        st.markdown("### 📚 교양 이수 학점")
         col1, col2, col3 = st.columns(3)
         
         with col1:
@@ -1125,19 +1291,19 @@ def render_step3_credits():
             )
     
     # 본전공 학점
-    st.markdown("### 🎓 본전공 학점")
+    st.markdown("### 🎓 본전공 이수 학점")
     col1, col2 = st.columns(2)
     
     with col1:
         credits_major_required = st.number_input(
-            "전공필수 이수 학점",
+            "전공필수 학점",
             min_value=0, max_value=60, value=0,
             help="본전공 전공필수 이수 학점"
         )
     
     with col2:
         credits_major_elective = st.number_input(
-            "전공선택 이수 학점",
+            "전공선택 학점",
             min_value=0, max_value=60, value=0,
             help="본전공 전공선택 이수 학점"
         )
@@ -1147,27 +1313,27 @@ def render_step3_credits():
     credits_multi_elective = 0
     
     if st.session_state.sim_student_type == "기존 참여자":
-        st.markdown(f"### 📘 다전공 학점 ({st.session_state.sim_current_program})")
+        st.markdown(f"### 📘 다전공 이수 학점 ({st.session_state.sim_current_program})")
         col1, col2 = st.columns(2)
         
         with col1:
             credits_multi_required = st.number_input(
-                "다전공 전공필수 이수 학점",
+                "다전공 전공필수 학점",
                 min_value=0, max_value=60, value=0,
                 help="다전공 전공필수 이수 학점"
             )
         
         with col2:
             credits_multi_elective = st.number_input(
-                "다전공 전공선택 이수 학점",
+                "다전공 전공선택 학점",
                 min_value=0, max_value=60, value=0,
                 help="다전공 전공선택 이수 학점"
             )
     
     # 잔여 학점
-    st.markdown("### 📋 기타 학점")
+    st.markdown("### 📋 기타 이수 학점")
     credits_free = st.number_input(
-        "잔여(자유) 이수 학점",
+        "잔여(자유) 학점",
         min_value=0, max_value=60, value=0,
         help="소양교양, 자유선택 등 기타 이수 학점"
     )
@@ -1272,28 +1438,48 @@ def render_step4_results():
     
     with col1:
         # 학점 현황 카드
+        liberal_html = ""
+        if student.admission_type == "신입학":
+            liberal_html = f"""<tr>
+<td style="padding: 8px 0; color: #666;">기초교양(기초문해)</td>
+<td style="text-align: right; font-weight: bold;">{analysis.completed_basic_literacy} / {analysis.req_basic_literacy} 학점</td>
+</tr>
+<tr>
+<td style="padding: 8px 0; color: #666;">기초교양(기초과학)</td>
+<td style="text-align: right; font-weight: bold;">{analysis.completed_basic_science} / {analysis.req_basic_science} 학점</td>
+</tr>
+<tr>
+<td style="padding: 8px 0; color: #666;">핵심교양</td>
+<td style="text-align: right; font-weight: bold;">{analysis.completed_core_liberal} / {analysis.req_core_liberal} 학점</td>
+</tr>"""
+        
         st.markdown(f"""
-        <div style="background: white; border-radius: 12px; padding: 20px; 
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
-            <h4 style="color: #333; margin-bottom: 15px;">📚 학점 현황</h4>
-            <table style="width: 100%;">
-                <tr>
-                    <td style="padding: 8px 0; color: #666;">전공필수</td>
-                    <td style="text-align: right; font-weight: bold;">{analysis.completed_major_required} / {analysis.req_major_required} 학점</td>
-                </tr>
-                <tr>
-                    <td style="padding: 8px 0; color: #666;">전공선택</td>
-                    <td style="text-align: right; font-weight: bold;">{analysis.completed_major_elective} / {analysis.req_major_elective} 학점</td>
-                </tr>
-                <tr style="border-top: 1px solid #eee;">
-                    <td style="padding: 12px 0; color: #333; font-weight: bold;">총 이수</td>
-                    <td style="text-align: right; font-weight: bold; color: #667eea; font-size: 1.1rem;">
-                        {analysis.completed_total} / {analysis.req_graduation_credits} 학점
-                    </td>
-                </tr>
-            </table>
-        </div>
-        """, unsafe_allow_html=True)
+<div style="background: white; border-radius: 12px; padding: 20px; 
+box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
+<h4 style="color: #333; margin-bottom: 15px;">📚 학점 현황</h4>
+<table style="width: 100%;">
+{liberal_html}
+<tr>
+<td style="padding: 8px 0; color: #666;">전공필수</td>
+<td style="text-align: right; font-weight: bold;">{analysis.completed_major_required} / {analysis.req_major_required} 학점</td>
+</tr>
+<tr>
+<td style="padding: 8px 0; color: #666;">전공선택</td>
+<td style="text-align: right; font-weight: bold;">{analysis.completed_major_elective} / {analysis.req_major_elective} 학점</td>
+</tr>
+<tr>
+<td style="padding: 8px 0; color: #666;">자유학점</td>
+<td style="text-align: right; font-weight: bold;">{student.credits_free} 학점</td>
+</tr>
+<tr style="border-top: 1px solid #eee;">
+<td style="padding: 12px 0; color: #333; font-weight: bold;">총 이수</td>
+<td style="text-align: right; font-weight: bold; color: #667eea; font-size: 1.1rem;">
+{analysis.completed_total} / {analysis.req_graduation_credits} 학점
+</td>
+</tr>
+</table>
+</div>
+""", unsafe_allow_html=True)
     
     with col2:
         # 부족 학점 카드
@@ -1301,47 +1487,71 @@ def render_step4_results():
         grad_color = "#28a745" if output.current_can_graduate else "#dc3545"
         grad_text = "졸업 가능" if output.current_can_graduate else "학점 부족"
         
+        # 교양 부족 HTML
+        liberal_deficit_html = ""
+        if student.admission_type == "신입학":
+            liberal_deficit_html = f"""<tr>
+<td style="padding: 8px 0; color: #666;">기초교양(기초문해) 부족</td>
+<td style="text-align: right; font-weight: bold; color: {'#dc3545' if analysis.deficit_basic_literacy > 0 else '#28a745'};">
+{analysis.deficit_basic_literacy} 학점
+</td>
+</tr>
+<tr>
+<td style="padding: 8px 0; color: #666;">기초교양(기초과학) 부족</td>
+<td style="text-align: right; font-weight: bold; color: {'#dc3545' if analysis.deficit_basic_science > 0 else '#28a745'};">
+{analysis.deficit_basic_science} 학점
+</td>
+</tr>
+<tr>
+<td style="padding: 8px 0; color: #666;">핵심교양 부족</td>
+<td style="text-align: right; font-weight: bold; color: {'#dc3545' if analysis.deficit_core_liberal > 0 else '#28a745'};">
+{analysis.deficit_core_liberal} 학점
+</td>
+</tr>"""
+        
         st.markdown(f"""
-        <div style="background: white; border-radius: 12px; padding: 20px; 
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
-            <h4 style="color: #333; margin-bottom: 15px;">⚠️ 부족 학점</h4>
-            <table style="width: 100%;">
-                <tr>
-                    <td style="padding: 8px 0; color: #666;">전공필수 부족</td>
-                    <td style="text-align: right; font-weight: bold; color: {'#dc3545' if analysis.deficit_major_required > 0 else '#28a745'};">
-                        {analysis.deficit_major_required} 학점
-                    </td>
-                </tr>
-                <tr>
-                    <td style="padding: 8px 0; color: #666;">전공선택 부족</td>
-                    <td style="text-align: right; font-weight: bold; color: {'#dc3545' if analysis.deficit_major_elective > 0 else '#28a745'};">
-                        {analysis.deficit_major_elective} 학점
-                    </td>
-                </tr>
-                <tr style="border-top: 1px solid #eee;">
-                    <td style="padding: 12px 0; color: #333; font-weight: bold;">상태</td>
-                    <td style="text-align: right; font-weight: bold; color: {grad_color}; font-size: 1.1rem;">
-                        {grad_text}
-                    </td>
-                </tr>
-            </table>
-        </div>
-        """, unsafe_allow_html=True)
+<div style="background: white; border-radius: 12px; padding: 20px; 
+box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
+<h4 style="color: #333; margin-bottom: 15px;">⚠️ 부족 현황</h4>
+<table style="width: 100%;">
+{liberal_deficit_html}
+<tr>
+<td style="padding: 8px 0; color: #666;">전공필수 부족</td>
+<td style="text-align: right; font-weight: bold; color: {'#dc3545' if analysis.deficit_major_required > 0 else '#28a745'};">
+{analysis.deficit_major_required} 학점
+</td>
+</tr>
+<tr>
+<td style="padding: 8px 0; color: #666;">전공선택 부족</td>
+<td style="text-align: right; font-weight: bold; color: {'#dc3545' if analysis.deficit_major_elective > 0 else '#28a745'};">
+{analysis.deficit_major_elective} 학점
+</td>
+</tr>
+<tr>
+<td style="padding: 8px 0; color: #666;">졸업학점 부족</td>
+<td style="text-align: right; font-weight: bold; color: {'#dc3545' if analysis.deficit_graduation > 0 else '#28a745'};">
+{analysis.deficit_graduation} 학점
+</td>
+</tr>
+<tr style="border-top: 1px solid #eee;">
+<td style="padding: 12px 0; color: #333; font-weight: bold;">이수 가능 여부</td>
+<td style="text-align: right; font-weight: bold; color: {grad_color}; font-size: 1.1rem;">
+{grad_text}
+</td>
+</tr>
+</table>
+</div>
+""", unsafe_allow_html=True)
     
     # 신규 신청자: 제도별 시뮬레이션 결과
     if student.student_type == "신규 신청자" and output.recommended_programs:
         st.markdown("---")
         st.markdown(f"### 🎯 다전공 제도별 시뮬레이션 ({student.desired_multi_major})")
         
-        # 추천 순위
-        for idx, result in enumerate(output.recommended_programs):
+        # 추천 순위 (보조 추천 포함 - 모두 동일하게 표시)
+        all_programs = output.recommended_programs + output.supplementary_programs
+        for idx, result in enumerate(all_programs):
             render_simulation_result_card(result, idx == 0)
-        
-        # 보조 추천
-        if output.supplementary_programs:
-            with st.expander("📎 보조 추천 (연계전공)"):
-                for result in output.supplementary_programs:
-                    render_simulation_result_card(result, False)
     
     # 기존 참여자: 현재 참여 중인 제도 분석
     elif student.student_type == "기존 참여자" and output.simulation_results:
@@ -1375,22 +1585,21 @@ def render_simulation_result_card(result: SimulationResult, is_top: bool):
     
     analysis = result.credit_analysis
     
-    # 색상 설정
-    if result.can_graduate:
-        if result.graduation_status == "가능":
-            status_color = "#28a745"
-            status_bg = "#d4edda"
-            status_icon = "✅"
-        else:
-            status_color = "#ffc107"
-            status_bg = "#fff3cd"
-            status_icon = "⚠️"
-    else:
-        status_color = "#dc3545"
-        status_bg = "#f8d7da"
-        status_icon = "❌"
-    
     border_style = "3px solid #667eea" if is_top else "1px solid #e9ecef"
+    
+    # 이수 학점 계산 (completed = 이미 이수한 학점, 신규 신청자는 0)
+    completed_major_req = analysis.completed_major_required
+    completed_major_elec = analysis.completed_major_elective
+    completed_multi_req = analysis.completed_multi_required
+    completed_multi_elec = analysis.completed_multi_elective
+    
+    # 부족 학점의 총합 (앞으로 이수해야 하는 학점)
+    total_deficit = (
+        analysis.deficit_major_required + 
+        analysis.deficit_major_elective + 
+        analysis.deficit_multi_required + 
+        analysis.deficit_multi_elective
+    )
     
     st.markdown(f"""
 <div style="background: white; border-radius: 12px; padding: 20px; 
@@ -1403,34 +1612,48 @@ box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
 </span>
 {f'<span style="background: #667eea; color: white; padding: 3px 10px; border-radius: 15px; font-size: 0.8rem; margin-left: 10px;">👑 추천 1위</span>' if is_top else ''}
 </div>
-<span style="background: {status_bg}; color: {status_color}; padding: 5px 15px; 
-border-radius: 20px; font-weight: bold;">
-{status_icon} {result.graduation_status}
-</span>
 </div>       
-<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 15px;">
+<div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; margin-bottom: 15px;">
 <div style="text-align: center; padding: 10px; background: #f8f9fa; border-radius: 8px;">
 <div style="font-size: 0.85rem; color: #666;">본전공 필수</div>
-<div style="font-size: 1.2rem; font-weight: bold; color: {'#dc3545' if analysis.deficit_major_required > 0 else '#28a745'};">
--{analysis.deficit_major_required}
+<div style="font-size: 0.95rem; font-weight: bold; color: #333;">
+{completed_major_req}/{analysis.req_major_required}
+</div>
+<div style="font-size: 0.8rem; color: {'#dc3545' if analysis.deficit_major_required > 0 else '#28a745'}; margin-top: 3px;">
+{'부족 ' + str(analysis.deficit_major_required) if analysis.deficit_major_required > 0 else '✓'}
 </div>
 </div>
 <div style="text-align: center; padding: 10px; background: #f8f9fa; border-radius: 8px;">
 <div style="font-size: 0.85rem; color: #666;">본전공 선택</div>
-<div style="font-size: 1.2rem; font-weight: bold; color: {'#dc3545' if analysis.deficit_major_elective > 0 else '#28a745'};">
--{analysis.deficit_major_elective}
+<div style="font-size: 0.95rem; font-weight: bold; color: #333;">
+{completed_major_elec}/{analysis.req_major_elective}
+</div>
+<div style="font-size: 0.8rem; color: {'#dc3545' if analysis.deficit_major_elective > 0 else '#28a745'}; margin-top: 3px;">
+{'부족 ' + str(analysis.deficit_major_elective) if analysis.deficit_major_elective > 0 else '✓'}
 </div>
 </div>
 <div style="text-align: center; padding: 10px; background: #e3f2fd; border-radius: 8px;">
 <div style="font-size: 0.85rem; color: #666;">다전공 필수</div>
-<div style="font-size: 1.2rem; font-weight: bold; color: #1565c0;">
-{analysis.req_multi_required}
+<div style="font-size: 0.95rem; font-weight: bold; color: #333;">
+{completed_multi_req}/{analysis.req_multi_required}
+</div>
+<div style="font-size: 0.8rem; color: {'#dc3545' if analysis.deficit_multi_required > 0 else '#28a745'}; margin-top: 3px;">
+{'부족 ' + str(analysis.deficit_multi_required) if analysis.deficit_multi_required > 0 else '✓'}
 </div>
 </div>
 <div style="text-align: center; padding: 10px; background: #e3f2fd; border-radius: 8px;">
 <div style="font-size: 0.85rem; color: #666;">다전공 선택</div>
-<div style="font-size: 1.2rem; font-weight: bold; color: #1565c0;">
-{analysis.req_multi_elective}
+<div style="font-size: 0.95rem; font-weight: bold; color: #333;">
+{completed_multi_elec}/{analysis.req_multi_elective}
+</div>
+<div style="font-size: 0.8rem; color: {'#dc3545' if analysis.deficit_multi_elective > 0 else '#28a745'}; margin-top: 3px;">
+{'부족 ' + str(analysis.deficit_multi_elective) if analysis.deficit_multi_elective > 0 else '✓'}
+</div>
+</div>
+<div style="text-align: center; padding: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px;">
+<div style="font-size: 0.85rem; color: white; font-weight: bold;">이수해야 하는<br>총 전공 학점수</div>
+<div style="font-size: 1.2rem; font-weight: bold; color: white; margin-top: 5px;">
+{total_deficit}
 </div>
 </div>
 </div>
