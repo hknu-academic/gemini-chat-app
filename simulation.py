@@ -143,7 +143,7 @@ class SimulationResult:
     program_type: str                    # 제도 유형
     multi_major_name: str                # 다전공 전공명
     
-    # 졸업 가능 여부
+    # 이수 가능 여부
     can_graduate: bool = False
     graduation_status: str = "어려움"
     
@@ -442,7 +442,7 @@ def determine_graduation_status(
     deficit_multi_required: int,
     remaining_semesters: int
 ) -> Tuple[str, bool]:
-    """졸업 가능 상태 판단"""
+    """이수 가능 상태 판단"""
     if deficit_total <= 0:
         return "가능", True
     
@@ -638,6 +638,16 @@ def simulate_program(
     analysis.deficit_multi_required = analysis.req_multi_required
     analysis.deficit_multi_elective = analysis.req_multi_elective
     
+    # 교양 부족 학점 계산 추가
+    analysis.deficit_basic_literacy = calculate_deficit(student.credits_basic_literacy, analysis.req_basic_literacy)
+    analysis.deficit_basic_science = calculate_deficit(student.credits_basic_science, analysis.req_basic_science)
+    analysis.deficit_core_liberal = calculate_deficit(student.credits_core_liberal, analysis.req_core_liberal)
+    
+    # 교양 이수 학점 기록
+    analysis.completed_basic_literacy = student.credits_basic_literacy
+    analysis.completed_basic_science = student.credits_basic_science
+    analysis.completed_core_liberal = student.credits_core_liberal
+    
     # 총 이수 학점
     if student.admission_type == "신입학":
         analysis.completed_total = (
@@ -677,7 +687,7 @@ def simulate_program(
         analysis.req_graduation_credits
     )
     
-    # 졸업 가능 여부 판단
+    # 이수 가능 여부 판단
     status, can_grad = determine_graduation_status(
         total_deficit,
         analysis.max_additional_credits,
@@ -690,86 +700,232 @@ def simulate_program(
     result.can_graduate = can_grad
     result.credit_analysis = analysis
     
-    # 학기별 이수 계획 생성
-    result.semester_plan = generate_semester_plan(analysis)
+    # 학기별 이수 계획은 외부에서 생성하도록 변경
+    # result.semester_plan = generate_semester_plan(analysis, student)
     
     return result
 
 
-def generate_semester_plan(analysis: CreditAnalysis) -> List[Dict]:
-    """학기별 이수 계획 생성"""
+def generate_semester_plan(analysis: CreditAnalysis, student: StudentInput) -> List[Dict]:
+    """학기별 이수 계획 생성 - 학년/학기 표기 및 우선순위 반영"""
     plan = []
     
     if analysis.remaining_semesters <= 0:
         return plan
     
-    # 총 부족 학점
-    total_deficit = (
+    # 교양 부족 학점 계산
+    deficit_basic_literacy = analysis.deficit_basic_literacy
+    deficit_basic_science = analysis.deficit_basic_science
+    deficit_core_liberal = analysis.deficit_core_liberal
+    
+    # 남은 필수 이수학점 = 본전공 부족 + 다전공 부족 (교양 포함)
+    required_deficit = (
         analysis.deficit_major_required +
         analysis.deficit_major_elective +
         analysis.deficit_multi_required +
         analysis.deficit_multi_elective +
-        max(0, analysis.deficit_graduation - (
-            analysis.deficit_major_required +
-            analysis.deficit_major_elective +
-            analysis.deficit_multi_required +
-            analysis.deficit_multi_elective
-        ))
+        deficit_basic_literacy +
+        deficit_basic_science +
+        deficit_core_liberal
     )
     
-    # 학기별 균등 배분
-    credits_per_semester = min(MAX_CREDITS_PER_SEMESTER, 
-                               (total_deficit + analysis.remaining_semesters - 1) // analysis.remaining_semesters)
+    # 총 이수학점 대비 부족학점 = 졸업학점 - 현재 총 이수학점
+    graduation_deficit = analysis.deficit_graduation
+    
+    # 두 값 중 큰 값을 기준으로 학기별 계획 수립
+    total_deficit = max(required_deficit, graduation_deficit)
+    
+    # 자유학점 계산
+    # - 총 이수학점 대비 부족학점 > 남은 필수 이수학점: 차이만큼 자유학점 배정
+    # - 남은 필수 이수학점 >= 총 이수학점 대비 부족학점: 자유학점 배정 없음
+    if graduation_deficit > required_deficit:
+        free_deficit = graduation_deficit - required_deficit
+    else:
+        free_deficit = 0
+    
+    # 현재 학기 계산 (신입학: 8학기, 편입학: 4학기)
+    total_semesters = 8 if student.admission_type == "신입학" else 4
+    current_semester = student.completed_semesters
     
     remaining_major_req = analysis.deficit_major_required
     remaining_major_elec = analysis.deficit_major_elective
     remaining_multi_req = analysis.deficit_multi_required
     remaining_multi_elec = analysis.deficit_multi_elective
+    remaining_basic_literacy = deficit_basic_literacy
+    remaining_basic_science = deficit_basic_science
+    remaining_core_liberal = deficit_core_liberal
+    remaining_free = free_deficit
     
-    for sem in range(1, analysis.remaining_semesters + 1):
+    # 전체 남은 학점 추적 (total_deficit을 초과하지 않도록)
+    total_remaining = total_deficit
+    
+    for sem_idx in range(1, analysis.remaining_semesters + 1):
+        # 학년/학기 계산
+        absolute_semester = current_semester + sem_idx
+        if student.admission_type == "신입학":
+            # 신입학: 1학기=1-1, 2학기=1-2, 3학기=2-1, ...
+            grade = (absolute_semester + 1) // 2
+            semester = 1 if absolute_semester % 2 == 1 else 2
+        else:
+            # 편입학: 3학년 편입
+            # absolute_semester: 1학기=3-1, 2학기=3-2, 3학기=4-1, 4학기=4-2
+            grade = 3 + (absolute_semester - 1) // 2
+            semester = 1 if absolute_semester % 2 == 1 else 2
+        
         sem_plan = {
-            "semester": sem,
+            "semester": f"{grade}학년 {semester}학기",
+            "basic_literacy": 0,
+            "basic_science": 0,
+            "core_liberal": 0,
             "major_required": 0,
             "major_elective": 0,
             "multi_required": 0,
             "multi_elective": 0,
+            "free": 0,
             "total": 0
         }
         
-        remaining_credits = credits_per_semester
+        # 남은 학기 수
+        remaining_semesters_count = analysis.remaining_semesters - sem_idx + 1
         
-        # 전공필수 우선 배정
-        if remaining_major_req > 0:
-            take = min(remaining_major_req, remaining_credits, 6)
-            sem_plan["major_required"] = take
-            remaining_major_req -= take
-            remaining_credits -= take
+        # 이번 학기에 배정할 학점 (최대 18학점, 남은 전체 학점 고려)
+        credits_this_semester = min(
+            MAX_CREDITS_PER_SEMESTER,
+            (total_remaining + remaining_semesters_count - 1) // remaining_semesters_count,
+            total_remaining  # 남은 전체 학점을 초과하지 않음
+        )
         
-        if remaining_multi_req > 0 and remaining_credits > 0:
-            take = min(remaining_multi_req, remaining_credits, 6)
-            sem_plan["multi_required"] = take
-            remaining_multi_req -= take
-            remaining_credits -= take
+        remaining_credits = credits_this_semester
         
-        # 전공선택 배정
-        if remaining_major_elec > 0 and remaining_credits > 0:
-            take = min(remaining_major_elec, remaining_credits)
-            sem_plan["major_elective"] = take
-            remaining_major_elec -= take
-            remaining_credits -= take
+        # 우선순위에 따른 학점 배정
+        # 1학년: 교양 우선, 4학년: 교양 우선
+        # 2-3학년: 전공 우선
         
-        if remaining_multi_elec > 0 and remaining_credits > 0:
-            take = min(remaining_multi_elec, remaining_credits)
-            sem_plan["multi_elective"] = take
-            remaining_multi_elec -= take
-            remaining_credits -= take
+        if grade == 1 or grade == 4:
+            # 1학년, 4학년: 교양 우선
+            # 기초교양(기초문해)
+            if remaining_basic_literacy > 0 and remaining_credits > 0:
+                take = min(remaining_basic_literacy, remaining_credits)
+                sem_plan["basic_literacy"] = take
+                remaining_basic_literacy -= take
+                remaining_credits -= take
+            
+            # 기초교양(기초과학)
+            if remaining_basic_science > 0 and remaining_credits > 0:
+                take = min(remaining_basic_science, remaining_credits)
+                sem_plan["basic_science"] = take
+                remaining_basic_science -= take
+                remaining_credits -= take
+            
+            # 핵심교양
+            if remaining_core_liberal > 0 and remaining_credits > 0:
+                take = min(remaining_core_liberal, remaining_credits)
+                sem_plan["core_liberal"] = take
+                remaining_core_liberal -= take
+                remaining_credits -= take
+            
+            # 전공필수
+            if remaining_major_req > 0 and remaining_credits > 0:
+                take = min(remaining_major_req, remaining_credits, 6)
+                sem_plan["major_required"] = take
+                remaining_major_req -= take
+                remaining_credits -= take
+            
+            if remaining_multi_req > 0 and remaining_credits > 0:
+                take = min(remaining_multi_req, remaining_credits, 6)
+                sem_plan["multi_required"] = take
+                remaining_multi_req -= take
+                remaining_credits -= take
+            
+            # 전공선택
+            if remaining_major_elec > 0 and remaining_credits > 0:
+                take = min(remaining_major_elec, remaining_credits)
+                sem_plan["major_elective"] = take
+                remaining_major_elec -= take
+                remaining_credits -= take
+            
+            if remaining_multi_elec > 0 and remaining_credits > 0:
+                take = min(remaining_multi_elec, remaining_credits)
+                sem_plan["multi_elective"] = take
+                remaining_multi_elec -= take
+                remaining_credits -= take
+            
+            # 자유학점은 free_deficit이 있을 때만 배정
+            if remaining_free > 0 and remaining_credits > 0:
+                take = min(remaining_free, remaining_credits)
+                sem_plan["free"] = take
+                remaining_free -= take
+                remaining_credits -= take
+                
+        else:
+            # 2-3학년: 전공 우선
+            # 전공필수
+            if remaining_major_req > 0 and remaining_credits > 0:
+                take = min(remaining_major_req, remaining_credits, 6)
+                sem_plan["major_required"] = take
+                remaining_major_req -= take
+                remaining_credits -= take
+            
+            if remaining_multi_req > 0 and remaining_credits > 0:
+                take = min(remaining_multi_req, remaining_credits, 6)
+                sem_plan["multi_required"] = take
+                remaining_multi_req -= take
+                remaining_credits -= take
+            
+            # 전공선택
+            if remaining_major_elec > 0 and remaining_credits > 0:
+                take = min(remaining_major_elec, remaining_credits)
+                sem_plan["major_elective"] = take
+                remaining_major_elec -= take
+                remaining_credits -= take
+            
+            if remaining_multi_elec > 0 and remaining_credits > 0:
+                take = min(remaining_multi_elec, remaining_credits)
+                sem_plan["multi_elective"] = take
+                remaining_multi_elec -= take
+                remaining_credits -= take
+            
+            # 기초교양(기초문해)
+            if remaining_basic_literacy > 0 and remaining_credits > 0:
+                take = min(remaining_basic_literacy, remaining_credits)
+                sem_plan["basic_literacy"] = take
+                remaining_basic_literacy -= take
+                remaining_credits -= take
+            
+            # 기초교양(기초과학)
+            if remaining_basic_science > 0 and remaining_credits > 0:
+                take = min(remaining_basic_science, remaining_credits)
+                sem_plan["basic_science"] = take
+                remaining_basic_science -= take
+                remaining_credits -= take
+            
+            # 핵심교양
+            if remaining_core_liberal > 0 and remaining_credits > 0:
+                take = min(remaining_core_liberal, remaining_credits)
+                sem_plan["core_liberal"] = take
+                remaining_core_liberal -= take
+                remaining_credits -= take
+            
+            # 자유학점은 free_deficit이 있을 때만 배정
+            if remaining_free > 0 and remaining_credits > 0:
+                take = min(remaining_free, remaining_credits)
+                sem_plan["free"] = take
+                remaining_free -= take
+                remaining_credits -= take
         
         sem_plan["total"] = (
             sem_plan["major_required"] +
             sem_plan["major_elective"] +
             sem_plan["multi_required"] +
-            sem_plan["multi_elective"]
+            sem_plan["multi_elective"] +
+            sem_plan["basic_literacy"] +
+            sem_plan["basic_science"] +
+            sem_plan["core_liberal"] +
+            sem_plan["free"]
         )
+        
+        # 전체 남은 학점 감소
+        total_remaining -= sem_plan["total"]
         
         if sem_plan["total"] > 0:
             plan.append(sem_plan)
@@ -782,7 +938,7 @@ def rank_recommendations(results: List[SimulationResult]) -> Tuple[List[Simulati
     
     def get_score(r: SimulationResult) -> Tuple:
         """정렬 점수 계산 (낮을수록 좋음)"""
-        # 1. 졸업 가능 여부 (가능 > 위험 > 어려움)
+        # 1. 이수 가능 여부 (가능 > 위험 > 어려움)
         grad_score = {"가능": 0, "위험": 1, "어려움": 2}.get(r.graduation_status, 2)
         
         # 2. 총 부족 학점 (±3학점 동일 취급을 위해 3으로 나눔)
@@ -827,9 +983,9 @@ def generate_recommendation_reason(result: SimulationResult, rank: int) -> str:
     )
     
     if result.graduation_status == "가능":
-        reasons.append(f"남은 {analysis.remaining_semesters}학기 내 졸업 가능")
+        reasons.append(f"남은 {analysis.remaining_semesters}학기 내 이수 가능")
     elif result.graduation_status == "위험":
-        reasons.append(f"학기당 집중 이수 시 졸업 가능")
+        reasons.append(f"학기당 집중 이수 시 이수 가능")
     else:
         reasons.append(f"현재 학점으로는 졸업이 어려움")
     
@@ -904,6 +1060,8 @@ def run_simulation(student: StudentInput) -> AnalysisOutput:
                 student, program, student.desired_multi_major,
                 pr_df, gr_df
             )
+            # 학기별 이수 계획 생성
+            result.semester_plan = generate_semester_plan(result.credit_analysis, student)
             output.simulation_results.append(result)
         
         # 추천 순위 정렬
@@ -928,6 +1086,37 @@ def run_simulation(student: StudentInput) -> AnalysisOutput:
             student.credits_multi_elective,
             result.credit_analysis.req_multi_elective
         )
+        
+        # 총 이수 학점 재계산 (다전공 학점 포함)
+        if student.admission_type == "신입학":
+            result.credit_analysis.completed_total = (
+                student.credits_basic_literacy +
+                student.credits_basic_science +
+                student.credits_core_liberal +
+                student.credits_major_required +
+                student.credits_major_elective +
+                student.credits_multi_required +
+                student.credits_multi_elective +
+                student.credits_free
+            )
+        else:
+            result.credit_analysis.completed_total = (
+                student.transfer_credits +
+                student.credits_major_required +
+                student.credits_major_elective +
+                student.credits_multi_required +
+                student.credits_multi_elective +
+                student.credits_free
+            )
+        
+        # 졸업학점 부족분 재계산
+        result.credit_analysis.deficit_graduation = calculate_deficit(
+            result.credit_analysis.completed_total,
+            result.credit_analysis.req_graduation_credits
+        )
+        
+        # 학기별 이수 계획 생성 (부족 학점 재계산 후)
+        result.semester_plan = generate_semester_plan(result.credit_analysis, student)
         
         output.simulation_results.append(result)
     
@@ -1429,18 +1618,19 @@ def render_step4_results():
     
     st.markdown("---")
     
-    # 현재 상태 분석
-    st.markdown("### 📈 현재 상태 (본전공 기준)")
-    
-    analysis = output.current_analysis
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # 학점 현황 카드
-        liberal_html = ""
-        if student.admission_type == "신입학":
-            liberal_html = f"""<tr>
+    # 현재 상태 분석 - 신규 신청자만 표시
+    if student.student_type == "신규 신청자":
+        st.markdown("### 📈 현재 상태 (본전공 기준)")
+        
+        analysis = output.current_analysis
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # 학점 현황 카드
+            liberal_html = ""
+            if student.admission_type == "신입학":
+                liberal_html = f"""<tr>
 <td style="padding: 8px 0; color: #666;">기초교양(기초문해)</td>
 <td style="text-align: right; font-weight: bold;">{analysis.completed_basic_literacy} / {analysis.req_basic_literacy} 학점</td>
 </tr>
@@ -1452,8 +1642,8 @@ def render_step4_results():
 <td style="padding: 8px 0; color: #666;">핵심교양</td>
 <td style="text-align: right; font-weight: bold;">{analysis.completed_core_liberal} / {analysis.req_core_liberal} 학점</td>
 </tr>"""
-        
-        st.markdown(f"""
+            
+            st.markdown(f"""
 <div style="background: white; border-radius: 12px; padding: 20px; 
 box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
 <h4 style="color: #333; margin-bottom: 15px;">📚 학점 현황</h4>
@@ -1480,17 +1670,17 @@ box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
 </table>
 </div>
 """, unsafe_allow_html=True)
-    
-    with col2:
-        # 부족 학점 카드
-        total_deficit = analysis.deficit_major_required + analysis.deficit_major_elective
-        grad_color = "#28a745" if output.current_can_graduate else "#dc3545"
-        grad_text = "졸업 가능" if output.current_can_graduate else "학점 부족"
         
-        # 교양 부족 HTML
-        liberal_deficit_html = ""
-        if student.admission_type == "신입학":
-            liberal_deficit_html = f"""<tr>
+        with col2:
+            # 부족 학점 카드
+            total_deficit = analysis.deficit_major_required + analysis.deficit_major_elective
+            grad_color = "#28a745" if output.current_can_graduate else "#dc3545"
+            grad_text = "이수 가능" if output.current_can_graduate else "학점 부족"
+            
+            # 교양 부족 HTML
+            liberal_deficit_html = ""
+            if student.admission_type == "신입학":
+                liberal_deficit_html = f"""<tr>
 <td style="padding: 8px 0; color: #666;">기초교양(기초문해) 부족</td>
 <td style="text-align: right; font-weight: bold; color: {'#dc3545' if analysis.deficit_basic_literacy > 0 else '#28a745'};">
 {analysis.deficit_basic_literacy} 학점
@@ -1508,8 +1698,8 @@ box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
 {analysis.deficit_core_liberal} 학점
 </td>
 </tr>"""
-        
-        st.markdown(f"""
+            
+            st.markdown(f"""
 <div style="background: white; border-radius: 12px; padding: 20px; 
 box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
 <h4 style="color: #333; margin-bottom: 15px;">⚠️ 부족 현황</h4>
@@ -1684,18 +1874,44 @@ def render_current_participant_analysis(result: SimulationResult, student: Stude
             <h4 style="color: #667eea; margin-bottom: 15px;">🎓 본전공 ({student.primary_major})</h4>
             <table style="width: 100%;">
                 <tr>
+                    <td style="padding: 8px 0; color: #666; width: 50%;">기초교양(기초문해)</td>
+                    <td style="text-align: right; width: 30%;">{student.credits_basic_literacy} / {analysis.req_basic_literacy} 학점</td>
+                    <td style="text-align: right; width: 20%; color: {'#dc3545' if analysis.deficit_basic_literacy > 0 else '#28a745'}; font-weight: bold;">
+                        {'부족 ' + str(analysis.deficit_basic_literacy) + '학점' if analysis.deficit_basic_literacy > 0 else '✓'}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: #666;">기초교양(기초과학)</td>
+                    <td style="text-align: right;">{student.credits_basic_science} / {analysis.req_basic_science} 학점</td>
+                    <td style="text-align: right; color: {'#dc3545' if analysis.deficit_basic_science > 0 else '#28a745'}; font-weight: bold;">
+                        {'부족 ' + str(analysis.deficit_basic_science) + '학점' if analysis.deficit_basic_science > 0 else '✓'}
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: #666;">핵심교양</td>
+                    <td style="text-align: right;">{student.credits_core_liberal} / {analysis.req_core_liberal} 학점</td>
+                    <td style="text-align: right; color: {'#dc3545' if analysis.deficit_core_liberal > 0 else '#28a745'}; font-weight: bold;">
+                        {'부족 ' + str(analysis.deficit_core_liberal) + '학점' if analysis.deficit_core_liberal > 0 else '✓'}
+                    </td>
+                </tr>
+                <tr>
                     <td style="padding: 8px 0; color: #666;">전공필수</td>
                     <td style="text-align: right;">{student.credits_major_required} / {analysis.req_major_required} 학점</td>
                     <td style="text-align: right; color: {'#dc3545' if analysis.deficit_major_required > 0 else '#28a745'}; font-weight: bold;">
-                        {'부족 ' + str(analysis.deficit_major_required) if analysis.deficit_major_required > 0 else '✓'}
+                        {'부족 ' + str(analysis.deficit_major_required) + '학점' if analysis.deficit_major_required > 0 else '✓'}
                     </td>
                 </tr>
                 <tr>
                     <td style="padding: 8px 0; color: #666;">전공선택</td>
                     <td style="text-align: right;">{student.credits_major_elective} / {analysis.req_major_elective} 학점</td>
                     <td style="text-align: right; color: {'#dc3545' if analysis.deficit_major_elective > 0 else '#28a745'}; font-weight: bold;">
-                        {'부족 ' + str(analysis.deficit_major_elective) if analysis.deficit_major_elective > 0 else '✓'}
+                        {'부족 ' + str(analysis.deficit_major_elective) + '학점' if analysis.deficit_major_elective > 0 else '✓'}
                     </td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: #666;">자유학점</td>
+                    <td style="text-align: right;">{student.credits_free} 학점</td>
+                    <td></td>
                 </tr>
             </table>
         </div>
@@ -1708,29 +1924,63 @@ def render_current_participant_analysis(result: SimulationResult, student: Stude
             <h4 style="color: #764ba2; margin-bottom: 15px;">📘 다전공 ({student.current_multi_major})</h4>
             <table style="width: 100%;">
                 <tr>
-                    <td style="padding: 8px 0; color: #666;">전공필수</td>
-                    <td style="text-align: right;">{student.credits_multi_required} / {analysis.req_multi_required} 학점</td>
-                    <td style="text-align: right; color: {'#dc3545' if analysis.deficit_multi_required > 0 else '#28a745'}; font-weight: bold;">
-                        {'부족 ' + str(analysis.deficit_multi_required) if analysis.deficit_multi_required > 0 else '✓'}
+                    <td style="padding: 8px 0; color: #666; width: 50%;">전공필수</td>
+                    <td style="text-align: right; width: 30%;">{student.credits_multi_required} / {analysis.req_multi_required} 학점</td>
+                    <td style="text-align: right; width: 20%; color: {'#dc3545' if analysis.deficit_multi_required > 0 else '#28a745'}; font-weight: bold;">
+                        {'부족 ' + str(analysis.deficit_multi_required) + '학점' if analysis.deficit_multi_required > 0 else '✓'}
                     </td>
                 </tr>
                 <tr>
                     <td style="padding: 8px 0; color: #666;">전공선택</td>
                     <td style="text-align: right;">{student.credits_multi_elective} / {analysis.req_multi_elective} 학점</td>
                     <td style="text-align: right; color: {'#dc3545' if analysis.deficit_multi_elective > 0 else '#28a745'}; font-weight: bold;">
-                        {'부족 ' + str(analysis.deficit_multi_elective) if analysis.deficit_multi_elective > 0 else '✓'}
+                        {'부족 ' + str(analysis.deficit_multi_elective) + '학점' if analysis.deficit_multi_elective > 0 else '✓'}
                     </td>
                 </tr>
             </table>
         </div>
         """, unsafe_allow_html=True)
     
-    # 졸업 가능 여부
-    total_deficit = (analysis.deficit_major_required + analysis.deficit_major_elective +
-                    analysis.deficit_multi_required + analysis.deficit_multi_elective)
+    # 총 이수 학점 (본전공 카드와 같은 크기)
+    col_total, col_empty = st.columns(2)
+    
+    with col_total:
+        total_all_completed = (student.credits_basic_literacy + student.credits_basic_science + 
+                              student.credits_core_liberal + student.credits_major_required + 
+                              student.credits_major_elective + student.credits_free +
+                              student.credits_multi_required + student.credits_multi_elective)
+        
+        # 전체 부족 학점 (교양 부족 제외, 졸업학점으로 판단)
+        total_all_deficit = max(0, analysis.req_graduation_credits - total_all_completed)
+        
+        st.markdown(f"""
+        <div style="margin-top: 20px; padding: 8px 0;">
+            <table style="width: 100%;">
+                <tr>
+                    <td style="padding: 8px 0; color: #333; font-weight: bold; width: 50%;">📊 총 이수학점 대비 부족학점</td>
+                    <td style="text-align: right; font-weight: bold; color: #333; width: 30%;">
+                        {total_all_completed} / {analysis.req_graduation_credits} 학점
+                    </td>
+                    <td style="text-align: right; font-weight: bold; color: {'#dc3545' if total_all_deficit > 0 else '#28a745'}; width: 20%;">
+                        {'부족 ' + str(total_all_deficit) + '학점' if total_all_deficit > 0 else '✓'}
+                    </td>
+                </tr>
+            </table>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # 이수 가능 여부
+    # 남은 필수 이수학점 = 본전공 부족 학점 합계 + 다전공 부족 학점 합계
+    primary_deficit = (analysis.deficit_basic_literacy + analysis.deficit_basic_science + 
+                      analysis.deficit_core_liberal + analysis.deficit_major_required + 
+                      analysis.deficit_major_elective)
+    
+    multi_deficit = (analysis.deficit_multi_required + analysis.deficit_multi_elective)
+    
+    total_deficit = primary_deficit + multi_deficit
     
     status_color = "#28a745" if result.can_graduate else "#dc3545"
-    status_text = "졸업 가능" if result.can_graduate else "학점 부족"
+    status_text = "이수 가능" if result.can_graduate else "학점 부족"
     
     st.markdown(f"""
     <div style="background: linear-gradient(135deg, {status_color}15 0%, {status_color}05 100%); 
@@ -1741,7 +1991,7 @@ def render_current_participant_analysis(result: SimulationResult, student: Stude
         </h4>
         <p style="color: #666; margin: 0;">
             남은 학기: <strong>{analysis.remaining_semesters}학기</strong> / 
-            추가 이수 필요: <strong>{total_deficit}학점</strong> /
+            남은 필수 이수학점: <strong>{total_deficit}학점</strong> /
             학기당 평균: <strong>{total_deficit // max(1, analysis.remaining_semesters)}학점</strong>
         </p>
     </div>
@@ -1763,21 +2013,50 @@ def render_semester_plan_table(plan: List[Dict]):
     
     # DataFrame으로 변환
     df = pd.DataFrame(plan)
-    df.columns = ['학기', '본전공 필수', '본전공 선택', '다전공 필수', '다전공 선택', '합계']
-    df['학기'] = df['학기'].apply(lambda x: f"{x}학기")
+    
+    # 기초교양(기초과학)이 모든 학기에서 0이면 해당 열 제거
+    has_basic_science = any(row.get('basic_science', 0) > 0 for row in plan)
+    
+    if has_basic_science:
+        # 기초과학이 있는 경우 - 순서: 학년/학기, 기초문해, 기초과학, 핵심교양, 본전공필수, 본전공선택, 다전공필수, 다전공선택, 자유학점, 합계
+        df.columns = ['학년/학기', '기초교양(기초문해)', '기초교양(기초과학)', '핵심교양', 
+                     '본전공 필수', '본전공 선택', '다전공 필수', '다전공 선택', '자유학점', '합계']
+        column_config = {
+            "학년/학기": st.column_config.TextColumn("학년/학기", width="medium"),
+            "기초교양(기초문해)": st.column_config.NumberColumn("기초교양(기초문해)", format="%d학점"),
+            "기초교양(기초과학)": st.column_config.NumberColumn("기초교양(기초과학)", format="%d학점"),
+            "핵심교양": st.column_config.NumberColumn("핵심교양", format="%d학점"),
+            "본전공 필수": st.column_config.NumberColumn("본전공 필수", format="%d학점"),
+            "본전공 선택": st.column_config.NumberColumn("본전공 선택", format="%d학점"),
+            "다전공 필수": st.column_config.NumberColumn("다전공 필수", format="%d학점"),
+            "다전공 선택": st.column_config.NumberColumn("다전공 선택", format="%d학점"),
+            "자유학점": st.column_config.NumberColumn("자유학점", format="%d학점"),
+            "합계": st.column_config.NumberColumn("합계", format="%d학점"),
+        }
+    else:
+        # 기초과학이 없는 경우 (열 제거) - 순서: 학년/학기, 기초문해, 핵심교양, 본전공필수, 본전공선택, 다전공필수, 다전공선택, 자유학점, 합계
+        df = df.drop(columns=['basic_science'])
+        df.columns = ['학년/학기', '기초교양(기초문해)', '핵심교양', 
+                     '본전공 필수', '본전공 선택', '다전공 필수', '다전공 선택', '자유학점', '합계']
+        column_config = {
+            "학년/학기": st.column_config.TextColumn("학년/학기", width="medium"),
+            "기초교양(기초문해)": st.column_config.NumberColumn("기초교양(기초문해)", format="%d학점"),
+            "핵심교양": st.column_config.NumberColumn("핵심교양", format="%d학점"),
+            "본전공 필수": st.column_config.NumberColumn("본전공 필수", format="%d학점"),
+            "본전공 선택": st.column_config.NumberColumn("본전공 선택", format="%d학점"),
+            "다전공 필수": st.column_config.NumberColumn("다전공 필수", format="%d학점"),
+            "다전공 선택": st.column_config.NumberColumn("다전공 선택", format="%d학점"),
+            "자유학점": st.column_config.NumberColumn("자유학점", format="%d학점"),
+            "합계": st.column_config.NumberColumn("합계", format="%d학점"),
+        }
+    
+    # 학기 컬럼은 이미 "X학년 X학기" 형식으로 들어오므로 추가 변환 불필요
     
     st.dataframe(
         df,
         hide_index=True,
         use_container_width=True,
-        column_config={
-            "학기": st.column_config.TextColumn("학기", width="small"),
-            "본전공 필수": st.column_config.NumberColumn("본전공 필수", format="%d학점"),
-            "본전공 선택": st.column_config.NumberColumn("본전공 선택", format="%d학점"),
-            "다전공 필수": st.column_config.NumberColumn("다전공 필수", format="%d학점"),
-            "다전공 선택": st.column_config.NumberColumn("다전공 선택", format="%d학점"),
-            "합계": st.column_config.NumberColumn("합계", format="%d학점"),
-        }
+        column_config=column_config
     )
 
 
