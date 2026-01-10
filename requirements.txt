@@ -6,4 +6,7 @@ streamlit-option-menu
 google-genai
 google-generativeai
 semantic-router
-
+gspread
+google-auth
+google-auth-oauthlib
+google-auth-httplib2

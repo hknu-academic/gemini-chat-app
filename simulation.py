@@ -1,9 +1,9 @@
 """
 ============================================================
-🎯 다전공 추천 시뮬레이션 모듈
+🎯 다전공 비교 분석 모듈
 ============================================================
 버전: 1.0
-설명: 학생의 학점 현황을 분석하고 최적의 다전공 제도를 추천
+설명: 희망 전공을 여러 제도(복수/부전공/융합 등)로 이수할 때 학점 비교
 ============================================================
 """
 
@@ -139,7 +139,7 @@ class CreditAnalysis:
 
 @dataclass
 class SimulationResult:
-    """제도별 시뮬레이션 결과"""
+    """제도별 비교 분석 결과"""
     program_type: str                    # 제도 유형
     multi_major_name: str                # 다전공 전공명
     
@@ -168,7 +168,7 @@ class AnalysisOutput:
     current_analysis: CreditAnalysis = field(default_factory=CreditAnalysis)
     current_can_graduate: bool = False
     
-    # 제도별 시뮬레이션 결과
+    # 제도별 분석 결과
     simulation_results: List[SimulationResult] = field(default_factory=list)
     
     # 추천 결과
@@ -553,7 +553,7 @@ def simulate_program(
     pr_df: pd.DataFrame,
     gr_df: pd.DataFrame
 ) -> SimulationResult:
-    """단일 제도 시뮬레이션"""
+    """단일 제도 분석"""
     result = SimulationResult(
         program_type=program_type,
         multi_major_name=multi_major
@@ -1009,11 +1009,11 @@ def generate_recommendation_reason(result: SimulationResult, rank: int) -> str:
 
 
 # ============================================================
-# 메인 시뮬레이션 함수
+# 메인 비교 분석 함수
 # ============================================================
 
 def run_simulation(student: StudentInput) -> AnalysisOutput:
-    """통합 시뮬레이션 실행"""
+    """통합 비교 분석 실행"""
     output = AnalysisOutput()
     output.student_input = student
     
@@ -1047,7 +1047,7 @@ def run_simulation(student: StudentInput) -> AnalysisOutput:
         except:
             is_convergence_major = False
         
-        # 융합전공 여부에 따라 시뮬레이션할 제도 결정
+        # 융합전공 여부에 따라 분석할 제도 결정
         if is_convergence_major:
             # 융합전공: 융합전공, 융합부전공, 연계전공만
             programs = ["융합전공", "융합부전공", "연계전공"]
@@ -1128,14 +1128,14 @@ def run_simulation(student: StudentInput) -> AnalysisOutput:
 # ============================================================
 
 def render_simulation_page():
-    """다전공 추천 시뮬레이션 페이지"""
+    """다전공 비교 분석 페이지"""
     
     st.markdown("""
     <h1 style="text-align: center; color: #667eea; margin-bottom: 10px;">
-        🎯 다전공 추천 시뮬레이션
+        🎯 다전공 비교 분석
     </h1>
     <p style="text-align: center; color: #666; margin-bottom: 30px;">
-        학점 현황을 입력하고 나에게 맞는 다전공 제도를 찾아보세요!
+        희망 전공을 여러 제도로 이수할 때 필요한 학점을 비교해보세요!
     </p>
     """, unsafe_allow_html=True)
     
@@ -1348,7 +1348,7 @@ def render_step2_basic_info():
         desired_multi_major = st.selectbox(
             "다전공으로 이수하고 싶은 전공",
             options=multi_majors_options,
-            help="시뮬레이션할 다전공을 선택하세요"
+            help="희망하는 다전공을 선택하세요"
         )
         
         # 구분선이 선택된 경우 처리
@@ -1444,7 +1444,7 @@ def render_step3_credits():
                 border-radius: 15px; padding: 20px; margin-bottom: 20px;">
         <h3 style="color: #667eea; margin: 0;">📊 현재 이수 학점 입력</h3>
         <p style="color: #666; margin: 10px 0 0 0; font-size: 0.9rem;">
-            정확한 분석을 위해 현재까지 이수한 학점을 입력해주세요
+            정확한 분석을 위해 현재까지 이수한 학점을 입력해주세요. 이수한 학점은 <a href="https://info.hknu.ac.kr" target="_blank" style="color: #667eea; text-decoration: underline;">학사시스템</a>의 '통합학적부 조회-성적이력'에서 확인 가능합니다.
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -1592,7 +1592,7 @@ def render_step4_results():
         credits_multi_elective=st.session_state.get('sim_credits_multi_elective', 0),
     )
     
-    # 시뮬레이션 실행
+    # 분석 실행
     output = run_simulation(student)
     
     # 결과 헤더
@@ -1733,10 +1733,10 @@ box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
 </div>
 """, unsafe_allow_html=True)
     
-    # 신규 신청자: 제도별 시뮬레이션 결과
+    # 신규 신청자: 제도별 비교 분석 결과
     if student.student_type == "신규 신청자" and output.recommended_programs:
         st.markdown("---")
-        st.markdown(f"### 🎯 다전공 제도별 시뮬레이션 ({student.desired_multi_major})")
+        st.markdown(f"### 🎯 다전공 제도별 비교 ({student.desired_multi_major})")
         
         # 추천 순위 (보조 추천 포함 - 모두 동일하게 표시)
         all_programs = output.recommended_programs + output.supplementary_programs
@@ -1771,7 +1771,7 @@ box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
 
 
 def render_simulation_result_card(result: SimulationResult, is_top: bool):
-    """시뮬레이션 결과 카드 렌더링"""
+    """비교 분석 결과 카드 렌더링"""
     
     analysis = result.credit_analysis
     
@@ -2066,7 +2066,7 @@ def render_semester_plan_table(plan: List[Dict]):
 
 if __name__ == "__main__":
     st.set_page_config(
-        page_title="다전공 추천 시뮬레이션",
+        page_title="다전공 비교 분석",
         page_icon="🎯",
         layout="wide"
     )

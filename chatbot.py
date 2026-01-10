@@ -22,6 +22,17 @@ import yaml
 import numpy as np
 import re
 import logging
+import time
+import hashlib
+
+# Google Sheets 로깅
+try:
+    import gspread
+    from google.oauth2.service_account import Credentials
+    GSPREAD_AVAILABLE = True
+except ImportError:
+    GSPREAD_AVAILABLE = False
+    print("⚠️ gspread 패키지가 없습니다. 로깅이 비활성화됩니다.")
 
 # ============================================================
 # 📌 설정 파일 로드
@@ -104,6 +115,146 @@ if not GEMINI_API_KEY:
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 
+# ============================================================
+# 📊 Google Sheets 로깅 시스템
+# ============================================================
+
+@st.cache_resource
+def init_google_sheets():
+    """Google Sheets 초기화"""
+    if not GSPREAD_AVAILABLE:
+        return None
+    
+    try:
+        if "gcp_service_account" not in st.secrets:
+            print("⚠️ Google Sheets 인증 정보가 없습니다")
+            return None
+        
+        credentials = Credentials.from_service_account_info(
+            st.secrets["gcp_service_account"],
+            scopes=[
+                "https://www.googleapis.com/auth/spreadsheets",
+                "https://www.googleapis.com/auth/drive"
+            ]
+        )
+        gc = gspread.authorize(credentials)
+        
+        sheet_name = st.secrets.get("google_sheets", {}).get("sheet_name", "chatbot_로그")
+        
+        try:
+            sheet = gc.open(sheet_name)
+        except gspread.SpreadsheetNotFound:
+            sheet = gc.create(sheet_name)
+            _init_worksheets(sheet)
+        
+        print("✅ Google Sheets 연동 성공")
+        return sheet
+    except Exception as e:
+        print(f"⚠️ Google Sheets 초기화 실패: {e}")
+        return None
+
+
+def _init_worksheets(sheet):
+    """워크시트 초기화"""
+    try:
+        # 대화 로그 시트
+        try:
+            chat_sheet = sheet.worksheet("chat_logs")
+        except:
+            chat_sheet = sheet.add_worksheet("chat_logs", 1000, 10)
+            chat_sheet.append_row([
+                "timestamp", "session_id", "user_question", "bot_response", 
+                "response_type", "response_time", "page_context"
+            ])
+        
+        # 답변 실패 로그 시트
+        try:
+            failed_sheet = sheet.worksheet("failed_responses")
+        except:
+            failed_sheet = sheet.add_worksheet("failed_responses", 1000, 5)
+            failed_sheet.append_row([
+                "timestamp", "session_id", "user_question", 
+                "attempted_response", "failure_reason"
+            ])
+        
+        # 일일 통계 시트
+        try:
+            stats_sheet = sheet.worksheet("daily_stats")
+        except:
+            stats_sheet = sheet.add_worksheet("daily_stats", 1000, 6)
+            stats_sheet.append_row([
+                "date", "session_id", "first_visit", "last_visit", "total_questions"
+            ])
+    except Exception as e:
+        print(f"⚠️ 워크시트 초기화 실패: {e}")
+
+
+def log_to_sheets(session_id, user_question, bot_response, response_type, response_time=0.0, page_context=""):
+    """Google Sheets에 로그 저장"""
+    sheet = st.session_state.get('google_sheet')
+    if not sheet:
+        return
+    
+    try:
+        chat_sheet = sheet.worksheet("chat_logs")
+        stats_sheet = sheet.worksheet("daily_stats")
+        
+        # 대화 로그 추가
+        chat_sheet.append_row([
+            datetime.now().isoformat(),
+            session_id,
+            user_question[:500],
+            bot_response[:500],
+            response_type,
+            response_time,
+            page_context
+        ])
+        
+        # 일일 통계 업데이트
+        today = datetime.now().date().isoformat()
+        stats = stats_sheet.get_all_records()
+        
+        session_row = None
+        for idx, row in enumerate(stats, start=2):
+            if row.get('date') == today and row.get('session_id') == session_id:
+                session_row = idx
+                break
+        
+        if session_row:
+            current_count = stats_sheet.cell(session_row, 5).value
+            stats_sheet.update_cell(session_row, 4, datetime.now().isoformat())
+            stats_sheet.update_cell(session_row, 5, int(current_count or 0) + 1)
+        else:
+            stats_sheet.append_row([
+                today,
+                session_id,
+                datetime.now().isoformat(),
+                datetime.now().isoformat(),
+                1
+            ])
+    except Exception as e:
+        print(f"⚠️ 로깅 실패: {e}")
+
+
+def log_failed_to_sheets(session_id, user_question, attempted_response, failure_reason):
+    """답변 실패 로그 저장"""
+    sheet = st.session_state.get('google_sheet')
+    if not sheet:
+        return
+    
+    try:
+        failed_sheet = sheet.worksheet("failed_responses")
+        failed_sheet.append_row([
+            datetime.now().isoformat(),
+            session_id,
+            user_question[:500],
+            attempted_response[:500],
+            failure_reason
+        ])
+    except Exception as e:
+        print(f"⚠️ 실패 로그 저장 실패: {e}")
+
+
 # 페이지 설정
 st.set_page_config(
     page_title="다전공 안내 챗봇",
@@ -147,6 +298,15 @@ def initialize_session_state():
         st.session_state.chat_history = []
     if 'page' not in st.session_state:
         st.session_state.page = "AI챗봇 상담"
+    
+    # 세션 ID 생성
+    if 'session_id' not in st.session_state:
+        timestamp = datetime.now().isoformat()
+        st.session_state.session_id = hashlib.md5(timestamp.encode()).hexdigest()[:16]
+    
+    # Google Sheets 초기화
+    if 'google_sheet' not in st.session_state:
+        st.session_state.google_sheet = init_google_sheets()
 
 
 # ============================================================
@@ -2348,6 +2508,7 @@ def generate_ai_response(user_input, chat_history, data_dict):
     2. Semantic Router + 핸들러
     3. AI Fallback
     """
+    start_time = time.time()
     faq_df = data_dict.get('faq_mapping', FAQ_MAPPING)
 
     # 1. 의도 분류
@@ -2355,11 +2516,25 @@ def generate_ai_response(user_input, chat_history, data_dict):
     
     # 차단된 경우 바로 처리
     if intent == 'BLOCKED':
-        return handle_blocked(user_input, extracted_info, data_dict)
+        response, response_type = handle_blocked(user_input, extracted_info, data_dict)
+        log_to_sheets(
+            st.session_state.get('session_id', 'unknown'),
+            user_input, response, 'blocked', 
+            time.time() - start_time,
+            st.session_state.get('page', 'AI챗봇 상담')
+        )
+        return response, response_type
     
     # 인사말 처리
     if intent == 'GREETING':
-        return handle_greeting(user_input, extracted_info, data_dict)
+        response, response_type = handle_greeting(user_input, extracted_info, data_dict)
+        log_to_sheets(
+            st.session_state.get('session_id', 'unknown'),
+            user_input, response, 'greeting', 
+            time.time() - start_time,
+            st.session_state.get('page', 'AI챗봇 상담')
+        )
+        return response, response_type
     
     # 2. FAQ 매핑 검색
     faq_match, score = search_faq_mapping(user_input, faq_df)
@@ -2376,11 +2551,25 @@ def generate_ai_response(user_input, chat_history, data_dict):
         formatted_response = format_faq_response_html(conversational_answer, program)
         formatted_response += create_contact_box()
         
-        return formatted_response, f"FAQ_{faq_match.get('intent', 'UNKNOWN')}"
+        response_type = f"FAQ_{faq_match.get('intent', 'UNKNOWN')}"
+        log_to_sheets(
+            st.session_state.get('session_id', 'unknown'),
+            user_input, formatted_response, 'faq', 
+            time.time() - start_time,
+            st.session_state.get('page', 'AI챗봇 상담')
+        )
+        return formatted_response, response_type
     
     # 3. 특수 핸들러 필요한 경우 (연락처, 과목 검색, 추천)
     if intent in FALLBACK_HANDLERS:
-        return FALLBACK_HANDLERS[intent](user_input, extracted_info, data_dict)
+        response, response_type = FALLBACK_HANDLERS[intent](user_input, extracted_info, data_dict)
+        log_to_sheets(
+            st.session_state.get('session_id', 'unknown'),
+            user_input, response, 'semantic_router', 
+            time.time() - start_time,
+            st.session_state.get('page', 'AI챗봇 상담')
+        )
+        return response, response_type
     
     # 4. AI Fallback - 일반 다전공 질문
     try:
@@ -2451,12 +2640,43 @@ def generate_ai_response(user_input, chat_history, data_dict):
         )
         
         ai_response = response.text.strip()
+        
+        # 답변 실패 감지
+        failure_keywords = ['잘 모르겠습니다', '확인할 수 없습니다', '죄송합니다', '정보가 없습니다']
+        if len(ai_response) < 10 or any(kw in ai_response.lower() for kw in failure_keywords):
+            log_failed_to_sheets(
+                st.session_state.get('session_id', 'unknown'),
+                user_input, ai_response, "AI가 적절한 답변을 생성하지 못함"
+            )
+        
         formatted_response = f"""
 <div style="background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); border-left: 4px solid #667eea; border-radius: 12px; padding: 16px; margin: 12px 0;">
     {ai_response}
 </div>
 """
         formatted_response += create_contact_box()
+        
+        log_to_sheets(
+            st.session_state.get('session_id', 'unknown'),
+            user_input, formatted_response, 'ai', 
+            time.time() - start_time,
+            st.session_state.get('page', 'AI챗봇 상담')
+        )
+        return formatted_response, "AI_RESPONSE"
+        
+    except Exception as e:
+        response, response_type = handle_out_of_scope(user_input, extracted_info, data_dict)
+        log_to_sheets(
+            st.session_state.get('session_id', 'unknown'),
+            user_input, response, 'failed', 
+            time.time() - start_time,
+            st.session_state.get('page', 'AI챗봇 상담')
+        )
+        log_failed_to_sheets(
+            st.session_state.get('session_id', 'unknown'),
+            user_input, str(e), "예외 발생"
+        )
+        return response, response_type
         
         return formatted_response, "AI_RESPONSE"
         
@@ -2879,10 +3099,9 @@ def main():
         </div>
         """, unsafe_allow_html=True)
         
-        # FAQ 메뉴 삭제 - 3개 메뉴로 변경 (시뮬레이션 추가)
         menu = option_menu(
             menu_title=None,
-            options=["AI챗봇 상담", "다전공 제도 안내", "다전공 추천 시뮬레이션"], 
+            options=["AI챗봇 상담", "다전공 제도 안내", "다전공 비교 분석"], 
             icons=["chat-dots-fill", "journal-bookmark-fill", "calculator-fill"],
             default_index=0,
             styles={
@@ -3431,8 +3650,8 @@ def main():
                 st.warning(f"⚠️ {selected_program}에 해당하는 전공 목록을 찾을 수 없습니다.")
                 st.info("💡 데이터 파일에 해당 제도의 전공 정보가 있는지 확인해주세요.")
 
-    # 🎯 다전공 추천 시뮬레이션
-    elif menu == "다전공 추천 시뮬레이션":
+    # 🎯 다전공 비교 분석
+    elif menu == "다전공 비교 분석":
         from simulation import render_simulation_page
         render_simulation_page()
 
