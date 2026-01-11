@@ -1166,7 +1166,7 @@ def search_faq_mapping(user_input, faq_df):
     detected_program = extract_program_from_text(user_input)
     
     # 학사제도 키워드 감지
-    academic_keywords = ['증명서', '학점교류', '교직', '교원자격', '휴학', '복학', '전과', '전공변경', '재입학', '수강신청', '학점인정', '이수구분', '성적처리', '졸업식', '학위수여식', '유예', '졸업유예', '조기졸업', '계절학기']
+    academic_keywords = ['증명서', '학점교류', '교직', '교원자격', '휴학', '복학', '전과', '전공변경', '재입학', '수강신청', '학점인정', '이수구분', '성적처리', '졸업식', '학위수여식', '유예', '졸업유예', '조기졸업', '등록금', '학비', '성적', '학점', '수강내역', '계절학기', '수강철회', '졸업', '장학금', '자유학기제', '성적확인', '성적조회', '학점확인', '수강확인', '이수학점확인', '학사시스템']
     is_academic_system = any(kw in user_clean for kw in academic_keywords)
     
     if is_academic_system and not detected_program:
