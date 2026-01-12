@@ -3095,6 +3095,46 @@ def render_question_buttons(questions, key_prefix, cols=5):
 def main():
     initialize_session_state()
     
+    # 다크모드 대응 CSS
+    st.markdown("""
+    <style>
+    /* 다크모드 감지 및 메뉴 색상 조정 */
+    @media (prefers-color-scheme: dark) {
+        [data-testid="stSidebar"] .nav-link {
+            color: #fafafa !important;
+        }
+        [data-testid="stSidebar"] h3 {
+            color: #fafafa !important;
+        }
+    }
+    
+    /* 라이트모드 */
+    @media (prefers-color-scheme: light) {
+        [data-testid="stSidebar"] .nav-link {
+            color: #262730 !important;
+        }
+        [data-testid="stSidebar"] h3 {
+            color: #262730 !important;
+        }
+    }
+    
+    /* Streamlit 다크모드 클래스 대응 */
+    [data-theme="dark"] .nav-link {
+        color: #fafafa !important;
+    }
+    [data-theme="dark"] h3 {
+        color: #fafafa !important;
+    }
+    
+    [data-theme="light"] .nav-link {
+        color: #262730 !important;
+    }
+    [data-theme="light"] h3 {
+        color: #262730 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
     # 사이드바
     with st.sidebar:
         st.markdown("""
@@ -3110,10 +3150,17 @@ def main():
             icons=["chat-dots-fill", "journal-bookmark-fill", "calculator-fill"],
             default_index=0,
             styles={
-                "container": {"padding": "0!important", "background-color": "#fafafa"},
+                "container": {"padding": "0!important"},
                 "icon": {"color": "orange", "font-size": "18px"}, 
-                "nav-link": {"font-size": "15px", "text-align": "left", "margin":"0px"},
-                "nav-link-selected": {"background-color": "#0091FF"},
+                "nav-link": {
+                    "font-size": "15px", 
+                    "text-align": "left", 
+                    "margin": "0px"
+                },
+                "nav-link-selected": {
+                    "background-color": "#0091FF",
+                    "color": "white"
+                },
             }
         )
         
