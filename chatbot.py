@@ -2613,7 +2613,21 @@ def generate_ai_response(user_input, chat_history, data_dict):
     
         context = "\n\n".join(context_parts[:5])  # 상위 5개만
     
-        # 🔥 프롬프트에 FAQ 정보 추가
+        # 🔥 대화 이력 컨텍스트 생성 (최근 5턴만)
+        conversation_context = ""
+        if chat_history:
+            recent_history = chat_history[-10:]  # 최근 5턴(10개 메시지)만
+            conversation_context = "\n\n[이전 대화 내용]\n"
+            for msg in recent_history:
+                role = "학생" if msg["role"] == "user" else "챗봇"
+                # HTML 태그 제거 (답변 내용만 추출)
+                content = msg["content"]
+                # 간단한 HTML 제거
+                content_clean = re.sub(r'<[^>]+>', '', content)
+                content_clean = content_clean.strip()[:200]  # 최대 200자로 제한
+                conversation_context += f"{role}: {content_clean}\n"
+    
+        # 🔥 프롬프트에 FAQ 정보와 대화 이력 추가
         prompt = f"""당신은 한경국립대학교 다전공 안내 AI챗봇입니다.
     다음 정보를 바탕으로 학생 질문에 친절하게 답변하세요.
 
@@ -2622,19 +2636,23 @@ def generate_ai_response(user_input, chat_history, data_dict):
 
     {faq_context}
 
-    [학생 질문]
+    {conversation_context}
+
+    [현재 학생 질문]
     {user_input}
 
     [지침]
-    1. 위 FAQ 정보가 있다면 반드시 그 내용을 기반으로 답변하세요
-    2. 질문에서 여러 프로그램을 물어보면 각각 구분해서 답변
-    3. "~합니다", "~해주세요" 등 정중한 종결어미 사용
-    4. 친근하고 공손한 말투 사용
-    5. 핵심 정보를 명확하게 전달
-    6. 각 프로그램별로 명확히 구분하여 설명
-    7. 모르는 내용은 학사지원팀(031-670-5035) 문의 안내
-    8. 이모지 적절히 사용 (📅, 📋, ✅ 등)
-    9. 학사공지 링크: {ACADEMIC_NOTICE_URL}
+    1. 이전 대화 내용이 있다면 맥락을 고려하여 답변하세요
+    2. "그거", "그럼", "더", "차이" 같은 대명사나 비교 표현은 이전 대화를 참고하세요
+    3. 위 FAQ 정보가 있다면 반드시 그 내용을 기반으로 답변하세요
+    4. 질문에서 여러 프로그램을 물어보면 각각 구분해서 답변
+    5. "~합니다", "~해주세요" 등 정중한 종결어미 사용
+    6. 친근하고 공손한 말투 사용
+    7. 핵심 정보를 명확하게 전달
+    8. 각 프로그램별로 명확히 구분하여 설명
+    9. 모르는 내용은 학사지원팀(031-670-5035) 문의 안내
+    10. 이모지 적절히 사용 (📅, 📋, ✅ 등)
+    11. 학사공지 링크: {ACADEMIC_NOTICE_URL}
     """
         
         response = client.models.generate_content(
