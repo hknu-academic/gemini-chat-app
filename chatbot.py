@@ -1003,11 +1003,24 @@ def needs_question_completion(user_input, intent, extracted_info, faq_result):
     return False, None
 
 
-def complete_question_with_ai(user_input, previous_question=None):
-    """AI를 사용하여 질문 보완"""
+def complete_question_with_ai(user_input, previous_question=None, chat_history=None):
+    """AI를 사용하여 질문 보완 (대화 이력 활용)"""
     try:
         context = ""
-        if previous_question:
+        
+        # 대화 이력이 있으면 사용 (최근 3턴만)
+        if chat_history:
+            recent_history = chat_history[-6:]  # 최근 3턴(6개 메시지)
+            context = "\n\n[이전 대화 내용]\n"
+            for msg in recent_history:
+                role = "학생" if msg["role"] == "user" else "챗봇"
+                content = msg["content"]
+                # HTML 태그 제거
+                content_clean = re.sub(r'<[^>]+>', '', content)
+                content_clean = content_clean.strip()[:150]  # 최대 150자
+                context += f"{role}: {content_clean}\n"
+        elif previous_question:
+            # 대화 이력이 없으면 이전 질문만 사용
             context = f"\n\n[이전 질문]\n{previous_question}\n"
         
         prompt = f"""당신은 대학 다전공 안내 챗봇입니다.
@@ -1018,10 +1031,11 @@ def complete_question_with_ai(user_input, previous_question=None):
 {user_input}
 
 [지침]
-1. 질문에서 빠진 정보(전공명, 제도명, 의도)를 파악하세요
-2. 이전 질문 맥락을 활용하여 보완하세요
-3. 보완된 완전한 질문을 한 문장으로 출력하세요
-4. 추가 설명 없이 질문만 출력하세요
+1. 이전 대화에서 언급된 전공명이나 제도명을 파악하세요
+2. "그럼", "그거", "그건" 같은 지시어가 있으면 이전 대화 내용을 참고하세요
+3. 질문에서 빠진 정보(전공명, 제도명)를 이전 대화에서 찾아 보완하세요
+4. 보완된 완전한 질문을 한 문장으로 출력하세요
+5. 추가 설명 없이 질문만 출력하세요
 
 보완된 질문:"""
 
@@ -1034,15 +1048,16 @@ def complete_question_with_ai(user_input, previous_question=None):
         completed = response.text.strip()
         completed = completed.replace('"', '').replace("'", '').replace('출력:', '').strip()
         
+        print(f"[DEBUG] 질문 보완: '{user_input}' → '{completed}'")
         return completed
     except Exception as e:
         print(f"[ERROR] 질문 보완 실패: {e}")
         return user_input
 
 
-def complete_question_with_context(user_input, extracted_info, previous_question=None):
+def complete_question_with_context(user_input, extracted_info, previous_question=None, chat_history=None):
     """
-    [개선] 컨텍스트 기반 질문 보완
+    [개선] 컨텍스트 기반 질문 보완 (대화 이력 활용)
     """
     user_clean = user_input.replace(' ', '').lower()
     
@@ -1077,8 +1092,8 @@ def complete_question_with_context(user_input, extracted_info, previous_question
                 # 이전에 제도 언급했으면
                 return f"{prev_program} {user_input}"
         
-        # 이전 질문이 없거나 추출 실패 시 AI로 보완
-        return complete_question_with_ai(user_input, previous_question)
+        # 이전 질문이 없거나 추출 실패 시 AI로 보완 (대화 이력 전달)
+        return complete_question_with_ai(user_input, previous_question, chat_history)
     
     # 2. 목록 질문에서 제도 타입 누락
     list_keywords = ['목록', '리스트', '종류']
@@ -1089,7 +1104,7 @@ def complete_question_with_context(user_input, extracted_info, previous_question
                 if prev_program:
                     return f"{prev_program} {user_input}"
             
-            return complete_question_with_ai(user_input, previous_question)
+            return complete_question_with_ai(user_input, previous_question, chat_history)
     
     return user_input
 
@@ -1450,9 +1465,9 @@ RECOMMENDATION, GREETING, OUT_OF_SCOPE
         return 'OUT_OF_SCOPE'
 
 
-def classify_intent(user_input, use_ai_fallback=True):
+def classify_intent(user_input, use_ai_fallback=True, chat_history=None):
     """
-    [디버깅 버전] 통합 의도 분류 함수
+    [디버깅 버전] 통합 의도 분류 함수 (대화 이력 활용)
     """
     print(f"\n[DEBUG classify_intent] 입력: {user_input}")
     
@@ -1514,7 +1529,7 @@ def classify_intent(user_input, use_ai_fallback=True):
     if needs_completion:
         print(f"[DEBUG] 질문 보완 필요: {completion_type}")
         completed_question = complete_question_with_context(
-            user_input, extracted_info, previous_question
+            user_input, extracted_info, previous_question, chat_history
         )
         
         print(f"[DEBUG] 원래 질문: {user_input}")
@@ -1536,6 +1551,7 @@ def classify_intent(user_input, use_ai_fallback=True):
                 'major': entity_name
             }
             print(f"[DEBUG] 재처리 후 엔티티: {entity_name}")
+            print(f"[DEBUG] 재처리 후 프로그램: {program_type}")
     
     # 3-1. 특정 전공/과정 + 교과목 키워드 → COURSE_SEARCH
     if entity_name and has_course_keyword:
@@ -2515,8 +2531,8 @@ def generate_ai_response(user_input, chat_history, data_dict):
     start_time = time.time()
     faq_df = data_dict.get('faq_mapping', FAQ_MAPPING)
 
-    # 1. 의도 분류
-    intent, method, extracted_info = classify_intent(user_input)
+    # 1. 의도 분류 (대화 이력 전달)
+    intent, method, extracted_info = classify_intent(user_input, chat_history=chat_history)
     
     # 차단된 경우 바로 처리
     if intent == 'BLOCKED':
