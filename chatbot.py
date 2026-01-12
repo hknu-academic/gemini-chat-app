@@ -1330,9 +1330,15 @@ def create_table_html(headers, rows, colors=None):
 
 def format_faq_response_html(answer, program=None):
     """FAQ 답변을 예쁜 HTML로 포맷팅"""
-    # URL 링크 변환
-    url_pattern = r'(https?://[^\s]+)'
-    answer = re.sub(url_pattern, r'<a href="\1" target="_blank" style="color: #007bff; text-decoration: underline;">\1</a>', answer)
+    
+    # 1. 마크다운 링크 변환 [텍스트](URL) → HTML 링크
+    markdown_link_pattern = r'\[([^\]]+)\]\((https?://[^\)]+)\)'
+    answer = re.sub(markdown_link_pattern, r'<a href="\2" target="_blank" style="color: #007bff; text-decoration: underline;">\1</a>', answer)
+    
+    # 2. 남은 일반 URL 변환 (마크다운이 아닌 단독 URL)
+    # 이미 <a> 태그 안에 있는 URL은 제외
+    plain_url_pattern = r'(?<!href=")(?<!">)(https?://[^\s<>]+)(?!</a>)'
+    answer = re.sub(plain_url_pattern, r'<a href="\1" target="_blank" style="color: #007bff; text-decoration: underline;">\1</a>', answer)
     
     # 번호 리스트 (1. 2. 3.) 처리
     lines = answer.split('\n')
@@ -1381,7 +1387,6 @@ def format_faq_response_html(answer, program=None):
     {content}
 </div>
 """
-
 
 # ============================================================
 # 🔥 의도 분류 함수
