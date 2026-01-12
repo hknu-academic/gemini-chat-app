@@ -307,6 +307,10 @@ def initialize_session_state():
     # Google Sheets 초기화
     if 'google_sheet' not in st.session_state:
         st.session_state.google_sheet = init_google_sheets()
+    
+    # 스크롤 플래그 초기화
+    if 'should_scroll' not in st.session_state:
+        st.session_state.should_scroll = False
 
 
 # ============================================================
@@ -3080,6 +3084,7 @@ def render_question_buttons(questions, key_prefix, cols=5):
             st.session_state.chat_history.append({"role": "user", "content": q})
             response_text, res_type = generate_ai_response(q, st.session_state.chat_history[:-1], ALL_DATA)
             st.session_state.chat_history.append({"role": "assistant", "content": response_text, "response_type": res_type})
+            st.session_state.should_scroll = True  # 스크롤 플래그 설정
             st.rerun()
 
 
@@ -3230,6 +3235,11 @@ def main():
             avatar = "🧑‍🎓" if chat["role"] == "user" else "🤖"
             with st.chat_message(chat["role"], avatar=avatar):
                 st.markdown(chat["content"], unsafe_allow_html=True)
+        
+        # 스크롤 플래그 확인 및 실행
+        if st.session_state.should_scroll:
+            scroll_to_bottom()
+            st.session_state.should_scroll = False  # 플래그 리셋
         
         # 채팅 입력
         if prompt := st.chat_input("질문을 입력하세요..."):
