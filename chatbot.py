@@ -1465,45 +1465,59 @@ def classify_with_semantic_router(user_input):
 def is_followup_question(user_input):
     """
     후속 질문인지 판단
-    - 짧은 질문 (15자 이하)
+    - 짧은 질문 (10자 이하)
     - 지시어 포함 (그거, 그럼, 그건, 거기, 이건)
     - 제도/전공명 없이 질문만 있는 경우
+    
+    🔧 수정: 전공명이 포함되어 있으면 후속 질문이 아님!
     """
     user_clean = user_input.replace(' ', '').lower()
     
-    # 1. 지시어 패턴
+    # 🆕 0. 먼저 전공명/과정명이 있는지 확인 (있으면 후속 질문 아님!)
+    # 전공명 패턴: ~전공, ~학과, ~과정, MD 등
+    major_patterns = ['전공', '학과', '과정']
+    has_major_name = any(p in user_clean for p in major_patterns)
+    
+    # 전공명이 있으면 바로 False 반환 (후속 질문 아님)
+    if has_major_name:
+        return False
+    
+    # 1. 지시어 패턴 (명확한 후속 질문 표현)
     followup_indicators = [
         '그거', '그럼', '그건', '그래서', '거기', '이건', '그리고',
         '그러면', '그렇다면', '그전공', '그과정', '거긴', '그곳',
-        '위에', '방금', '아까'
+        '위에서', '방금', '아까', '위의'
     ]
     has_indicator = any(ind in user_clean for ind in followup_indicators)
     
-    # 2. 질문만 있고 대상이 없는 패턴
+    # 2. 질문만 있고 대상이 전혀 없는 패턴 (더 엄격하게)
     question_only_patterns = [
-        '신청기간은', '기간은', '언제야', '언제해', '마감은',
-        '자격은', '조건은', '누가할수',
-        '방법은', '어떻게해', '절차는', '어디서',
-        '학점은', '몇학점', '이수학점은',
-        '교과목은', '과목은', '커리큘럼은', '뭐들어',
-        '연락처는', '전화번호는', '위치는', '어디야',
-        '차이는', '뭐가달라', '비교해줘'
+        '신청기간은?', '기간은?', '언제야?', '마감은?',
+        '자격은?', '조건은?',
+        '방법은?', '어떻게해?', '절차는?',
+        '학점은?', '몇학점?', '이수학점은?',
+        '교과목은?', '과목은?',
+        '연락처는?', '전화번호는?', '위치는?',
+        '차이는?', '뭐가달라?'
     ]
-    is_question_only = any(p in user_clean for p in question_only_patterns)
+    # 🔧 수정: 정확히 일치하거나 매우 짧은 경우만
+    is_question_only = user_input.strip() in question_only_patterns or any(
+        user_clean == p.replace('?', '').replace(' ', '') for p in question_only_patterns
+    )
     
-    # 3. 짧은 질문 (제도/전공명 언급 없음)
-    is_short = len(user_clean) <= 15
+    # 3. 매우 짧은 질문 (10자 이하) + 제도/전공 키워드 없음
+    is_very_short = len(user_clean) <= 10
     
-    # 제도/전공 키워드 없음 확인
+    # 제도 키워드 확인
     program_keywords = ['복수전공', '부전공', '융합전공', '마이크로', '소단위', '연계전공', 'md']
     has_program = any(kw in user_clean for kw in program_keywords)
     
-    # 후속 질문 판단
+    # 후속 질문 판단 (더 엄격하게)
     if has_indicator:
         return True
-    if is_question_only and not has_program:
+    if is_question_only:
         return True
-    if is_short and not has_program:
+    if is_very_short and not has_program and not has_major_name:
         return True
     
     return False
