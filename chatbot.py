@@ -311,6 +311,19 @@ def initialize_session_state():
     # 스크롤 플래그 초기화
     if 'should_scroll' not in st.session_state:
         st.session_state.should_scroll = False
+    
+    # ========== 🆕 대화 컨텍스트 저장용 (연속 질문 처리) ==========
+    if 'last_mentioned_program' not in st.session_state:
+        st.session_state.last_mentioned_program = None  # 마지막 언급된 제도 (복수전공, 융합전공 등)
+    
+    if 'last_mentioned_entity' not in st.session_state:
+        st.session_state.last_mentioned_entity = None   # 마지막 언급된 전공/과정명
+    
+    if 'last_mentioned_entity_type' not in st.session_state:
+        st.session_state.last_mentioned_entity_type = None  # major 또는 microdegree
+    
+    if 'context_turn_count' not in st.session_state:
+        st.session_state.context_turn_count = 0  # 컨텍스트 유지 턴 수 (3턴까지만 유지)
 
 
 # ============================================================
@@ -1445,6 +1458,142 @@ def classify_with_semantic_router(user_input):
         return None, 0.0
 
 
+# ============================================================
+# 🆕 연속 질문 처리를 위한 컨텍스트 관리 함수들
+# ============================================================
+
+def is_followup_question(user_input):
+    """
+    후속 질문인지 판단
+    - 짧은 질문 (15자 이하)
+    - 지시어 포함 (그거, 그럼, 그건, 거기, 이건)
+    - 제도/전공명 없이 질문만 있는 경우
+    """
+    user_clean = user_input.replace(' ', '').lower()
+    
+    # 1. 지시어 패턴
+    followup_indicators = [
+        '그거', '그럼', '그건', '그래서', '거기', '이건', '그리고',
+        '그러면', '그렇다면', '그전공', '그과정', '거긴', '그곳',
+        '위에', '방금', '아까'
+    ]
+    has_indicator = any(ind in user_clean for ind in followup_indicators)
+    
+    # 2. 질문만 있고 대상이 없는 패턴
+    question_only_patterns = [
+        '신청기간은', '기간은', '언제야', '언제해', '마감은',
+        '자격은', '조건은', '누가할수',
+        '방법은', '어떻게해', '절차는', '어디서',
+        '학점은', '몇학점', '이수학점은',
+        '교과목은', '과목은', '커리큘럼은', '뭐들어',
+        '연락처는', '전화번호는', '위치는', '어디야',
+        '차이는', '뭐가달라', '비교해줘'
+    ]
+    is_question_only = any(p in user_clean for p in question_only_patterns)
+    
+    # 3. 짧은 질문 (제도/전공명 언급 없음)
+    is_short = len(user_clean) <= 15
+    
+    # 제도/전공 키워드 없음 확인
+    program_keywords = ['복수전공', '부전공', '융합전공', '마이크로', '소단위', '연계전공', 'md']
+    has_program = any(kw in user_clean for kw in program_keywords)
+    
+    # 후속 질문 판단
+    if has_indicator:
+        return True
+    if is_question_only and not has_program:
+        return True
+    if is_short and not has_program:
+        return True
+    
+    return False
+
+
+def get_context_from_session():
+    """
+    세션에서 이전 대화 컨텍스트 가져오기
+    """
+    context = {
+        'program': st.session_state.get('last_mentioned_program'),
+        'entity': st.session_state.get('last_mentioned_entity'),
+        'entity_type': st.session_state.get('last_mentioned_entity_type'),
+        'turn_count': st.session_state.get('context_turn_count', 0)
+    }
+    return context
+
+
+def update_context_in_session(program=None, entity=None, entity_type=None):
+    """
+    세션에 대화 컨텍스트 업데이트
+    """
+    if program:
+        st.session_state.last_mentioned_program = program
+        st.session_state.context_turn_count = 0  # 새 컨텍스트면 카운터 리셋
+    
+    if entity:
+        st.session_state.last_mentioned_entity = entity
+        st.session_state.last_mentioned_entity_type = entity_type
+        st.session_state.context_turn_count = 0
+    
+    # 컨텍스트 유지 턴 증가 (매 응답마다)
+    st.session_state.context_turn_count = st.session_state.get('context_turn_count', 0) + 1
+    
+    # 3턴 초과시 컨텍스트 초기화
+    if st.session_state.context_turn_count > 3:
+        st.session_state.last_mentioned_program = None
+        st.session_state.last_mentioned_entity = None
+        st.session_state.last_mentioned_entity_type = None
+
+
+def expand_followup_question(user_input, context):
+    """
+    후속 질문을 컨텍스트와 결합하여 확장
+    """
+    program = context.get('program')
+    entity = context.get('entity')
+    
+    user_clean = user_input.replace(' ', '').lower()
+    
+    # 우선순위: entity > program
+    if entity:
+        # 교과목 관련 질문
+        if any(kw in user_clean for kw in ['교과목', '과목', '커리큘럼', '뭐들어', '뭐배워']):
+            return f"{entity} {user_input}"
+        # 연락처 관련 질문
+        if any(kw in user_clean for kw in ['연락처', '전화번호', '위치', '어디야']):
+            return f"{entity} {user_input}"
+        # 기타 질문
+        return f"{entity} {user_input}"
+    
+    if program:
+        return f"{program} {user_input}"
+    
+    return user_input
+
+
+def create_context_guide_message():
+    """
+    컨텍스트 없을 때 안내 메시지 생성
+    """
+    return """
+<div style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); border-radius: 12px; padding: 16px; margin: 12px 0; border-left: 4px solid #ff9a56;">
+    <h4 style="margin: 0 0 12px 0; color: #d35400;">💡 어떤 제도나 전공에 대해 질문하시는 건가요?</h4>
+    <p style="margin: 8px 0; color: #333; font-size: 0.95rem;">
+        더 정확한 답변을 드리기 위해, <strong>제도명</strong>이나 <strong>전공명</strong>을 함께 말씀해 주세요!
+    </p>
+    <div style="background: white; border-radius: 8px; padding: 12px; margin-top: 12px;">
+        <p style="margin: 4px 0; color: #555; font-size: 0.9rem;"><strong>📌 이렇게 질문해 보세요:</strong></p>
+        <ul style="margin: 8px 0 0 0; padding-left: 20px; color: #666; font-size: 0.85rem;">
+            <li>"<strong>복수전공</strong> 신청 기간은 언제야?"</li>
+            <li>"<strong>융합전공</strong> 이수 학점 알려줘"</li>
+            <li>"<strong>경영학전공</strong> 연락처 알려줘"</li>
+            <li>"<strong>마이크로디그리</strong> 과정 목록 보여줘"</li>
+        </ul>
+    </div>
+</div>
+"""
+
+
 def classify_with_ai(user_input):
     prompt = """당신은 질문 분류 AI입니다. 다음 의도 중 하나로 분류하세요.
 [의도]: APPLY_QUALIFICATION, APPLY_PERIOD, APPLY_METHOD, APPLY_CANCEL, APPLY_CHANGE, 
@@ -1472,7 +1621,8 @@ RECOMMENDATION, GREETING, OUT_OF_SCOPE
 
 def classify_intent(user_input, use_ai_fallback=True, chat_history=None):
     """
-    [디버깅 버전] 통합 의도 분류 함수 (대화 이력 활용)
+    [개선] 통합 의도 분류 함수 (대화 컨텍스트 활용 강화)
+    - 연속 질문 처리 기능 추가
     """
     print(f"\n[DEBUG classify_intent] 입력: {user_input}")
     
@@ -1490,11 +1640,34 @@ def classify_intent(user_input, use_ai_fallback=True, chat_history=None):
         print("[DEBUG] ✅ 인사말")
         return 'GREETING', 'keyword', {}
     
-    # 3. 연락처/전화번호 문의 (최우선)
+    # ========== 🆕 3. 후속 질문 처리 ==========
+    if is_followup_question(user_input):
+        context = get_context_from_session()
+        print(f"[DEBUG] 후속 질문 감지! 컨텍스트: program={context['program']}, entity={context['entity']}")
+        
+        # 컨텍스트가 있고 3턴 이내면 확장
+        if (context['program'] or context['entity']) and context['turn_count'] <= 3:
+            expanded_input = expand_followup_question(user_input, context)
+            print(f"[DEBUG] 확장된 질문: {expanded_input}")
+            
+            # 확장된 질문으로 재귀 호출 (단, 무한 루프 방지)
+            if expanded_input != user_input:
+                # 컨텍스트 턴 증가
+                update_context_in_session()
+                return classify_intent(expanded_input, use_ai_fallback, chat_history)
+        else:
+            # 컨텍스트 없으면 안내 필요 플래그 설정
+            print("[DEBUG] 컨텍스트 없음 - 안내 메시지 필요")
+            return 'NEED_CONTEXT', 'followup', {'original_input': user_input}
+    
+    # 4. 연락처/전화번호 문의 (최우선)
     contact_keywords = ['연락처', '전화번호', '번호', '문의처', '사무실', '팩스', 'contact', 'call']
     if any(kw in user_clean for kw in contact_keywords):
         print("[DEBUG] ✅ 연락처 문의")
         entity_name, entity_type = extract_entity_from_text(user_input)
+        # 🆕 컨텍스트 업데이트
+        if entity_name:
+            update_context_in_session(entity=entity_name, entity_type=entity_type)
         return 'CONTACT_SEARCH', 'keyword', {'entity': entity_name, 'entity_type': entity_type}
     
     # [STEP 1] 전공/과정 엔티티 추출
@@ -1514,6 +1687,12 @@ def classify_intent(user_input, use_ai_fallback=True, chat_history=None):
     # 제도 유형 추출
     program_type = extract_program_from_text(user_input)
     print(f"[DEBUG] 제도 유형: {program_type}")
+    
+    # 🆕 컨텍스트 업데이트
+    if program_type:
+        update_context_in_session(program=program_type)
+    if entity_name:
+        update_context_in_session(entity=entity_name, entity_type=entity_type)
     
     # 추출된 정보 저장
     extracted_info = {
@@ -2501,6 +2680,28 @@ def handle_general(user_input, extracted_info, data_dict):
     return f"죄송합니다. 답변을 생성하지 못했습니다.\n{CONTACT_MESSAGE}", "ERROR"
 
 
+def handle_need_context(user_input, extracted_info, data_dict):
+    """
+    🆕 컨텍스트가 필요한 후속 질문에 대한 안내
+    """
+    original_input = extracted_info.get('original_input', user_input)
+    
+    response = create_context_guide_message()
+    
+    # 사용자의 원래 질문도 표시
+    response += f"""
+<div style="background: #f8f9fa; border-radius: 8px; padding: 12px; margin-top: 8px;">
+    <p style="margin: 0; color: #666; font-size: 0.85rem;">
+        💬 입력하신 질문: "<strong>{original_input}</strong>"
+    </p>
+</div>
+"""
+    
+    response += create_contact_box()
+    
+    return response, "NEED_CONTEXT"
+
+
 # 핸들러 매핑 (FAQ로 처리되지 않는 경우 사용)
 FALLBACK_HANDLERS = {
     'COURSE_SEARCH': handle_course_search,
@@ -2512,6 +2713,7 @@ FALLBACK_HANDLERS = {
     'BLOCKED': handle_blocked,
     'OUT_OF_SCOPE': handle_out_of_scope,
     'GENERAL': handle_general,
+    'NEED_CONTEXT': handle_need_context,  # 🆕 추가
 }
 
 
@@ -2528,7 +2730,7 @@ def save_previous_question(user_input):
     
 def generate_ai_response(user_input, chat_history, data_dict):
     """
-    통합 응답 생성 함수
+    통합 응답 생성 함수 (컨텍스트 관리 추가)
     1. FAQ 매핑 검색 (우선)
     2. Semantic Router + 핸들러
     3. AI Fallback
@@ -2538,6 +2740,17 @@ def generate_ai_response(user_input, chat_history, data_dict):
 
     # 1. 의도 분류 (대화 이력 전달)
     intent, method, extracted_info = classify_intent(user_input, chat_history=chat_history)
+    
+    # 🆕 NEED_CONTEXT인 경우 안내 메시지 반환
+    if intent == 'NEED_CONTEXT':
+        response, response_type = handle_need_context(user_input, extracted_info, data_dict)
+        log_to_sheets(
+            st.session_state.get('session_id', 'unknown'),
+            user_input, response, 'need_context', 
+            time.time() - start_time,
+            st.session_state.get('page', 'AI챗봇 상담')
+        )
+        return response, response_type
     
     # 차단된 경우 바로 처리
     if intent == 'BLOCKED':
