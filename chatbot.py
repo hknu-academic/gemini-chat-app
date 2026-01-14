@@ -482,6 +482,7 @@ PROGRAM_KEYWORDS = {
     '연계전공': ['연계전공', '연계'],
     '소단위전공과정': ['소단위전공과정', '소단위전공', '소단위'],
     '마이크로디그리': ['마이크로디그리', '마이크로', 'md', '마디'],
+    '다전공': ['다전공'],  # 🔧 추가
 }
 
 def find_matching_majors(query_text, majors_df, microdegree_df):
@@ -1505,12 +1506,12 @@ def is_followup_question(user_input):
     # 2. 질문만 있고 대상이 전혀 없는 패턴 (더 엄격하게)
     question_only_patterns = [
         '신청기간은?', '기간은?', '언제야?', '마감은?',
-        '자격은?', '조건은?',
-        '방법은?', '어떻게해?', '절차는?',
+        '자격은?', '조건은?', '신청자격은?',
+        '방법은?', '어떻게해?', '절차는?', '신청방법은?',
         '학점은?', '몇학점?', '이수학점은?',
         '교과목은?', '과목은?',
         '연락처는?', '전화번호는?', '위치는?',
-        '차이는?', '뭐가달라?'
+        '차이는?', '뭐가달라?', '똑같아?', '같아?'
     ]
     # 🔧 수정: 정확히 일치하거나 매우 짧은 경우만
     is_question_only = user_input.strip() in question_only_patterns or any(
@@ -2696,80 +2697,154 @@ def save_previous_question(user_input):
     
 def generate_ai_response(user_input, chat_history, data_dict):
     """
-    통합 응답 생성 함수 (컨텍스트 관리 추가)
-    1. FAQ 매핑 검색 (우선)
-    2. Semantic Router + 핸들러
-    3. AI Fallback
+    통합 응답 생성 함수
+    1. 후속 질문이면 컨텍스트로 확장
+    2. FAQ 매핑 검색
+    3. 특수 핸들러 (연락처, 과목검색 등)
+    4. AI Fallback
     """
     start_time = time.time()
     faq_df = data_dict.get('faq_mapping', FAQ_MAPPING)
-
-    # 1. 의도 분류 (대화 이력 전달)
-    intent, method, extracted_info = classify_intent(user_input, chat_history=chat_history)
     
-    # 🆕 NEED_CONTEXT인 경우 안내 메시지 반환
-    if intent == 'NEED_CONTEXT':
-        response, response_type = handle_need_context(user_input, extracted_info, data_dict)
+    # ========== 🔧 핵심 수정: 맨 처음에 질문 확장 ==========
+    original_input = user_input  # 원본 보관 (로깅용)
+    
+    if is_followup_question(user_input):
+        context = get_context_from_session()
+        debug_print(f"[DEBUG] 후속 질문 감지: {user_input}")
+        debug_print(f"[DEBUG] 컨텍스트: program={context['program']}, entity={context['entity']}")
+        
+        if (context['program'] or context['entity']) and context['turn_count'] <= 3:
+            user_input = expand_followup_question(user_input, context)
+            debug_print(f"[DEBUG] 확장된 질문: {user_input}")
+            update_context_in_session()  # 턴 카운트 증가
+        else:
+            # 컨텍스트 없으면 안내 메시지
+            debug_print("[DEBUG] 컨텍스트 없음 - 안내 메시지")
+            response = create_context_guide_message()
+            response += f"""
+<div style="background: #f8f9fa; border-radius: 8px; padding: 12px; margin-top: 8px;">
+    <p style="margin: 0; color: #666; font-size: 0.85rem;">
+        💬 입력하신 질문: "<strong>{original_input}</strong>"
+    </p>
+</div>
+"""
+            response += create_contact_box()
+            log_to_sheets(
+                st.session_state.get('session_id', 'unknown'),
+                original_input, response, 'need_context', 
+                time.time() - start_time,
+                st.session_state.get('page', 'AI챗봇 상담')
+            )
+            return response, "NEED_CONTEXT"
+    
+    # ========== 이후 모든 로직은 확장된 user_input 사용 ==========
+    
+    # 1. 욕설 차단
+    user_clean = user_input.lower().replace(' ', '')
+    BLOCKED_KEYWORDS = ['시발', '씨발', 'ㅅㅂ', '병신', 'ㅂㅅ', '지랄', 'ㅈㄹ', '개새끼', '꺼져', '닥쳐', '죽어', '미친', '존나', 'fuck']
+    if any(kw in user_clean for kw in BLOCKED_KEYWORDS):
+        response, response_type = handle_blocked(user_input, {}, data_dict)
         log_to_sheets(
             st.session_state.get('session_id', 'unknown'),
-            user_input, response, 'need_context', 
+            original_input, response, 'blocked', 
             time.time() - start_time,
             st.session_state.get('page', 'AI챗봇 상담')
         )
         return response, response_type
     
-    # 차단된 경우 바로 처리
-    if intent == 'BLOCKED':
-        response, response_type = handle_blocked(user_input, extracted_info, data_dict)
+    # 2. 인사말 처리
+    greeting_keywords = ['안녕', '하이', '헬로', 'hello', 'hi', '반가워']
+    if any(kw in user_clean for kw in greeting_keywords) and len(user_clean) < 15:
+        response, response_type = handle_greeting(user_input, {}, data_dict)
         log_to_sheets(
             st.session_state.get('session_id', 'unknown'),
-            user_input, response, 'blocked', 
+            original_input, response, 'greeting', 
             time.time() - start_time,
             st.session_state.get('page', 'AI챗봇 상담')
         )
         return response, response_type
     
-    # 인사말 처리
-    if intent == 'GREETING':
-        response, response_type = handle_greeting(user_input, extracted_info, data_dict)
-        log_to_sheets(
-            st.session_state.get('session_id', 'unknown'),
-            user_input, response, 'greeting', 
-            time.time() - start_time,
-            st.session_state.get('page', 'AI챗봇 상담')
-        )
-        return response, response_type
+    # 3. 컨텍스트 업데이트 (확장된 질문에서 제도/전공 추출)
+    program_type = extract_program_from_text(user_input)
+    entity_name, entity_type = extract_entity_from_text(user_input)
     
-    # 2. FAQ 매핑 검색
+    if program_type:
+        update_context_in_session(program=program_type)
+    if entity_name:
+        update_context_in_session(entity=entity_name, entity_type=entity_type)
+    
+    # 4. FAQ 매핑 검색 (확장된 질문으로!)
     faq_match, score = search_faq_mapping(user_input, faq_df)
     
     if faq_match is not None and score >= 10:
-        # FAQ 매칭 성공
         raw_answer = faq_match.get('answer', '')
         program = faq_match.get('program', '')
         
-        # AI로 대화체 변환
         conversational_answer = generate_conversational_response(raw_answer, user_input, program)
-        
-        # HTML 포맷팅
         formatted_response = format_faq_response_html(conversational_answer, program)
         formatted_response += create_contact_box()
         
         response_type = f"FAQ_{faq_match.get('intent', 'UNKNOWN')}"
         log_to_sheets(
             st.session_state.get('session_id', 'unknown'),
-            user_input, formatted_response, 'faq', 
+            original_input, formatted_response, 'faq', 
             time.time() - start_time,
             st.session_state.get('page', 'AI챗봇 상담')
         )
         return formatted_response, response_type
     
-    # 3. 특수 핸들러 필요한 경우 (연락처, 과목 검색, 추천)
-    if intent in FALLBACK_HANDLERS:
-        response, response_type = FALLBACK_HANDLERS[intent](user_input, extracted_info, data_dict)
+    # 5. 특수 핸들러 (연락처, 과목 검색, 전공 정보 등)
+    # 간단한 의도 분류
+    extracted_info = {
+        'entity': entity_name,
+        'entity_type': entity_type,
+        'program': program_type,
+        'major': entity_name
+    }
+    
+    # 연락처 문의
+    contact_keywords = ['연락처', '전화번호', '번호', '문의처', '사무실', '팩스']
+    if any(kw in user_clean for kw in contact_keywords):
+        response, response_type = handle_contact_search(user_input, extracted_info, data_dict)
         log_to_sheets(
             st.session_state.get('session_id', 'unknown'),
-            user_input, response, 'semantic_router', 
+            original_input, response, 'contact', 
+            time.time() - start_time,
+            st.session_state.get('page', 'AI챗봇 상담')
+        )
+        return response, response_type
+    
+    # 교과목 검색
+    course_keywords = ['교과목', '과목', '커리큘럼', '수업', '강의', '이수체계도', '교육과정', '뭐들어', '뭐배워']
+    if entity_name and any(kw in user_clean for kw in course_keywords):
+        response, response_type = handle_course_search(user_input, extracted_info, data_dict)
+        log_to_sheets(
+            st.session_state.get('session_id', 'unknown'),
+            original_input, response, 'course', 
+            time.time() - start_time,
+            st.session_state.get('page', 'AI챗봇 상담')
+        )
+        return response, response_type
+    
+    # 전공 목록 검색
+    list_keywords = ['목록', '리스트', '종류', '어떤전공', '어떤과정', '무슨전공', '뭐가있어', '뭐있어']
+    if program_type and any(kw in user_clean for kw in list_keywords):
+        response, response_type = handle_major_search(user_input, extracted_info, data_dict)
+        log_to_sheets(
+            st.session_state.get('session_id', 'unknown'),
+            original_input, response, 'major_list', 
+            time.time() - start_time,
+            st.session_state.get('page', 'AI챗봇 상담')
+        )
+        return response, response_type
+    
+    # 특정 전공 정보
+    if entity_name and not any(kw in user_clean for kw in contact_keywords + course_keywords):
+        response, response_type = handle_major_info(user_input, extracted_info, data_dict)
+        log_to_sheets(
+            st.session_state.get('session_id', 'unknown'),
+            original_input, response, 'major_info', 
             time.time() - start_time,
             st.session_state.get('page', 'AI챗봇 상담')
         )
@@ -2825,17 +2900,16 @@ def generate_ai_response(user_input, chat_history, data_dict):
         
         log_to_sheets(
             st.session_state.get('session_id', 'unknown'),
-            user_input, response, 'need_clarification', 
+            original_input, response, 'need_clarification', 
             time.time() - start_time,
             st.session_state.get('page', 'AI챗봇 상담')
         )
         return response, "NEED_CLARIFICATION"
     
-    # 4. AI Fallback - 제도/전공이 명확한 경우에만 실행
+    # 6. AI Fallback - 제도/전공이 명확한 경우에만 실행
     try:
-        # 🔥 [추가] 관련 FAQ 찾기
+        # 관련 FAQ 찾기
         related_faqs = []
-        user_clean = user_input.lower().replace(' ', '')
     
         for _, row in faq_df.iterrows():
             program = str(row.get('program', '')).replace(' ', '')
@@ -2848,11 +2922,11 @@ def generate_ai_response(user_input, chat_history, data_dict):
                 if keyword_match:
                     related_faqs.append(row)
     
-        # 🔥 FAQ 컨텍스트 생성
+        # FAQ 컨텍스트 생성
         faq_context = ""
         if related_faqs:
             faq_context = "\n\n[참고 FAQ 정보]\n"
-            for faq in related_faqs[:3]:  # 최대 3개
+            for faq in related_faqs[:3]:
                 faq_context += f"""
     **{faq.get('program', '')} - {faq.get('intent', '')}**
     {faq.get('answer', '')}
@@ -2867,12 +2941,9 @@ def generate_ai_response(user_input, chat_history, data_dict):
             for prog_name, prog_info in programs.items():
                 context_parts.append(f"[{prog_name}]\n- 설명: {prog_info.get('description', '')}\n- 이수학점: {prog_info.get('credits_multi', '')}\n- 신청자격: {prog_info.get('qualification', '')}")
     
-        context = "\n\n".join(context_parts[:5])  # 상위 5개만
+        context = "\n\n".join(context_parts[:5])
     
-        # 🔧 수정: 대화 이력 컨텍스트 제거 - AI가 이전 대화를 잘못 해석하는 문제 방지
-        # conversation_context = "" (사용 안 함)
-    
-        # 🔥 프롬프트 수정 - 더 엄격하게 제한
+        # AI 프롬프트
         prompt = f"""당신은 한경국립대학교 다전공 안내 AI챗봇입니다.
 
 [중요 지침]
@@ -2921,13 +2992,13 @@ def generate_ai_response(user_input, chat_history, data_dict):
         if is_failed:
             log_failed_to_sheets(
                 st.session_state.get('session_id', 'unknown'),
-                user_input, ai_response, "AI가 적절한 답변을 생성하지 못함"
+                original_input, ai_response, "AI가 적절한 답변을 생성하지 못함"
             )
             # 실패 시 재질문 유도
             response, response_type = handle_out_of_scope(user_input, extracted_info, data_dict)
             log_to_sheets(
                 st.session_state.get('session_id', 'unknown'),
-                user_input, response, 'ai_failed', 
+                original_input, response, 'ai_failed', 
                 time.time() - start_time,
                 st.session_state.get('page', 'AI챗봇 상담')
             )
@@ -2942,7 +3013,7 @@ def generate_ai_response(user_input, chat_history, data_dict):
         
         log_to_sheets(
             st.session_state.get('session_id', 'unknown'),
-            user_input, formatted_response, 'ai', 
+            original_input, formatted_response, 'ai', 
             time.time() - start_time,
             st.session_state.get('page', 'AI챗봇 상담')
         )
@@ -2952,13 +3023,13 @@ def generate_ai_response(user_input, chat_history, data_dict):
         response, response_type = handle_out_of_scope(user_input, extracted_info, data_dict)
         log_to_sheets(
             st.session_state.get('session_id', 'unknown'),
-            user_input, response, 'failed', 
+            original_input, response, 'failed', 
             time.time() - start_time,
             st.session_state.get('page', 'AI챗봇 상담')
         )
         log_failed_to_sheets(
             st.session_state.get('session_id', 'unknown'),
-            user_input, str(e), "예외 발생"
+            original_input, str(e), "예외 발생"
         )
         return response, response_type
 
