@@ -58,7 +58,7 @@ DEFAULT_CONTACT_MESSAGE = "📞 문의: 전공 사무실 또는 학사지원팀 
 CONTACT_MESSAGE = MESSAGES.get('contact', {}).get('default', DEFAULT_CONTACT_MESSAGE)
 
 LINKS = MESSAGES.get('links', {})
-ACADEMIC_NOTICE_URL = LINKS.get('academic_notice', "https://www.hknu.ac.kr/kor/562/subview.do")
+ACADEMIC_NOTICE_URL = LINKS.get('academic_notice', "https://www.hknu.ac.kr/bbs/kor/70/90689/artclView.do?layout=unknown")
 
 PATHS = SETTINGS.get('paths', {})
 CURRICULUM_IMAGES_PATH = PATHS.get('curriculum_images', "images/curriculum")
