@@ -4146,6 +4146,12 @@ def main():
                                             st.write(f"전공필수: **{p_req}**학점")
                                             st.write(f"전공선택: **{p_sel}**학점")
                                             st.markdown(f"#### 👉 합계 {p_total}학점")
+                                            
+                                            # 선택한 학번과 적용된 기준학번이 다르면 안내 문구 표시
+                                            applied_year = int(p_row.get('기준학번', 0))
+                                            if admission_year != applied_year:
+                                                st.info(f"ℹ️ {applied_year}학번 기준 ({admission_year}학번 기준은 추후 업데이트 예정)")
+                                            
                                             found_req = True
                                             break
                                     
