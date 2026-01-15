@@ -58,7 +58,7 @@ DEFAULT_CONTACT_MESSAGE = "📞 문의: 전공 사무실 또는 학사지원팀 
 CONTACT_MESSAGE = MESSAGES.get('contact', {}).get('default', DEFAULT_CONTACT_MESSAGE)
 
 LINKS = MESSAGES.get('links', {})
-ACADEMIC_NOTICE_URL = LINKS.get('academic_notice', "https://www.hknu.ac.kr/bbs/kor/70/90689/artclView.do?layout=unknown")
+ACADEMIC_NOTICE_URL = LINKS.get('academic_notice', "https://www.hknu.ac.kr/kor/562/subview.do")
 
 PATHS = SETTINGS.get('paths', {})
 CURRICULUM_IMAGES_PATH = PATHS.get('curriculum_images', "images/curriculum")
@@ -468,6 +468,51 @@ ALL_DATA = {
     'grad_req': GRADUATION_REQ,
     'primary_req': PRIMARY_REQ,
 }
+
+
+# ============================================================
+# 📌 조사 제거 함수 (FAQ 매칭 개선용)
+# ============================================================
+
+def normalize_for_matching(text):
+    """
+    FAQ 매칭용 정규화 - 조사를 포함한 변형을 처리
+    
+    전략: 특정 패턴의 조사만 제거
+    - "XXX가 뭐" → "XXX뭐" (가 제거)
+    - "XXX는 뭐" → "XXX뭐" (는 제거)
+    - "XXX이 뭐" → "XXX뭐" (이 제거)
+    """
+    import re
+    
+    # 소문자 변환
+    text = text.lower()
+    
+    # 특수문자 제거
+    text = re.sub(r'[?!.,]', '', text)
+    
+    # 공백 제거
+    text = text.replace(' ', '')
+    
+    # 1단계: 의문사 앞 조사 제거
+    # "OO가뭐" → "OO뭐", "OO는뭐" → "OO뭐"
+    particles_before_interrogative = ['가', '는', '은', '이', '을', '를']
+    interrogatives = ['뭐', '뭔', '무엇', '어떻', '어떤', '언제', '얼마', '몇']
+    
+    for particle in particles_before_interrogative:
+        for interr in interrogatives:
+            pattern = f'{particle}{interr}'
+            text = text.replace(pattern, interr)
+    
+    # 2단계: 동사 앞 조사 제거
+    # "OO을신청" → "OO신청"
+    verbs = ['신청', '취소', '포기', '변경', '하려', '하고', '할수', '해야', '됩니', '알려', '설명']
+    for particle in ['을', '를', '이', '가', '은', '는']:
+        for verb in verbs:
+            pattern = f'{particle}{verb}'
+            text = text.replace(pattern, verb)
+    
+    return text
 
 
 # ============================================================
@@ -1139,11 +1184,17 @@ def search_faq_mapping(user_input, faq_df):
     [하이브리드] FAQ 매핑 검색
     - 세부 과정명 우선 체크 (코드)
     - 구체적 키워드 매칭 (FAQ 파일)
+    - 조사 제거로 매칭 정확도 향상
     """
     if faq_df.empty:
         return None, 0
     
+    # 🔧 개선: 조사 제거 정규화 적용
     user_clean = user_input.lower().replace(' ', '')
+    user_normalized = normalize_for_matching(user_input)  # 조사 제거된 버전
+    
+    debug_print(f"[DEBUG FAQ] 원본: '{user_input}'")
+    debug_print(f"[DEBUG FAQ] 정규화: '{user_normalized}'")
     
     # STEP 1: 복수 프로그램 감지
     program_keywords = ['복수전공', '부전공', '융합전공', '마이크로전공', '마이크로디그리']
@@ -1251,7 +1302,8 @@ def search_faq_mapping(user_input, faq_df):
         total_keyword_length = 0
         
         for kw in keywords:
-            if kw in user_clean:
+            # 🔧 개선: 원본과 정규화 버전 모두에서 매칭 시도
+            if kw in user_clean or kw in user_normalized:
                 keyword_matches += 1
                 total_keyword_length += len(kw)
         
@@ -1269,6 +1321,7 @@ def search_faq_mapping(user_input, faq_df):
         if score > best_score:
             best_score = score
             best_match = row
+            debug_print(f"[DEBUG FAQ] 매칭: {row.get('intent')} (score={score})")
     
     if best_score >= 20:
         return best_match, best_score
