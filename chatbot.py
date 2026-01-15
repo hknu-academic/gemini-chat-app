@@ -1477,12 +1477,12 @@ def format_faq_response_html(answer, program=None):
                 in_list = True
             # 번호 제거하고 내용만
             content = re.sub(r'^\d+\.\s*', '', line)
-            formatted_lines.append(f'<li style="margin: 5px 0; color: #333;">{content}</li>')
+            formatted_lines.append(f'<li style="margin: 5px 0; color: inherit;">{content}</li>')
         else:
             if in_list:
                 formatted_lines.append('</ol>')
                 in_list = False
-            formatted_lines.append(f'<p style="margin: 8px 0; color: #333; line-height: 1.6;">{line}</p>')
+            formatted_lines.append(f'<p style="margin: 8px 0; color: inherit; line-height: 1.6;">{line}</p>')
     
     if in_list:
         formatted_lines.append('</ol>')
@@ -1503,7 +1503,7 @@ def format_faq_response_html(answer, program=None):
     color = colors.get(program, '#667eea')
     
     return f"""
-<div style="background: linear-gradient(135deg, {color}15 0%, {color}05 100%); border-left: 4px solid {color}; border-radius: 12px; padding: 16px; margin: 12px 0;">
+<div style="background: transparent; border: 1px solid #888; border-left: 4px solid {color}; border-radius: 12px; padding: 16px; margin: 12px 0;">
     {content}
 </div>
 """
