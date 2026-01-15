@@ -1407,14 +1407,14 @@ def generate_conversational_response(faq_answer, user_input, program=None):
 # ============================================================
 
 def create_header_card(title, emoji="📋", color="#667eea"):
-    return f"""<h3 style="margin: 20px 0 16px 0; font-size: 1.3rem; color: #333; font-weight: 600;">{emoji} {title}</h3>"""
+    return f"""<h3 style="margin: 20px 0 16px 0; font-size: 1.3rem; color: inherit; font-weight: 600;">{emoji} {title}</h3>"""
 
 
 def create_info_card(title, content_list, border_color="#007bff", emoji="📌"):
     items_html = ""
     for item in content_list:
-        items_html += f'<p style="margin: 6px 0 6px 20px; font-size: 0.95rem; color: #333;">• {item}</p>\n'
-    return f"""<div style="margin: 12px 0;"><h4 style="color: #333; margin: 10px 0 8px 0; font-size: 1rem; font-weight: 600;">{emoji} {title}</h4>{items_html}</div>"""
+        items_html += f'<p style="margin: 6px 0 6px 20px; font-size: 0.95rem; color: inherit;">• {item}</p>\n'
+    return f"""<div style="margin: 12px 0;"><h4 style="color: inherit; margin: 10px 0 8px 0; font-size: 1rem; font-weight: 600;">{emoji} {title}</h4>{items_html}</div>"""
 
 
 def create_simple_card(content, bg_color="#f0f7ff", border_color="#007bff"):
@@ -1422,19 +1422,19 @@ def create_simple_card(content, bg_color="#f0f7ff", border_color="#007bff"):
 
 
 def create_step_card(step_num, title, description, color="#007bff"):
-    return f"""<div style="display: flex; align-items: flex-start; margin: 12px 0; padding: 12px; background: white; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);"><div style="background: {color}; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 14px; flex-shrink: 0;">{step_num}</div><div><strong style="color: #333; font-size: 0.95rem;">{title}</strong><p style="margin: 4px 0 0 0; color: #666; font-size: 0.9rem;">{description}</p></div></div>"""
+    return f"""<div style="display: flex; align-items: flex-start; margin: 12px 0; padding: 12px; background: transparent; border: 1px solid #888; border-radius: 10px;"><div style="background: {color}; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 14px; flex-shrink: 0;">{step_num}</div><div><strong style="color: inherit; font-size: 0.95rem;">{title}</strong><p style="margin: 4px 0 0 0; color: inherit; opacity: 0.8; font-size: 0.9rem;">{description}</p></div></div>"""
 
 
 def create_tip_box(text, emoji="💡"):
-    return f"""<p style="margin: 12px 0; color: #666; font-size: 0.9rem; font-style: italic;">{emoji} <strong>TIP:</strong> {text}</p>"""
+    return f"""<p style="margin: 12px 0; color: inherit; opacity: 0.8; font-size: 0.9rem; font-style: italic;">{emoji} <strong>TIP:</strong> {text}</p>"""
 
 
 def create_warning_box(text, emoji="⚠️"):
-    return f"""<p style="margin: 12px 0; color: #dc3545; font-size: 0.9rem; font-weight: 500;">{emoji} {text}</p>"""
+    return f"""<p style="margin: 12px 0; color: #ff6b6b; font-size: 0.9rem; font-weight: 500;">{emoji} {text}</p>"""
 
 
 def create_contact_box():
-    return """<p style="margin: 16px 0 0 0; color: #666; font-size: 0.9rem;">📞 <strong>문의:</strong> 전공 사무실 또는 학사지원팀 <strong>031-670-5035</strong></p>"""
+    return """<p style="margin: 16px 0 0 0; color: inherit; opacity: 0.8; font-size: 0.9rem;">📞 <strong>문의:</strong> 전공 사무실 또는 학사지원팀 <strong>031-670-5035</strong></p>"""
 
 
 def create_table_html(headers, rows, colors=None):
@@ -2107,6 +2107,13 @@ def handle_course_search(user_input, extracted_info, data_dict):
     
     response = create_header_card(f"{actual_name} 교과목", "📚", header_color)
     
+    # 부드러운 인사말 추가
+    response += f"""
+<div style="background: transparent; border: 1px solid #888; border-radius: 8px; padding: 12px; margin: 8px 0;">
+    <p style="margin: 0; color: inherit;">{actual_name} 교과목 안내해 드릴게요! 📖</p>
+</div>
+"""
+    
     # 제도유형 표시 (상단 박스)
     info_items = []
     program_types = major_courses['제도유형'].dropna().unique().tolist()
@@ -2115,9 +2122,9 @@ def handle_course_search(user_input, extracted_info, data_dict):
         info_items.append(f"📋 <strong>제도유형:</strong> {program_str}")
 
     if info_items:
-        response += '<div style="background: #f8f9fa; border-radius: 8px; padding: 12px; margin: 8px 0; font-size: 0.95em;">'
+        response += '<div style="background: transparent; border: 1px solid #888; border-radius: 8px; padding: 12px; margin: 8px 0; font-size: 0.95em;">'
         for item in info_items:
-            response += f'<div style="color: #555;">{item}</div>'
+            response += f'<div style="color: inherit;">{item}</div>'
         response += '</div>'
 
     # 5. 학년/학기별 리스트 출력 (이모티콘, 빈칸 처리 로직 유지됨)
@@ -2141,8 +2148,8 @@ def handle_course_search(user_input, extracted_info, data_dict):
         if year_data.empty: continue
 
         response += f"""
-<div style="background: white; border-radius: 8px; padding: 16px; margin: 12px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-    <h4 style="margin: 0 0 12px 0; color: #333; border-bottom: 2px solid {header_color}; padding-bottom: 8px;">{year_display}</h4>
+<div style="background: transparent; border: 1px solid #888; border-radius: 8px; padding: 16px; margin: 12px 0;">
+    <h4 style="margin: 0 0 12px 0; color: inherit; border-bottom: 2px solid {header_color}; padding-bottom: 8px;">{year_display}</h4>
 """
 
         # 학기 정렬 (없으면 0으로 처리)
@@ -2161,7 +2168,7 @@ def handle_course_search(user_input, extracted_info, data_dict):
 
             response += f"""
 <div style="margin: 12px 0;">
-    <h5 style="margin: 0 0 8px 0; color: #555;">{sem_display}</h5>
+    <h5 style="margin: 0 0 8px 0; color: inherit; opacity: 0.9;">{sem_display}</h5>
 """
             
             # 이수구분 필터링 (빈칸 포함 처리 유지됨)
@@ -2210,10 +2217,10 @@ def handle_course_search(user_input, extracted_info, data_dict):
                         items += f"""
 <li style="margin: 4px 0;">
     <details>
-        <summary style="cursor: pointer; padding: 6px 10px; border-radius: 4px;">
+        <summary style="cursor: pointer; padding: 6px 10px; border-radius: 4px; color: inherit;">
             • {course_title}{detail_str}
         </summary>
-        <div style="margin: 6px 0 0 18px; font-size: 13px; color: #555;">
+        <div style="margin: 6px 0 0 18px; font-size: 13px; color: inherit; opacity: 0.8;">
             {outline}
         </div>
     </details>
@@ -2221,7 +2228,7 @@ def handle_course_search(user_input, extracted_info, data_dict):
 """
                     else:
                         items += f"""
-<li style="margin: 4px 0; padding: 6px 10px;">
+<li style="margin: 4px 0; padding: 6px 10px; color: inherit;">
     • {course_title}{detail_str}
 </li>
 """
@@ -2303,12 +2310,12 @@ def handle_contact_search(user_input, extracted_info, data_dict):
             
             response = create_header_card(f"{row['과정명']} 연락처", "📞", "#11998e")
             response += f"""
-<div style="background: white; border-left: 4px solid #11998e; border-radius: 8px; padding: 16px; margin: 8px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-    <p style="margin: 0 0 12px 0; color: #555;">{row['과정명']} 연락처 안내해 드릴게요! 😊</p>
-    <p style="margin: 8px 0; color: #333;"><strong>🎓 과정명:</strong> {row['과정명']}</p>
-    <p style="margin: 8px 0; color: #333;"><strong>🏫 교육운영전공:</strong> {row.get('교육운영전공', '-')}</p>
-    <p style="margin: 8px 0; color: #333;"><strong>📱 연락처:</strong> {row.get('연락처', '-')}</p>
-    <p style="margin: 8px 0; color: #333;"><strong>📍 위치:</strong> {row.get('위치', '-')}</p>
+<div style="background: transparent; border: 1px solid #888; border-left: 4px solid #11998e; border-radius: 8px; padding: 16px; margin: 8px 0;">
+    <p style="margin: 0 0 12px 0; color: inherit; opacity: 0.9;">{row['과정명']} 연락처 안내해 드릴게요! 😊</p>
+    <p style="margin: 8px 0; color: inherit;"><strong>🎓 과정명:</strong> {row['과정명']}</p>
+    <p style="margin: 8px 0; color: inherit;"><strong>🏫 교육운영전공:</strong> {row.get('교육운영전공', '-')}</p>
+    <p style="margin: 8px 0; color: inherit;"><strong>📱 연락처:</strong> {row.get('연락처', '-')}</p>
+    <p style="margin: 8px 0; color: inherit;"><strong>📍 위치:</strong> {row.get('위치', '-')}</p>
 </div>
 """
             return response, "CONTACT_SEARCH"
@@ -2323,18 +2330,18 @@ def handle_contact_search(user_input, extracted_info, data_dict):
             response = create_header_card(f"{row['전공명']} 연락처", "📞", "#11998e")
 
             response += f"""
-<div style="background: white; border-left: 4px solid #11998e; border-radius: 8px; padding: 16px; margin: 8px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-    <p style="margin: 0 0 12px 0; color: #555;">{row['전공명']} 연락처 안내해 드릴게요! 😊</p>
-    <p style="margin: 8px 0; color: #333;"><strong>🎓 전공명:</strong> {row['전공명']}</p>
-    <p style="margin: 8px 0; color: #333;"><strong>📱 연락처:</strong> {row.get('연락처', '-')}</p>
-    <p style="margin: 8px 0; color: #333;"><strong>📍 위치:</strong> {row.get('위치', row.get('사무실위치', '-'))}</p>
+<div style="background: transparent; border: 1px solid #888; border-left: 4px solid #11998e; border-radius: 8px; padding: 16px; margin: 8px 0;">
+    <p style="margin: 0 0 12px 0; color: inherit; opacity: 0.9;">{row['전공명']} 연락처 안내해 드릴게요! 😊</p>
+    <p style="margin: 8px 0; color: inherit;"><strong>🎓 전공명:</strong> {row['전공명']}</p>
+    <p style="margin: 8px 0; color: inherit;"><strong>📱 연락처:</strong> {row.get('연락처', '-')}</p>
+    <p style="margin: 8px 0; color: inherit;"><strong>📍 위치:</strong> {row.get('위치', row.get('사무실위치', '-'))}</p>
 """
             
             homepage = row.get('홈페이지', '-')
             if homepage and homepage != '-' and str(homepage).startswith('http'):
-                response += f'    <p style="margin: 8px 0; color: #333;"><strong>🌐 홈페이지:</strong> <a href="{homepage}" target="_blank" style="color: #e83e8c; text-decoration: none;">{homepage} 🔗</a></p>\n'
+                response += f'    <p style="margin: 8px 0; color: inherit;"><strong>🌐 홈페이지:</strong> <a href="{homepage}" target="_blank" style="color: #e83e8c; text-decoration: none;">{homepage} 🔗</a></p>\n'
             else:
-                response += f'    <p style="margin: 8px 0; color: #333;"><strong>🌐 홈페이지:</strong> {homepage}</p>\n'
+                response += f'    <p style="margin: 8px 0; color: inherit;"><strong>🌐 홈페이지:</strong> {homepage}</p>\n'
             
             response += "</div>"
             return response, "CONTACT_SEARCH"
@@ -2810,7 +2817,13 @@ def generate_ai_response(user_input, chat_history, data_dict):
         debug_print(f"[DEBUG] 후속 질문 감지: {user_input}")
         debug_print(f"[DEBUG] 컨텍스트: program={context['program']}, entity={context['entity']}")
         
-        if (context['program'] or context['entity']) and context['turn_count'] <= 3:
+        # 🔧 새로운 엔티티가 있으면 후속 질문 확장 안 함
+        new_entity, new_entity_type = extract_entity_from_text(user_input)
+        if new_entity:
+            debug_print(f"[DEBUG] 새로운 엔티티 감지: {new_entity} → 컨텍스트 확장 안 함")
+            # 컨텍스트를 새 엔티티로 업데이트
+            update_context_in_session(entity=new_entity, entity_type=new_entity_type)
+        elif (context['program'] or context['entity']) and context['turn_count'] <= 3:
             user_input = expand_followup_question(user_input, context)
             debug_print(f"[DEBUG] 확장된 질문: {user_input}")
             update_context_in_session()  # 턴 카운트 증가
