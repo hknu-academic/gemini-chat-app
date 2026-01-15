@@ -4113,9 +4113,13 @@ def main():
                                         st.markdown(f"#### 👉 합계 {int(row.get('다전공_계', 0))}학점")
                         
                         with col_r:
-                            st.subheader(f"🏠 본전공 이수학점 변화")
+                            st.subheader(f"🏠 본전공 이수학점 변화(신입학 기준)")
                             if my_primary != "선택 안 함" and not PRIMARY_REQ.empty:
-                                pri_data = PRIMARY_REQ[PRIMARY_REQ['전공명'] == my_primary].copy()
+                                # 신입학 기준으로 필터링
+                                pri_data = PRIMARY_REQ[
+                                    (PRIMARY_REQ['전공명'] == my_primary) & 
+                                    (PRIMARY_REQ['입학구분'] == '신입학')
+                                ].copy()
                                 if not pri_data.empty:
                                     pri_data['기준학번'] = pd.to_numeric(pri_data['기준학번'], errors='coerce')
                                     pri_valid = pri_data[pri_data['기준학번'] <= admission_year].sort_values('기준학번', ascending=False)
