@@ -2304,6 +2304,7 @@ def handle_contact_search(user_input, extracted_info, data_dict):
             response = create_header_card(f"{row['과정명']} 연락처", "📞", "#11998e")
             response += f"""
 <div style="background: white; border-left: 4px solid #11998e; border-radius: 8px; padding: 16px; margin: 8px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    <p style="margin: 0 0 12px 0; color: #555;">{row['과정명']} 연락처 안내해 드릴게요! 😊</p>
     <p style="margin: 8px 0; color: #333;"><strong>🎓 과정명:</strong> {row['과정명']}</p>
     <p style="margin: 8px 0; color: #333;"><strong>🏫 교육운영전공:</strong> {row.get('교육운영전공', '-')}</p>
     <p style="margin: 8px 0; color: #333;"><strong>📱 연락처:</strong> {row.get('연락처', '-')}</p>
@@ -2323,6 +2324,7 @@ def handle_contact_search(user_input, extracted_info, data_dict):
 
             response += f"""
 <div style="background: white; border-left: 4px solid #11998e; border-radius: 8px; padding: 16px; margin: 8px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    <p style="margin: 0 0 12px 0; color: #555;">{row['전공명']} 연락처 안내해 드릴게요! 😊</p>
     <p style="margin: 8px 0; color: #333;"><strong>🎓 전공명:</strong> {row['전공명']}</p>
     <p style="margin: 8px 0; color: #333;"><strong>📱 연락처:</strong> {row.get('연락처', '-')}</p>
     <p style="margin: 8px 0; color: #333;"><strong>📍 위치:</strong> {row.get('위치', row.get('사무실위치', '-'))}</p>
