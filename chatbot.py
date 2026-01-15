@@ -515,6 +515,47 @@ def normalize_for_matching(text):
     return text
 
 
+def check_program_name_only(user_input):
+    """
+    프로그램명만 입력되었는지 확인
+    예: "마이크로디그리", "복수전공", "MD" 등
+    
+    Returns:
+        str: 매칭된 프로그램명 (FAQ의 program 컬럼과 일치하는 값)
+        None: 매칭 안됨
+    """
+    import re
+    
+    # 정규화: 소문자, 공백/특수문자 제거
+    text_clean = re.sub(r'[?!.,\s]', '', user_input.lower())
+    
+    # 프로그램명 매핑 (입력 가능한 형태 → FAQ program 값)
+    program_patterns = {
+        # 마이크로디그리 (다양한 표현)
+        '마이크로디그리': '마이크로디그리',
+        '소단위전공과정': '마이크로디그리',
+        '소단위전공': '마이크로디그리',
+        '소단위': '마이크로디그리',
+        'md': '마이크로디그리',
+        '마디': '마이크로디그리',
+        # 기본 프로그램들
+        '복수전공': '복수전공',
+        '복전': '복수전공',
+        '부전공': '부전공',
+        '부전': '부전공',
+        '융합전공': '융합전공',
+        '융합부전공': '융합부전공',
+        '연계전공': '연계전공',
+        '다전공': '다전공',
+    }
+    
+    # 정확히 프로그램명만 입력된 경우
+    if text_clean in program_patterns:
+        return program_patterns[text_clean]
+    
+    return None
+
+
 # ============================================================
 # 📌 프로그램 키워드 및 인텐트 정의
 # ============================================================
@@ -2827,7 +2868,36 @@ def generate_ai_response(user_input, chat_history, data_dict):
     if entity_name:
         update_context_in_session(entity=entity_name, entity_type=entity_type)
     
-    # 4. FAQ 매핑 검색 (확장된 질문으로!)
+    # 4. 프로그램명만 입력된 경우 → PROGRAM_INFO FAQ로 연결
+    program_only_match = check_program_name_only(user_input)
+    if program_only_match:
+        debug_print(f"[DEBUG] 프로그램명만 입력됨: {program_only_match}")
+        # FAQ에서 해당 프로그램의 PROGRAM_INFO 찾기
+        program_info_faq = faq_df[
+            (faq_df['program'] == program_only_match) & 
+            (faq_df['intent'] == 'PROGRAM_INFO')
+        ]
+        if not program_info_faq.empty:
+            faq_match = program_info_faq.iloc[0]
+            raw_answer = faq_match.get('answer', '')
+            program = faq_match.get('program', '')
+            
+            conversational_answer = generate_conversational_response(raw_answer, user_input, program)
+            formatted_response = format_faq_response_html(conversational_answer, program)
+            formatted_response += create_contact_box()
+            
+            # 컨텍스트 업데이트
+            update_context_in_session(program=program_only_match)
+            
+            log_to_sheets(
+                st.session_state.get('session_id', 'unknown'),
+                original_input, formatted_response, 'faq_program_info', 
+                time.time() - start_time,
+                st.session_state.get('page', 'AI챗봇 상담')
+            )
+            return formatted_response, "FAQ_PROGRAM_INFO"
+    
+    # 5. FAQ 매핑 검색 (확장된 질문으로!)
     faq_match, score = search_faq_mapping(user_input, faq_df)
     
     if faq_match is not None and score >= 10:
