@@ -3399,7 +3399,7 @@ def display_courses(major, program_type):
     display_program_type = "소단위전공과정(마이크로디그리)" if is_micro else program_type
     
     if not courses.empty:
-        st.subheader(f"📚 교과목 안내")
+        st.markdown('<p style="font-size: 1.3rem; font-weight: 600; margin: 20px 0 16px 0;">📚 교과목 안내</p>', unsafe_allow_html=True)
         
         years = sorted([int(y) for y in courses['학년'].unique() if pd.notna(y)])
         
@@ -3412,7 +3412,7 @@ def display_courses(major, program_type):
                     semesters = sorted([int(s) for s in year_courses['학기'].unique() if pd.notna(s)])
                     
                     for semester in semesters:
-                        st.markdown(f"#### 📅 {semester}학기")
+                        st.markdown(f'<p style="font-size: 1.1rem; font-weight: 600; margin: 16px 0 12px 0;">📅 {semester}학기</p>', unsafe_allow_html=True)
                         semester_courses = year_courses[year_courses['학기'] == semester]
                         
                         required = semester_courses[semester_courses['이수구분'].str.contains('필수', na=False)]
@@ -3436,7 +3436,7 @@ def display_courses(major, program_type):
             
             if semesters:
                 for semester in semesters:
-                    st.markdown(f"#### 📅 {semester}학기")
+                    st.markdown(f'<p style="font-size: 1.1rem; font-weight: 600; margin: 16px 0 12px 0;">📅 {semester}학기</p>', unsafe_allow_html=True)
                     semester_courses = courses[courses['학기'] == semester]
                     
                     has_required = not semester_courses[semester_courses['이수구분'].str.contains('필수', na=False)].empty
@@ -3735,7 +3735,7 @@ def main():
     
     # 메인 콘텐츠
     if menu == "AI챗봇 상담":
-        st.subheader("💬 챗봇과 대화하기")
+        st.markdown('<p style="font-size: 1.3rem; font-weight: 600; margin: 20px 0 16px 0;">💬 챗봇과 대화하기</p>', unsafe_allow_html=True)
 
         with st.expander("💡 어떤 질문을 해야 할지 모르겠나요? **(클릭)**", expanded=False):
 
@@ -3826,7 +3826,7 @@ def main():
                     st.markdown(html, unsafe_allow_html=True)
         
         st.divider()
-        st.subheader("🔍 상세 정보 조회")
+        st.markdown('<p style="font-size: 1.3rem; font-weight: 600; margin: 20px 0 16px 0;">🔍 상세 정보 조회</p>', unsafe_allow_html=True)
         
         prog_keys = list(ALL_DATA['programs'].keys()) if 'programs' in ALL_DATA else []
         selected_program = st.selectbox("제도 선택", prog_keys)
@@ -4133,7 +4133,7 @@ def main():
                     if selected_program in target_programs and "연계전공" not in selected_program:
                         col_l, col_r = st.columns(2)
                         with col_l:
-                            st.subheader(f"🎯 {selected_program} 이수학점")
+                            st.markdown(f'<p style="font-size: 1.3rem; font-weight: 600; margin: 20px 0 16px 0;">🎯 {selected_program} 이수학점</p>', unsafe_allow_html=True)
                             if not GRADUATION_REQ.empty:
                                 req_data = GRADUATION_REQ[
                                     (GRADUATION_REQ['전공명'] == selected_major) & 
@@ -4146,10 +4146,10 @@ def main():
                                         row = applicable.iloc[0]
                                         st.write(f"전공필수: **{int(row.get('다전공_전공필수', 0))}**학점")
                                         st.write(f"전공선택: **{int(row.get('다전공_전공선택', 0))}**학점")
-                                        st.markdown(f"#### 👉 합계 {int(row.get('다전공_계', 0))}학점")
+                                        st.markdown(f'<p style="font-size: 1.1rem; font-weight: 600; margin: 12px 0;">👉 합계 {int(row.get("다전공_계", 0))}학점</p>', unsafe_allow_html=True)
                         
                         with col_r:
-                            st.subheader(f"🏠 본전공 이수학점 변화(신입학 기준)")
+                            st.markdown('<p style="font-size: 1.3rem; font-weight: 600; margin: 20px 0 16px 0;">🏠 본전공 이수학점 변화(신입학 기준)</p>', unsafe_allow_html=True)
                             if my_primary != "선택 안 함" and not PRIMARY_REQ.empty:
                                 # 신입학 기준으로 필터링
                                 pri_data = PRIMARY_REQ[
@@ -4181,7 +4181,7 @@ def main():
 
                                             st.write(f"전공필수: **{p_req}**학점")
                                             st.write(f"전공선택: **{p_sel}**학점")
-                                            st.markdown(f"#### 👉 합계 {p_total}학점")
+                                            st.markdown(f'<p style="font-size: 1.1rem; font-weight: 600; margin: 12px 0;">👉 합계 {p_total}학점</p>', unsafe_allow_html=True)
                                             
                                             # 선택한 학번과 적용된 기준학번이 다르면 안내 문구 표시
                                             applied_year = int(p_row.get('기준학번', 0))
@@ -4208,15 +4208,15 @@ def main():
                             
                             # 내용이 비어있지 않다면(NaN이나 빈 문자열이 아니면) 출력
                             if pd.notna(description) and str(description).strip():
-                                st.markdown(f"### 📘 ({selected_program}) {selected_major} 전공 소개")
+                                st.markdown(f'<p style="font-size: 1.3rem; font-weight: 600; margin: 20px 0 16px 0;">📘 ({selected_program}) {selected_major} 전공 소개</p>', unsafe_allow_html=True)
                                 st.info(str(description).strip())
 
                     if selected_program == "융합전공":
-                        st.subheader("📋 이수체계도")
+                        st.markdown('<p style="font-size: 1.3rem; font-weight: 600; margin: 20px 0 16px 0;">📋 이수체계도</p>', unsafe_allow_html=True)
                         display_curriculum_image(selected_major, selected_program)
                         display_courses(selected_major, selected_program)
                     elif "소단위" in selected_program or "마이크로" in selected_program:
-                        st.subheader("🖼️ 과정 안내 이미지")
+                        st.markdown('<p style="font-size: 1.3rem; font-weight: 600; margin: 20px 0 16px 0;">🖼️ 과정 안내 이미지</p>', unsafe_allow_html=True)
                         display_curriculum_image(selected_major, selected_program)
                         display_courses(selected_major, selected_program)
                     else:
