@@ -1131,9 +1131,9 @@ def render_simulation_page():
     """다전공 비교 분석 페이지"""
     
     st.markdown("""
-    <h1 style="text-align: center; color: #667eea; margin-bottom: 10px;">
+    <p style="text-align: center; color: #667eea; margin-bottom: 10px; font-size: 2rem; font-weight: 600;">
         🎯 다전공 비교 분석
-    </h1>
+    </p>
     <p style="text-align: center; color: #666; margin-bottom: 30px;">
         희망 전공을 여러 제도로 이수할 때 필요한 학점을 비교해보세요!
     </p>
@@ -1199,7 +1199,7 @@ def render_step1_student_type():
     st.markdown("""
     <div style="background: white; border-radius: 15px; padding: 30px; 
                 box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px;">
-        <h3 style="color: #333; margin-bottom: 20px;">📋 어떤 상황인가요?</h3>
+        <p style="color: #333; margin-bottom: 20px; font-size: 1.3rem; font-weight: 600;">📋 어떤 상황인가요?</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -1236,9 +1236,9 @@ def render_step2_basic_info():
     st.markdown(f"""
     <div style="background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); 
                 border-radius: 15px; padding: 20px; margin-bottom: 20px;">
-        <h3 style="color: #667eea; margin: 0;">
+        <p style="color: #667eea; margin: 0; font-size: 1.3rem; font-weight: 600;">
             {'🆕 신규 신청자' if st.session_state.sim_student_type == '신규 신청자' else '📚 기존 참여자'} - 기본 정보
-        </h3>
+        </p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -1311,7 +1311,7 @@ def render_step2_basic_info():
     desired_multi_major = None
     if st.session_state.sim_student_type == "신규 신청자":
         st.markdown("---")
-        st.markdown("### 🎯 희망하는 다전공")
+        st.markdown('<p style="font-size: 1.3rem; font-weight: 600; margin: 20px 0 16px 0;">🎯 희망하는 다전공</p>', unsafe_allow_html=True)
         
         # 다전공 목록을 계열별로 구분하여 가져오기
         try:
@@ -1360,7 +1360,7 @@ def render_step2_basic_info():
     current_multi_major = None
     if st.session_state.sim_student_type == "기존 참여자":
         st.markdown("---")
-        st.markdown("### 📚 현재 참여 중인 다전공")
+        st.markdown('<p style="font-size: 1.3rem; font-weight: 600; margin: 20px 0 16px 0;">📚 현재 참여 중인 다전공</p>', unsafe_allow_html=True)
         
         col1, col2 = st.columns(2)
         with col1:
@@ -1442,7 +1442,7 @@ def render_step3_credits():
     st.markdown("""
     <div style="background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%); 
                 border-radius: 15px; padding: 20px; margin-bottom: 20px;">
-        <h3 style="color: #667eea; margin: 0;">📊 현재 이수 학점 입력</h3>
+        <p style="color: #667eea; margin: 0; font-size: 1.3rem; font-weight: 600;">📊 현재 이수 학점 입력</p>
         <p style="color: #666; margin: 10px 0 0 0; font-size: 0.9rem;">
             정확한 분석을 위해 현재까지 이수한 학점을 입력해주세요. 이수한 학점은 <a href="https://info.hknu.ac.kr" target="_blank" style="color: #667eea; text-decoration: underline;">학사시스템</a>의 '통합학적부 조회-성적이력'에서 확인 가능합니다.
         </p>
@@ -1455,7 +1455,7 @@ def render_step3_credits():
     credits_core_liberal = 0
     
     if st.session_state.sim_admission_type == "신입학":
-        st.markdown("### 📚 교양 이수 학점")
+        st.markdown('<p style="font-size: 1.3rem; font-weight: 600; margin: 20px 0 16px 0;">📚 교양 이수 학점</p>', unsafe_allow_html=True)
         col1, col2, col3 = st.columns(3)
         
         with col1:
@@ -1480,7 +1480,7 @@ def render_step3_credits():
             )
     
     # 본전공 학점
-    st.markdown("### 🎓 본전공 이수 학점")
+    st.markdown('<p style="font-size: 1.3rem; font-weight: 600; margin: 20px 0 16px 0;">🎓 본전공 이수 학점</p>', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     
     with col1:
@@ -1502,7 +1502,7 @@ def render_step3_credits():
     credits_multi_elective = 0
     
     if st.session_state.sim_student_type == "기존 참여자":
-        st.markdown(f"### 📘 다전공 이수 학점 ({st.session_state.sim_current_program})")
+        st.markdown(f'<p style="font-size: 1.3rem; font-weight: 600; margin: 20px 0 16px 0;">📘 다전공 이수 학점 ({st.session_state.sim_current_program})</p>', unsafe_allow_html=True)
         col1, col2 = st.columns(2)
         
         with col1:
@@ -1520,7 +1520,7 @@ def render_step3_credits():
             )
     
     # 잔여 학점
-    st.markdown("### 📋 기타 이수 학점")
+    st.markdown('<p style="font-size: 1.3rem; font-weight: 600; margin: 20px 0 16px 0;">📋 기타 이수 학점</p>', unsafe_allow_html=True)
     credits_free = st.number_input(
         "잔여(자유) 학점",
         min_value=0, max_value=60, value=0,
@@ -1539,7 +1539,7 @@ def render_step3_credits():
     
     st.markdown(f"""
     <div style="background: #e3f2fd; border-radius: 10px; padding: 15px; margin-top: 20px;">
-        <h4 style="color: #1565c0; margin: 0;">📊 총 이수 학점: <span style="font-size: 1.5rem;">{total}</span>학점</h4>
+        <p style="color: #1565c0; margin: 0; font-size: 1.1rem; font-weight: 600;">📊 총 이수 학점: <span style="font-size: 1.5rem;">{total}</span>학점</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -1599,7 +1599,7 @@ def render_step4_results():
     st.markdown("""
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
                 border-radius: 15px; padding: 25px; margin-bottom: 20px; color: white;">
-        <h2 style="margin: 0; color: white;">📊 분석 결과</h2>
+        <p style="margin: 0; color: white; font-size: 1.5rem; font-weight: 600;">📊 분석 결과</p>
         <p style="margin: 10px 0 0 0; opacity: 0.9;">
             입력하신 정보를 바탕으로 분석한 결과입니다
         </p>
@@ -1620,7 +1620,7 @@ def render_step4_results():
     
     # 현재 상태 분석 - 신규 신청자만 표시
     if student.student_type == "신규 신청자":
-        st.markdown("### 📈 현재 상태 (본전공 기준)")
+        st.markdown('<p style="font-size: 1.3rem; font-weight: 600; margin: 20px 0 16px 0;">📈 현재 상태 (본전공 기준)</p>', unsafe_allow_html=True)
         
         analysis = output.current_analysis
         
@@ -1646,7 +1646,7 @@ def render_step4_results():
             st.markdown(f"""
 <div style="background: white; border-radius: 12px; padding: 20px; 
 box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
-<h4 style="color: #333; margin-bottom: 15px;">📚 학점 현황</h4>
+<p style="color: #333; margin-bottom: 15px; font-size: 1.1rem; font-weight: 600;">📚 학점 현황</p>
 <table style="width: 100%;">
 {liberal_html}
 <tr>
@@ -1702,7 +1702,7 @@ box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
             st.markdown(f"""
 <div style="background: white; border-radius: 12px; padding: 20px; 
 box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
-<h4 style="color: #333; margin-bottom: 15px;">⚠️ 부족 현황</h4>
+<p style="color: #333; margin-bottom: 15px; font-size: 1.1rem; font-weight: 600;">⚠️ 부족 현황</p>
 <table style="width: 100%;">
 {liberal_deficit_html}
 <tr>
@@ -1736,7 +1736,7 @@ box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
     # 신규 신청자: 제도별 비교 분석 결과
     if student.student_type == "신규 신청자" and output.recommended_programs:
         st.markdown("---")
-        st.markdown(f"### 🎯 다전공 제도별 비교 ({student.desired_multi_major})")
+        st.markdown(f'<p style="font-size: 1.3rem; font-weight: 600; margin: 20px 0 16px 0;">🎯 다전공 제도별 비교 ({student.desired_multi_major})</p>', unsafe_allow_html=True)
         
         # 추천 순위 (보조 추천 포함 - 모두 동일하게 표시)
         all_programs = output.recommended_programs + output.supplementary_programs
@@ -1746,7 +1746,7 @@ box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
     # 기존 참여자: 현재 참여 중인 제도 분석
     elif student.student_type == "기존 참여자" and output.simulation_results:
         st.markdown("---")
-        st.markdown(f"### 📚 현재 참여 중인 다전공 분석 ({student.current_program})")
+        st.markdown(f'<p style="font-size: 1.3rem; font-weight: 600; margin: 20px 0 16px 0;">📚 현재 참여 중인 다전공 분석 ({student.current_program})</p>', unsafe_allow_html=True)
         
         result = output.simulation_results[0]
         render_current_participant_analysis(result, student)
@@ -1871,7 +1871,7 @@ def render_current_participant_analysis(result: SimulationResult, student: Stude
         st.markdown(f"""
         <div style="background: white; border-radius: 12px; padding: 20px; 
                     box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
-            <h4 style="color: #667eea; margin-bottom: 15px;">🎓 본전공 ({student.primary_major})</h4>
+            <p style="color: #667eea; margin-bottom: 15px; font-size: 1.1rem; font-weight: 600;">🎓 본전공 ({student.primary_major})</p>
             <table style="width: 100%;">
                 <tr>
                     <td style="padding: 8px 0; color: #666; width: 50%;">기초교양(기초문해)</td>
@@ -1921,7 +1921,7 @@ def render_current_participant_analysis(result: SimulationResult, student: Stude
         st.markdown(f"""
         <div style="background: white; border-radius: 12px; padding: 20px; 
                     box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
-            <h4 style="color: #764ba2; margin-bottom: 15px;">📘 다전공 ({student.current_multi_major})</h4>
+            <p style="color: #764ba2; margin-bottom: 15px; font-size: 1.1rem; font-weight: 600;">📘 다전공 ({student.current_multi_major})</p>
             <table style="width: 100%;">
                 <tr>
                     <td style="padding: 8px 0; color: #666; width: 50%;">전공필수</td>
@@ -1986,9 +1986,9 @@ def render_current_participant_analysis(result: SimulationResult, student: Stude
     <div style="background: linear-gradient(135deg, {status_color}15 0%, {status_color}05 100%); 
                 border-left: 4px solid {status_color}; border-radius: 12px; 
                 padding: 20px; margin-top: 20px;">
-        <h4 style="color: {status_color}; margin: 0 0 10px 0;">
+        <p style="color: {status_color}; margin: 0 0 10px 0; font-size: 1.1rem; font-weight: 600;">
             {'✅' if result.can_graduate else '⚠️'} {status_text}
-        </h4>
+        </p>
         <p style="color: #666; margin: 0;">
             남은 학기: <strong>{analysis.remaining_semesters}학기</strong> / 
             남은 필수 이수학점: <strong>{total_deficit}학점</strong> /
@@ -2000,7 +2000,7 @@ def render_current_participant_analysis(result: SimulationResult, student: Stude
     
     # 학기별 이수 계획
     if result.semester_plan:
-        st.markdown("### 📅 학기별 이수 계획")
+        st.markdown('<p style="font-size: 1.3rem; font-weight: 600; margin: 20px 0 16px 0;">📅 학기별 이수 계획</p>', unsafe_allow_html=True)
         render_semester_plan_table(result.semester_plan)
 
 
