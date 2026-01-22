@@ -1603,8 +1603,15 @@ def is_followup_question(user_input):
     major_patterns = ['전공', '학과', '과정']
     has_major_name = any(p in user_clean for p in major_patterns)
     
-    # 전공명이 있으면 바로 False 반환 (후속 질문 아님)
-    if has_major_name:
+    # 🔧 제도 키워드 확인 (먼저 체크!)
+    program_keywords = [
+        '복수전공', '부전공', '융합전공', '마이크로', '소단위', '연계전공', 'md',
+        '유연학사제도', '유연학사', '다전공'  # 🔧 추가
+    ]
+    has_program = any(kw in user_clean for kw in program_keywords)
+    
+    # 🔧 전공명이나 제도명이 있으면 바로 False 반환 (후속 질문 아님)
+    if has_major_name or has_program:
         return False
     
     # 1. 지시어 패턴 (명확한 후속 질문 표현)
@@ -1632,10 +1639,6 @@ def is_followup_question(user_input):
     
     # 3. 매우 짧은 질문 (10자 이하) + 제도/전공 키워드 없음
     is_very_short = len(user_clean) <= 10
-    
-    # 제도 키워드 확인
-    program_keywords = ['복수전공', '부전공', '융합전공', '마이크로', '소단위', '연계전공', 'md']
-    has_program = any(kw in user_clean for kw in program_keywords)
     
     # 후속 질문 판단 (더 엄격하게)
     if has_indicator:
