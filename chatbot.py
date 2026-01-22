@@ -2996,7 +2996,7 @@ def generate_ai_response(user_input, chat_history, data_dict):
     user_clean_check = user_input.lower().replace(' ', '')
     
     # 제도 키워드 체크
-    program_keywords = ['복수전공', '부전공', '융합전공', '융합부전공', '마이크로', '소단위', '연계전공', 'md', '다전공']
+    program_keywords = ['복수전공', '부전공', '융합전공', '융합부전공', '마이크로', '마이크로디그리', '소단위', '소단위전공', '소단위전공과정', '연계전공', 'md', '다전공', '유연학사제도', '유연학사']
     has_program_keyword = any(kw in user_clean_check for kw in program_keywords)
     
     # 전공명 체크 (실제 전공 데이터에서)
