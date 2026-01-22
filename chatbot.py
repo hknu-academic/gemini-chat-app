@@ -571,7 +571,9 @@ PROGRAM_KEYWORDS = {
     '연계전공': ['연계전공', '연계'],
     '소단위전공과정': ['소단위전공과정', '소단위전공', '소단위'],
     '마이크로디그리': ['마이크로디그리', '마이크로', 'md', '마디'],
-    '다전공': ['다전공', '유연학사제도'],  # 🔧 추가
+    '다전공': ['다전공'],  # 🔧 추가
+    '유연학사제도': ['유연학사제도', '유연학사', '유연제도'],
+
 }
 
 def find_matching_majors(query_text, majors_df, microdegree_df):
@@ -1324,7 +1326,7 @@ def search_faq_mapping(user_input, faq_df):
         program_faq = faq_df[faq_df['program'] == '유연학사제도']
     elif detected_program in ['소단위전공과정', '마이크로디그리']:
         program_faq = faq_df[faq_df['program'].isin(['소단위전공과정', '마이크로디그리', '다전공'])]
-    elif detected_program == '다전공':
+    elif detected_program == "다전공":
         program_faq = faq_df[faq_df['program'] == '다전공']
     else:
         program_faq = faq_df[faq_df['program'].isin([detected_program, '다전공'])]
