@@ -1425,14 +1425,14 @@ def generate_conversational_response(faq_answer, user_input, program=None):
 # ============================================================
 
 def create_header_card(title, emoji="📋", color="#667eea"):
-    return f"""<h3 style="margin: 20px 0 16px 0; font-size: 1.3rem; color: inherit; font-weight: 600;">{emoji} {title}</h3>"""
+    return f"""<p style="margin: 20px 0 16px 0; font-size: 1.3rem; color: inherit; font-weight: 600;">{emoji} {title}</p>"""
 
 
 def create_info_card(title, content_list, border_color="#007bff", emoji="📌"):
     items_html = ""
     for item in content_list:
         items_html += f'<p style="margin: 6px 0 6px 20px; font-size: 0.95rem; color: inherit;">• {item}</p>\n'
-    return f"""<div style="margin: 12px 0;"><h4 style="color: inherit; margin: 10px 0 8px 0; font-size: 1rem; font-weight: 600;">{emoji} {title}</h4>{items_html}</div>"""
+    return f"""<div style="margin: 12px 0;"><p style="color: inherit; margin: 10px 0 8px 0; font-size: 1rem; font-weight: 600;">{emoji} {title}</p>{items_html}</div>"""
 
 
 def create_simple_card(content, bg_color="#f0f7ff", border_color="#007bff"):
@@ -1719,7 +1719,7 @@ def create_context_guide_message():
     """
     return """
 <div style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); border-radius: 12px; padding: 16px; margin: 12px 0; border-left: 4px solid #ff9a56;">
-    <h4 style="margin: 0 0 12px 0; color: #d35400;">💡 어떤 제도나 전공에 대해 질문하시는 건가요?</h4>
+    <p style="margin: 0 0 12px 0; color: #d35400; font-size: 1.1rem; font-weight: 600;">💡 어떤 제도나 전공에 대해 질문하시는 건가요?</p>
     <p style="margin: 8px 0; color: #333; font-size: 0.95rem;">
         더 정확한 답변을 드리기 위해, <strong>제도명</strong>이나 <strong>전공명</strong>을 함께 말씀해 주세요!
     </p>
@@ -2170,7 +2170,7 @@ def handle_course_search(user_input, extracted_info, data_dict):
 
         response += f"""
 <div style="background: transparent; border: 1px solid #888; border-radius: 8px; padding: 16px; margin: 12px 0;">
-    <h4 style="margin: 0 0 12px 0; color: inherit; border-bottom: 2px solid {header_color}; padding-bottom: 8px;">{year_display}</h4>
+    <p style="margin: 0 0 12px 0; color: inherit; border-bottom: 2px solid {header_color}; padding-bottom: 8px; font-size: 1.1rem; font-weight: 600;">{year_display}</p>
 """
 
         # 학기 정렬 (없으면 0으로 처리)
@@ -2189,7 +2189,7 @@ def handle_course_search(user_input, extracted_info, data_dict):
 
             response += f"""
 <div style="margin: 12px 0;">
-    <h5 style="margin: 0 0 8px 0; color: inherit; opacity: 0.9;">{sem_display}</h5>
+    <p style="margin: 0 0 8px 0; color: inherit; opacity: 0.9; font-size: 1rem; font-weight: 500;">{sem_display}</p>
 """
             
             # 이수구분 필터링 (빈칸 포함 처리 유지됨)
@@ -2419,7 +2419,7 @@ def handle_recommendation(user_input, extracted_info, data_dict):
     
     response += f"""
 <div style="background: linear-gradient(135deg, #f093fb15 0%, #f5576c15 100%); border-left: 4px solid #f093fb; border-radius: 12px; padding: 16px; margin: 16px 0;">
-    <h4 style="margin: 0 0 10px 0; color: #f093fb;">🎯 추천 다전공</h4>
+    <p style="margin: 0 0 10px 0; color: #f093fb; font-size: 1.1rem; font-weight: 600;">🎯 추천 다전공</p>
     <p style="font-size: 1.1rem; font-weight: bold; color: #333; margin: 8px 0;">{recommendation}</p>
     <p style="color: #666; font-size: 0.9rem; margin: 8px 0;">💡 {reason}</p>
 </div>
@@ -2709,7 +2709,7 @@ def handle_greeting(user_input, extracted_info, data_dict):
     
     response += """
 <div style="background: white; border-radius: 12px; padding: 16px; margin: 12px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
-    <h4 style="margin: 0 0 12px 0; color: #333;">🎯 무엇을 도와드릴까요?</h4>
+    <p style="margin: 0 0 12px 0; color: #333; font-size: 1.1rem; font-weight: 600;">🎯 무엇을 도와드릴까요?</p>
     <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
         <div style="background: #e3f2fd; padding: 10px; border-radius: 8px;">
             <strong style="color: #1565c0;">📝 신청</strong><br>
@@ -2748,7 +2748,7 @@ def handle_out_of_scope(user_input, extracted_info, data_dict):
     
     response += """
 <div style="background: white; border-radius: 12px; padding: 16px; margin: 12px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.08);">
-    <h4 style="margin: 0 0 12px 0; color: #333;">💬 이런 질문은 답변할 수 있어요!</h4>
+    <p style="margin: 0 0 12px 0; color: #333; font-size: 1.1rem; font-weight: 600;">💬 이런 질문은 답변할 수 있어요!</p>
     <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; font-size: 0.9rem;">
         <div style="padding: 8px; background: #e3f2fd; border-radius: 6px;">📝 다전공 신청 기간 알려줘</div>
         <div style="padding: 8px; background: #e3f2fd; border-radius: 6px;">📝 복수전공이 뭐야</div>
@@ -3644,8 +3644,8 @@ def main():
     with st.sidebar:
         st.markdown("""
         <div style='text-align: center; padding: 10px 0;'>
-            <h1 style='font-size: 3rem; margin-bottom: 0;'>🎓</h1>
-            <h3 style='margin-top: 0;'>HKNU 다전공</h3>
+            <p style='font-size: 3rem; margin-bottom: 0;'>🎓</p>
+            <p style='margin-top: 0; font-size: 1.3rem; font-weight: 600;'>HKNU 다전공</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -3675,9 +3675,9 @@ def main():
         st.markdown("""
         <div style="background-color: #f8f9fa; border-left: 4px solid #667eea; 
                     padding: 15px; border-radius: 8px; margin-bottom: 10px;">
-            <h4 style="color: #333; margin: 0 0 10px 0; font-size: 0.95rem; font-weight: 600;">
+            <p style="color: #333; margin: 0 0 10px 0; font-size: 0.95rem; font-weight: 600;">
                 🤖 챗봇 소개
-            </h4>
+            </p>
             <p style="color: #555; font-size: 0.82rem; margin: 0 0 8px 0; line-height: 1.6;">
                 한경국립대 다전공 제도에 관한<br>
                 궁금한 사항을 AI기반 챗봇이<br>
@@ -3693,9 +3693,9 @@ def main():
         st.markdown("""
         <div style="background-color: #f0f8f5; border-left: 4px solid #11998e; 
                     padding: 15px; border-radius: 8px; margin-bottom: 10px;">
-            <h4 style="color: #333; margin: 0 0 10px 0; font-size: 0.95rem; font-weight: 600;">
+            <p style="color: #333; margin: 0 0 10px 0; font-size: 0.95rem; font-weight: 600;">
                 📚 다전공 제도란?
-            </h4>
+            </p>
             <p style="color: #555; font-size: 0.82rem; margin: 0; line-height: 1.6;">
                 주전공 외에 복수, 융합전공 등<br>
                 다양한 학위를 취득하여<br>
@@ -3809,9 +3809,9 @@ def main():
     
     elif menu == "다전공 제도 안내":
         st.markdown("""
-        <h1 style="font-size: 2rem; margin-bottom: 20px; color: #1f2937;">
+        <p style="font-size: 2rem; margin-bottom: 20px; color: #1f2937; font-weight: 600;">
             📊 제도 한눈에 비교
-        </h1>
+        </p>
         """, unsafe_allow_html=True)
         
         # 제도 비교 카드
@@ -3822,7 +3822,7 @@ def main():
                     desc = info.get('description', '')[:50] + '...' if len(info.get('description', '')) > 50 else info.get('description', '-')
                     qual = info.get('qualification', '-')[:30] + '...' if len(str(info.get('qualification', '-'))) > 30 else info.get('qualification', '-')
                     
-                    html = f"""<div style="border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05); min-height: 400px; margin-bottom: 12px;"><h3 style="margin: 0 0 8px 0; color: #1f2937; font-size: 1rem;">🎓 {program}</h3><p style="color: #6b7280; font-size: 11px; margin-bottom: 10px; line-height: 1.4;">{desc}</p><hr style="margin: 8px 0; border-top: 1px solid #e5e7eb;"><div style="font-size: 12px; margin-bottom: 8px;"><strong>📖 이수학점</strong><br><span style="font-size: 11px; line-height: 1.6;">• 본전공: {info.get('credits_primary', '-')}<br>• 다전공: {info.get('credits_multi', '-')}</span></div><div style="font-size: 12px; margin-bottom: 6px;"><strong>✅ 신청자격</strong><br><span style="font-size: 11px; color: #4b5563;">{qual}</span></div><div style="font-size: 12px; margin-bottom: 6px;"><strong>🎓 졸업요건</strong><br><span style="font-size: 11px;">졸업인증: {info.get('graduation_certification', '-')}<br>졸업시험: {info.get('graduation_exam', '-')}</span></div><div style="font-size: 12px; margin-bottom: 6px;"><strong>📜 학위표기</strong><br><span style="font-size: 11px; color: #2563eb;">{str(info.get('degree', '-'))[:30]}</span></div><div style="text-align: right; margin-top: 10px;"><span style="font-size: 11px;">난이도: </span><span style="color: #f59e0b;">{info.get('difficulty', '⭐⭐⭐')}</span></div></div>"""
+                    html = f"""<div style="border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05); min-height: 400px; margin-bottom: 12px;"><p style="margin: 0 0 8px 0; color: #1f2937; font-size: 1rem; font-weight: 600;">🎓 {program}</p><p style="color: #6b7280; font-size: 11px; margin-bottom: 10px; line-height: 1.4;">{desc}</p><hr style="margin: 8px 0; border-top: 1px solid #e5e7eb;"><div style="font-size: 12px; margin-bottom: 8px;"><strong>📖 이수학점</strong><br><span style="font-size: 11px; line-height: 1.6;">• 본전공: {info.get('credits_primary', '-')}<br>• 다전공: {info.get('credits_multi', '-')}</span></div><div style="font-size: 12px; margin-bottom: 6px;"><strong>✅ 신청자격</strong><br><span style="font-size: 11px; color: #4b5563;">{qual}</span></div><div style="font-size: 12px; margin-bottom: 6px;"><strong>🎓 졸업요건</strong><br><span style="font-size: 11px;">졸업인증: {info.get('graduation_certification', '-')}<br>졸업시험: {info.get('graduation_exam', '-')}</span></div><div style="font-size: 12px; margin-bottom: 6px;"><strong>📜 학위표기</strong><br><span style="font-size: 11px; color: #2563eb;">{str(info.get('degree', '-'))[:30]}</span></div><div style="text-align: right; margin-top: 10px;"><span style="font-size: 11px;">난이도: </span><span style="color: #f59e0b;">{info.get('difficulty', '⭐⭐⭐')}</span></div></div>"""
                     st.markdown(html, unsafe_allow_html=True)
         
         st.divider()
