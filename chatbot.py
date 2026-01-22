@@ -571,9 +571,8 @@ PROGRAM_KEYWORDS = {
     '연계전공': ['연계전공', '연계'],
     '소단위전공과정': ['소단위전공과정', '소단위전공', '소단위'],
     '마이크로디그리': ['마이크로디그리', '마이크로', 'md', '마디'],
-    '다전공': ['다전공'],  # 🔧 추가
-    '유연학사제도': ['유연학사제도', '유연학사', '유연제도'],
-
+    '다전공': ['다전공'],
+    '유연학사제도': ['유연학사제도', '유연학사'],  # 🔧 독립 프로그램으로 분리
 }
 
 def find_matching_majors(query_text, majors_df, microdegree_df):
@@ -1261,12 +1260,22 @@ def search_faq_mapping(user_input, faq_df):
     # 🔥 STEP 1.7: 세부 전공/과정명 감지 (개선: 가장 긴 것 우선)
     has_specific_entity = False
     
+    # 🔧 제도명(프로그램명)은 전공명 체크에서 제외 (FAQ로 처리해야 함)
+    PROGRAM_NAMES_TO_EXCLUDE = [
+        '유연학사제도', '유연학사', '다전공', '복수전공', '부전공', 
+        '융합전공', '융합부전공', '연계전공', '소단위전공과정', '마이크로디그리'
+    ]
+    
     # 일반 전공명 체크
     if not MAJORS_INFO.empty:
         matched_majors = []
         for _, row in MAJORS_INFO.iterrows():
             major_name = str(row.get('전공명', ''))
             major_clean = major_name.replace(' ', '').lower()
+            
+            # 🔧 제도명은 제외
+            if major_clean in [p.lower() for p in PROGRAM_NAMES_TO_EXCLUDE]:
+                continue
             
             if major_clean and len(major_clean) > 3 and major_clean in user_clean:
                 matched_majors.append((major_name, len(major_clean)))
