@@ -1045,9 +1045,11 @@ def extract_program_from_text(text):
         '연계전공': ['연계전공', '연계'],
         '소단위전공과정': ['소단위전공과정', '소단위전공', '소단위'],
         '마이크로디그리': ['마이크로디그리', '마이크로', 'md', '마디'],
+        '다전공': ['다전공'],
+        '유연학사제도': ['유연학사제도', '유연학사'],
     }
     
-    program_order = ['소단위전공과정', '마이크로디그리', '융합부전공', '융합전공', '복수전공', '부전공', '연계전공']
+    program_order = ['소단위전공과정', '마이크로디그리', '융합부전공', '융합전공', '복수전공', '부전공', '연계전공', '다전공', '유연학사제도']
     
     for program in program_order:
         keywords = PROGRAM_KEYWORDS.get(program, [program])
@@ -1317,6 +1319,8 @@ def search_faq_mapping(user_input, faq_df):
     # STEP 4: FAQ 필터링
     if detected_program == "학사제도":
         program_faq = faq_df[faq_df['program'] == '학사제도']
+    elif detected_program == "유연학사제도":
+        program_faq = faq_df[faq_df['program'] == '유연학사제도']
     elif detected_program in ['소단위전공과정', '마이크로디그리']:
         program_faq = faq_df[faq_df['program'].isin(['소단위전공과정', '마이크로디그리', '다전공'])]
     elif detected_program == '다전공':
