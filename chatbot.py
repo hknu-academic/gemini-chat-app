@@ -1470,28 +1470,37 @@ def format_faq_response_html(answer, program=None):
     """FAQ 답변을 예쁜 HTML로 포맷팅"""
     
     # 🔧 0. URL 주변의 마크다운 볼드 서식(**나 __) 제거
-    # (__https://...__) 또는 (**https://...**) 형태 처리
-    def clean_markdown_url(match):
-        return match.group(1)
-    answer = re.sub(r'[_*]{2}(https?://[^\s_*]+?)[_*]{2}', clean_markdown_url, answer)
-    answer = re.sub(r'[_*](https?://[^\s_*]+?)[_*]', clean_markdown_url, answer)
+    # 다양한 형태 처리: __URL__, __URL)를__, **URL**, 등
+    # URL 앞뒤의 __, ** 만 제거하고 URL과 그 외 문자는 보존
+    def clean_markdown_around_url(text):
+        # __로 시작하는 URL 패턴 처리: __https://...내용__ → https://...내용
+        text = re.sub(r'__\s*(https?://[^\s]+?)\s*__', r'\1', text)
+        text = re.sub(r'\*\*\s*(https?://[^\s]+?)\s*\*\*', r'\1', text)
+        # 단일 _나 *로 감싼 경우도 처리
+        text = re.sub(r'(?<![_*])_\s*(https?://[^\s]+?)\s*_(?![_*])', r'\1', text)
+        text = re.sub(r'(?<![_*])\*\s*(https?://[^\s]+?)\s*\*(?![_*])', r'\1', text)
+        return text
+    
+    answer = clean_markdown_around_url(answer)
     
     # 1. 마크다운 링크 변환 [텍스트](URL) → HTML 링크
     markdown_link_pattern = r'\[([^\]]+)\]\((https?://[^\)]+)\)'
     answer = re.sub(markdown_link_pattern, r'<a href="\2" target="_blank" style="color: #007bff; text-decoration: underline;">\1</a>', answer)
     
     # 2. 남은 일반 URL 변환
-    # URL 패턴: http(s)://로 시작, 공백/한글/닫는괄호/구두점 전까지
+    # URL 패턴: http(s)://로 시작, 공백/한글 전까지 (단, URL 내부의 valid 문자는 포함)
     def replace_url(match):
         url = match.group(1)
-        # URL 끝에 붙은 구두점 제거 (마침표, 쉼표, 느낌표, 물음표 등)
+        # URL 끝에 붙은 구두점/괄호/한글 제거
         trailing = ''
-        while url and url[-1] in '.,;:!?)]}」』':
+        while url and url[-1] in '.,;:!?)]}」』_*':
             trailing = url[-1] + trailing
             url = url[:-1]
-        return f'<a href="{url}" target="_blank" style="color: #007bff; text-decoration: underline;">{url}</a>{trailing}'
+        if url:  # URL이 비어있지 않은 경우만 링크 생성
+            return f'<a href="{url}" target="_blank" style="color: #007bff; text-decoration: underline;">{url}</a>{trailing}'
+        return match.group(0)
     
-    # 이미 <a> 태그 안에 있는 URL은 제외
+    # 이미 <a> 태그 안에 있는 URL은 제외, 한글이 나오면 URL 종료
     plain_url_pattern = r'(?<!href=")(?<!">)(https?://[^\s<>가-힣]+)(?!</a>)'
     answer = re.sub(plain_url_pattern, replace_url, answer)
     
