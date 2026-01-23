@@ -1469,15 +1469,31 @@ def create_table_html(headers, rows, colors=None):
 def format_faq_response_html(answer, program=None):
     """FAQ 답변을 예쁜 HTML로 포맷팅"""
     
+    # 🔧 0. URL 주변의 마크다운 볼드 서식(**나 __) 제거
+    # (__https://...__) 또는 (**https://...**) 형태 처리
+    def clean_markdown_url(match):
+        return match.group(1)
+    answer = re.sub(r'[_*]{2}(https?://[^\s_*]+?)[_*]{2}', clean_markdown_url, answer)
+    answer = re.sub(r'[_*](https?://[^\s_*]+?)[_*]', clean_markdown_url, answer)
+    
     # 1. 마크다운 링크 변환 [텍스트](URL) → HTML 링크
     markdown_link_pattern = r'\[([^\]]+)\]\((https?://[^\)]+)\)'
     answer = re.sub(markdown_link_pattern, r'<a href="\2" target="_blank" style="color: #007bff; text-decoration: underline;">\1</a>', answer)
     
-    # 2. 남은 일반 URL 변환 (마크다운이 아닌 단독 URL)
+    # 2. 남은 일반 URL 변환
+    # URL 패턴: http(s)://로 시작, 공백/한글/닫는괄호/구두점 전까지
+    def replace_url(match):
+        url = match.group(1)
+        # URL 끝에 붙은 구두점 제거 (마침표, 쉼표, 느낌표, 물음표 등)
+        trailing = ''
+        while url and url[-1] in '.,;:!?)]}」』':
+            trailing = url[-1] + trailing
+            url = url[:-1]
+        return f'<a href="{url}" target="_blank" style="color: #007bff; text-decoration: underline;">{url}</a>{trailing}'
+    
     # 이미 <a> 태그 안에 있는 URL은 제외
-    # 🔧 수정: URL 끝에 한글 조사(을, 를, 이, 가, 은, 는, 에, 의, 와, 과, 로, 으로 등)가 붙지 않도록 처리
     plain_url_pattern = r'(?<!href=")(?<!">)(https?://[^\s<>가-힣]+)(?!</a>)'
-    answer = re.sub(plain_url_pattern, r'<a href="\1" target="_blank" style="color: #007bff; text-decoration: underline;">\1</a>', answer)
+    answer = re.sub(plain_url_pattern, replace_url, answer)
     
     # 번호 리스트 (1. 2. 3.) 처리
     lines = answer.split('\n')
