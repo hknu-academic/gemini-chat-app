@@ -1475,7 +1475,8 @@ def format_faq_response_html(answer, program=None):
     
     # 2. 남은 일반 URL 변환 (마크다운이 아닌 단독 URL)
     # 이미 <a> 태그 안에 있는 URL은 제외
-    plain_url_pattern = r'(?<!href=")(?<!">)(https?://[^\s<>]+)(?!</a>)'
+    # 🔧 수정: URL 끝에 한글 조사(을, 를, 이, 가, 은, 는, 에, 의, 와, 과, 로, 으로 등)가 붙지 않도록 처리
+    plain_url_pattern = r'(?<!href=")(?<!">)(https?://[^\s<>가-힣]+)(?!</a>)'
     answer = re.sub(plain_url_pattern, r'<a href="\1" target="_blank" style="color: #007bff; text-decoration: underline;">\1</a>', answer)
     
     # 번호 리스트 (1. 2. 3.) 처리
