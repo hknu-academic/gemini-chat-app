@@ -1471,18 +1471,20 @@ def format_faq_response_html(answer, program=None):
     """FAQ 답변을 예쁜 HTML로 포맷팅"""
     
     # 🔧 0. URL 주변의 마크다운 볼드 서식(**나 __) 제거
-    # 다양한 형태 처리: __URL__, __URL)를__, **URL**, 등
-    # URL 앞뒤의 __, ** 만 제거하고 URL과 그 외 문자는 보존
-    def clean_markdown_around_url(text):
-        # __로 시작하는 URL 패턴 처리: __https://...내용__ → https://...내용
-        text = re.sub(r'__\s*(https?://[^\s]+?)\s*__', r'\1', text)
-        text = re.sub(r'\*\*\s*(https?://[^\s]+?)\s*\*\*', r'\1', text)
-        # 단일 _나 *로 감싼 경우도 처리
-        text = re.sub(r'(?<![_*])_\s*(https?://[^\s]+?)\s*_(?![_*])', r'\1', text)
-        text = re.sub(r'(?<![_*])\*\s*(https?://[^\s]+?)\s*\*(?![_*])', r'\1', text)
-        return text
+    # AI가 (__URL)를__ 형태로 출력하는 문제 해결
+    # 간단하게 __ 와 ** 를 모두 제거 (URL 주변에서만)
     
-    answer = clean_markdown_around_url(answer)
+    # (__URL 형태 → (URL
+    answer = re.sub(r'\(__\s*(https?://)', r'(\1', answer)
+    # URL)를__ 또는 URL)__ 형태 → URL)를 또는 URL)
+    answer = re.sub(r'(\)[\s가-힣]*)__', r'\1', answer)
+    # __URL__ 형태 → URL
+    answer = re.sub(r'__\s*(https?://[^\s__]+)\s*__', r'\1', answer)
+    # **URL** 형태 → URL  
+    answer = re.sub(r'\*\*\s*(https?://[^\s*]+)\s*\*\*', r'\1', answer)
+    # 남은 독립적인 __ 제거 (URL 근처)
+    answer = re.sub(r'__(https?://)', r'\1', answer)
+    answer = re.sub(r'(https?://[^\s]+)__', lambda m: m.group(1).rstrip('_'), answer)
     
     # 1. 마크다운 링크 변환 [텍스트](URL) → HTML 링크
     markdown_link_pattern = r'\[([^\]]+)\]\((https?://[^\)]+)\)'
