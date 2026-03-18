@@ -2967,6 +2967,33 @@ def generate_ai_response(user_input, chat_history, data_dict):
             )
             return formatted_response, "FAQ_PROGRAM_INFO"
     
+    # 4.5 프로그램 설명 질문 패턴 직접 처리 (예: "복수전공은 뭐야?", "부전공 설명해줘")
+    # FAQ 키워드 미등록으로 매칭 실패하는 경우를 코드로 보완
+    if program_type and not entity_name:
+        _info_words = ['뭐야', '뭔지', '무엇', '설명', '알려줘', '뭐임', '뭐에요', '뭐죠', '어떤거', '어떤것', '어떤제도', '개념', '정의']
+        _user_clean_tmp = user_input.lower().replace(' ', '')
+        if any(w in _user_clean_tmp for w in _info_words):
+            _prog_display = MAPPINGS.get('program_display_names', {}).get(program_type, program_type)
+            _pi_faq = faq_df[
+                (faq_df['program'].isin([program_type, _prog_display])) &
+                (faq_df['intent'] == 'PROGRAM_INFO')
+            ]
+            if not _pi_faq.empty:
+                faq_match = _pi_faq.iloc[0]
+                raw_answer = faq_match.get('answer', '')
+                program = faq_match.get('program', '')
+                conversational_answer = generate_conversational_response(raw_answer, user_input, program)
+                formatted_response = format_faq_response_html(conversational_answer, program)
+                formatted_response += create_contact_box()
+                update_context_in_session(program=program_type)
+                log_to_sheets(
+                    st.session_state.get('session_id', 'unknown'),
+                    original_input, formatted_response, 'faq_program_info_direct',
+                    time.time() - start_time,
+                    st.session_state.get('page', 'AI챗봇 상담')
+                )
+                return formatted_response, "FAQ_PROGRAM_INFO"
+
     # 5. FAQ 매핑 검색 (확장된 질문으로!)
     faq_match, score = search_faq_mapping(user_input, faq_df)
     
@@ -3172,7 +3199,7 @@ def generate_ai_response(user_input, chat_history, data_dict):
         ai_response = response.text.strip()
         
         # 🔧 수정: 더 엄격한 답변 검증
-        failure_keywords = ['잘 모르겠', '확인할 수 없', '죄송합니다', '정보가 없', '알 수 없', '찾을 수 없']
+        failure_keywords = ['잘 모르겠', '확인할 수 없', '정보가 없습니다', '알 수 없', '찾을 수 없']
         is_failed = len(ai_response) < 10 or any(kw in ai_response for kw in failure_keywords)
         
         # 🔧 추가: AI가 엉뚱한 전공명을 생성했는지 검증
