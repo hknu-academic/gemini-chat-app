@@ -2971,8 +2971,10 @@ def generate_ai_response(user_input, chat_history, data_dict):
     # FAQ 키워드 미등록으로 매칭 실패하는 경우를 코드로 보완
     if program_type and not entity_name:
         _info_words = ['뭐야', '뭔지', '무엇', '설명', '알려줘', '뭐임', '뭐에요', '뭐죠', '어떤거', '어떤것', '어떤제도', '개념', '정의']
+        _comparison_words = ['차이', '비교', '다른점', '다른거', 'vs', '차이점', '비교해']
         _user_clean_tmp = user_input.lower().replace(' ', '')
-        if any(w in _user_clean_tmp for w in _info_words):
+        _is_comparison = any(w in _user_clean_tmp for w in _comparison_words)
+        if any(w in _user_clean_tmp for w in _info_words) and not _is_comparison:
             _prog_display = MAPPINGS.get('program_display_names', {}).get(program_type, program_type)
             _pi_faq = faq_df[
                 (faq_df['program'].isin([program_type, _prog_display])) &
