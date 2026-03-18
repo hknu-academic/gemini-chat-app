@@ -1432,8 +1432,8 @@ def search_faq_mapping(user_input, faq_df):
 
     if user_emb is not None:
         # ── 임베딩 기반 매칭 ──
-        best_match = None
-        best_score = 0.0
+        emb_match = None
+        emb_score = 0.0
 
         for _, row in program_faq.iterrows():
             exclude_kws = [e.strip().lower().replace(' ', '')
@@ -1450,17 +1450,17 @@ def search_faq_mapping(user_input, faq_df):
 
             debug_print(f"[DEBUG FAQ] {row.get('intent')} sim={sim:.3f}")
 
-            if sim > best_score:
-                best_score = sim
-                best_match = row
+            if sim > emb_score:
+                emb_score = sim
+                emb_match = row
 
-        if best_score >= threshold:
-            debug_print(f"[DEBUG FAQ] 임베딩 매칭: {best_match.get('intent')} (sim={best_score:.3f})")
-            return best_match, int(best_score * 100)
+        if emb_score >= threshold:
+            debug_print(f"[DEBUG FAQ] 임베딩 매칭: {emb_match.get('intent')} (sim={emb_score:.3f})")
+            return emb_match, int(emb_score * 100)
 
-        return None, 0
+        debug_print(f"[DEBUG FAQ] 임베딩 유사도 미달 (best={emb_score:.3f}) → 키워드 폴백")
 
-    # ── 키워드 폴백 (임베딩 API 실패시) ──
+    # ── 키워드 폴백 (임베딩 미사용 / API 실패 / 유사도 미달 시 모두 실행) ──
     best_match = None
     best_score = 0
 
@@ -1495,7 +1495,7 @@ def search_faq_mapping(user_input, faq_df):
         if score > best_score:
             best_score = score
             best_match = row
-            debug_print(f"[DEBUG FAQ] 키워드 매칭(폴백): {row.get('intent')} (score={score})")
+            debug_print(f"[DEBUG FAQ] 키워드 매칭: {row.get('intent')} (score={score})")
 
     if best_score >= 20:
         return best_match, best_score
