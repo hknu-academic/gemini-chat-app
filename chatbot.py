@@ -1334,16 +1334,20 @@ def search_faq_mapping(user_input, faq_df):
         return None, 0
     
     # STEP 4: FAQ 필터링
+    # user_clean에 명시적으로 언급된 보조 프로그램도 포함 (예: "복수·부전공 차이")
+    _all_programs = ['복수전공', '부전공', '융합전공', '융합부전공', '연계전공', '소단위전공과정', '마이크로디그리']
+    _secondary = [p for p in _all_programs if p != detected_program and p in user_clean]
+
     if detected_program == "학사제도":
         program_faq = faq_df[faq_df['program'] == '학사제도']
     elif detected_program == "유연학사제도":
         program_faq = faq_df[faq_df['program'] == '유연학사제도']
     elif detected_program in ['소단위전공과정', '마이크로디그리']:
-        program_faq = faq_df[faq_df['program'].isin(['소단위전공과정', '마이크로디그리', '다전공'])]
+        program_faq = faq_df[faq_df['program'].isin(['소단위전공과정', '마이크로디그리', '다전공'] + _secondary)]
     elif detected_program == "다전공":
         program_faq = faq_df[faq_df['program'] == '다전공']
     else:
-        program_faq = faq_df[faq_df['program'].isin([detected_program, '다전공'])]
+        program_faq = faq_df[faq_df['program'].isin([detected_program, '다전공'] + _secondary)]
     
     if program_faq.empty:
         return None, 0
