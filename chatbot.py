@@ -1369,9 +1369,10 @@ def search_faq_mapping(user_input, faq_df):
         keyword_matches = 0
         total_keyword_length = 0
 
+        _user_clean_no_ui = user_clean.replace('의', '')
         for kw in keywords:
-            # 원본과 정규화 버전 모두에서 매칭 시도
-            if kw in user_clean or kw in user_normalized:
+            # 원본, 정규화, '의' 제거 버전 모두에서 매칭 시도
+            if kw in user_clean or kw in user_normalized or kw in _user_clean_no_ui:
                 keyword_matches += 1
                 total_keyword_length += len(kw)
 
