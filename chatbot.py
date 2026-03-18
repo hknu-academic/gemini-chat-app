@@ -1226,11 +1226,88 @@ def complete_question_with_context(user_input, extracted_info, previous_question
     
     return user_input
 
+# ============================================================
+# 📌 FAQ 임베딩 (시맨틱 유사도 매칭용)
+# ============================================================
+
+_INTENT_KOREAN = {
+    'QUALIFICATION': '신청 자격 조건',
+    'APPLICATION_PERIOD': '신청 기간 일정',
+    'APPLICATION_METHOD': '신청 방법 절차',
+    'CANCEL': '취소 포기 철회',
+    'CHANGE': '변경 수정',
+    'PROGRAM_COMPARISON': '비교 차이점',
+    'CREDIT_INFO': '학점 이수',
+    'PROGRAM_INFO': '제도 설명 정의',
+    'COURSE_SEARCH': '교과목 커리큘럼',
+    'CONTACT_SEARCH': '연락처 문의',
+    'RECOMMENDATION': '추천',
+    'GREETING': '인사',
+}
+
+
+def _get_faq_searchable_text(row):
+    """FAQ 행 → 임베딩용 대표 텍스트"""
+    program = str(row.get('program', ''))
+    intent_en = str(row.get('intent', ''))
+    intent_ko = _INTENT_KOREAN.get(intent_en, '')
+    keywords = ' '.join([k.strip() for k in str(row.get('keyword', '')).split(',') if k.strip()])
+    return f"{program} {intent_ko} {keywords}".strip()
+
+
+@st.cache_resource
+def build_faq_embeddings():
+    """FAQ 임베딩 사전 계산 — 앱 시작시 1회만 실행"""
+    faq_df = FAQ_MAPPING
+    if faq_df.empty:
+        return {}
+
+    texts, indices = [], []
+    for idx, row in faq_df.iterrows():
+        text = _get_faq_searchable_text(row)
+        if text:
+            texts.append(text)
+            indices.append(idx)
+
+    if not texts:
+        return {}
+
+    result = {}
+    try:
+        batch_size = 50
+        for i in range(0, len(texts), batch_size):
+            response = client.models.embed_content(
+                model="models/text-embedding-004",
+                contents=texts[i:i + batch_size],
+            )
+            for j, emb in enumerate(response.embeddings):
+                result[indices[i + j]] = np.array(emb.values)
+        print(f"✅ FAQ 임베딩 완료: {len(result)}개")
+    except Exception as e:
+        print(f"⚠️ FAQ 임베딩 생성 실패: {e}")
+        return {}
+
+    return result
+
+
+def _get_user_embedding(text):
+    """사용자 입력 임베딩 — 실패시 None 반환"""
+    try:
+        response = client.models.embed_content(
+            model="models/text-embedding-004",
+            contents=text,
+        )
+        return np.array(response.embeddings[0].values)
+    except Exception as e:
+        debug_print(f"[DEBUG] 사용자 임베딩 실패: {e}")
+        return None
+
+
 def search_faq_mapping(user_input, faq_df):
     """
     [하이브리드] FAQ 매핑 검색
     - 세부 과정명 우선 체크 (코드)
-    - 구체적 키워드 매칭 (FAQ 파일)
+    - 임베딩 유사도 매칭 (기본) / 키워드 매칭 (폴백)
     - 조사 제거로 매칭 정확도 향상
     """
     if faq_df.empty:
@@ -1253,10 +1330,15 @@ def search_faq_mapping(user_input, faq_df):
     # STEP 1.5: "목록" 질문 감지
     list_keywords = ['목록', '리스트', '전공은', '어떤전공']
     is_list_query = any(kw in user_clean for kw in list_keywords)
-    
+
     if is_list_query:
         return None, 0
-    
+
+    # STEP 1.6: 연락처 질문 감지 → 연락처 핸들러에서 처리하도록 스킵
+    _contact_guard = ['연락처', '전화번호', '번호', '사무실', '문의처', '팩스']
+    if any(kw in user_clean for kw in _contact_guard):
+        return None, 0
+
     # 🔥 STEP 1.7: 세부 전공/과정명 감지 (개선: 가장 긴 것 우선)
     has_specific_entity = False
     
@@ -1343,48 +1425,81 @@ def search_faq_mapping(user_input, faq_df):
     if program_faq.empty:
         return None, 0
     
-    # STEP 5: 키워드 매칭
+    # STEP 5: 임베딩 유사도 매칭 (폴백: 키워드 매칭)
+    threshold = SETTINGS.get('ai', {}).get('semantic_threshold', 0.75)
+    faq_embeddings = build_faq_embeddings()
+    user_emb = _get_user_embedding(user_input) if faq_embeddings else None
+
+    if user_emb is not None:
+        # ── 임베딩 기반 매칭 ──
+        best_match = None
+        best_score = 0.0
+
+        for _, row in program_faq.iterrows():
+            exclude_kws = [e.strip().lower().replace(' ', '')
+                           for e in str(row.get('exclude_keywords', '')).split(',') if e.strip()]
+            if any(ex in user_clean for ex in exclude_kws):
+                continue
+
+            faq_emb = faq_embeddings.get(row.name)
+            if faq_emb is None:
+                continue
+
+            norm = np.linalg.norm(user_emb) * np.linalg.norm(faq_emb)
+            sim = float(np.dot(user_emb, faq_emb) / norm) if norm > 0 else 0.0
+
+            debug_print(f"[DEBUG FAQ] {row.get('intent')} sim={sim:.3f}")
+
+            if sim > best_score:
+                best_score = sim
+                best_match = row
+
+        if best_score >= threshold:
+            debug_print(f"[DEBUG FAQ] 임베딩 매칭: {best_match.get('intent')} (sim={best_score:.3f})")
+            return best_match, int(best_score * 100)
+
+        return None, 0
+
+    # ── 키워드 폴백 (임베딩 API 실패시) ──
     best_match = None
     best_score = 0
-    
+
     for _, row in program_faq.iterrows():
         keywords = str(row.get('keyword', '')).split(',')
         keywords = [k.strip().lower().replace(' ', '') for k in keywords if k.strip()]
-        
-        exclude_kws = str(row.get('exclude_keywords', '')).split(',')
-        exclude_kws = [e.strip().lower().replace(' ', '') for e in exclude_kws if e.strip()]
-        
+
+        exclude_kws = [e.strip().lower().replace(' ', '')
+                       for e in str(row.get('exclude_keywords', '')).split(',') if e.strip()]
         if any(ex in user_clean for ex in exclude_kws):
             continue
-        
+
         keyword_matches = 0
         total_keyword_length = 0
-        
+
         for kw in keywords:
-            # 🔧 개선: 원본과 정규화 버전 모두에서 매칭 시도
             if kw in user_clean or kw in user_normalized:
                 keyword_matches += 1
                 total_keyword_length += len(kw)
-        
+
         if keyword_matches == 0:
             continue
-        
+
         score = keyword_matches * 10 + total_keyword_length
-        
+
         row_program = str(row.get('program', '')).strip()
         if row_program == detected_program:
             score += 30
         elif row_program == '다전공':
             score += 10
-        
+
         if score > best_score:
             best_score = score
             best_match = row
-            debug_print(f"[DEBUG FAQ] 매칭: {row.get('intent')} (score={score})")
-    
+            debug_print(f"[DEBUG FAQ] 키워드 매칭(폴백): {row.get('intent')} (score={score})")
+
     if best_score >= 20:
         return best_match, best_score
-    
+
     return None, 0
 
 def generate_conversational_response(faq_answer, user_input, program=None):
