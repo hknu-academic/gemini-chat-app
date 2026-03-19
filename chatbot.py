@@ -3022,19 +3022,33 @@ def generate_ai_response(user_input, chat_history, data_dict):
                 _temp_text = _temp_text.replace(_p, '', 1)
 
         if len(_found_progs) >= 2:
-            debug_print(f"[DEBUG] 비교 질문 직접 처리: {_found_progs}")
-            comp_faq = faq_df[
-                (faq_df['program'] == _found_progs[0]) &
-                (faq_df['intent'] == 'PROGRAM_COMPARISON')
-            ]
-            if not comp_faq.empty:
-                faq_match = comp_faq.iloc[0]
-                raw_answer = faq_match.get('answer', '')
-                program = faq_match.get('program', '')
+            _prog1, _prog2 = _found_progs[0], _found_progs[1]
+            debug_print(f"[DEBUG] 비교 질문 직접 처리: {_prog1} vs {_prog2}")
+
+            # 기존 FAQ에 이 조합이 있는지 확인
+            _matched_comp_faq = None
+            for _try_prog in [_prog1, _prog2]:
+                _cf = faq_df[
+                    (faq_df['program'] == _try_prog) &
+                    (faq_df['intent'] == 'PROGRAM_COMPARISON')
+                ]
+                if not _cf.empty:
+                    _answer_text = str(_cf.iloc[0].get('answer', ''))
+                    _other = _prog2 if _try_prog == _prog1 else _prog1
+                    # FAQ 답변에 상대 프로그램명이 포함되어 있으면 매칭
+                    if _other in _answer_text:
+                        _matched_comp_faq = _cf.iloc[0]
+                        debug_print(f"[DEBUG] FAQ 매칭 성공: {_try_prog} COMPARISON (답변에 {_other} 포함)")
+                        break
+
+            if _matched_comp_faq is not None:
+                # 기존 FAQ로 응답
+                raw_answer = _matched_comp_faq.get('answer', '')
+                program = _matched_comp_faq.get('program', '')
                 conversational_answer = generate_conversational_response(raw_answer, user_input, program)
                 formatted_response = format_faq_response_html(conversational_answer, program)
                 formatted_response += create_contact_box()
-                update_context_in_session(program=_found_progs[0])
+                update_context_in_session(program=_prog1)
                 log_to_sheets(
                     st.session_state.get('session_id', 'unknown'),
                     original_input, formatted_response, 'faq_comparison_direct',
@@ -3042,6 +3056,59 @@ def generate_ai_response(user_input, chat_history, data_dict):
                     st.session_state.get('page', 'AI챗봇 상담')
                 )
                 return formatted_response, "FAQ_PROGRAM_COMPARISON"
+            else:
+                # FAQ에 없는 조합 → AI가 양쪽 제도 정보로 비교 생성
+                debug_print(f"[DEBUG] FAQ에 {_prog1} vs {_prog2} 없음 → AI 비교 생성")
+                _ctx_parts = []
+                for _p in [_prog1, _prog2]:
+                    _p_faqs = faq_df[faq_df['program'] == _p]
+                    for _, _r in _p_faqs.iterrows():
+                        _ctx_parts.append(f"[{_p} - {_r.get('intent', '')}]\n{_r.get('answer', '')}")
+                _comp_context = "\n\n".join(_ctx_parts[:10])
+
+                _comp_prompt = f"""당신은 한경국립대학교 다전공 안내 AI챗봇입니다.
+
+[중요 지침]
+- 반드시 아래 제공된 정보 내에서만 답변하세요
+- 두 제도를 항목별로 비교해주세요 (이수학점, 자격, 특징 등)
+- 추측하거나 만들어내지 마세요
+- 정보가 부족하면 학사지원팀(031-670-5035) 문의 안내
+
+[{_prog1} 및 {_prog2} 관련 정보]
+{_comp_context}
+
+[학생 질문]
+{user_input}
+
+[답변 지침]
+1. {_prog1}과 {_prog2}를 항목별로 비교
+2. 각 제도의 핵심 차이점을 명확히 설명
+3. 학생에게 도움이 되는 팁 추가
+4. "~합니다" 등 정중한 종결어미 사용
+5. 이모지 적절히 사용
+6. 학사공지 확인: {ACADEMIC_NOTICE_URL}
+7. URL은 마크다운 볼드로 감싸지 말고 그대로 작성
+"""
+                try:
+                    _comp_resp = client.models.generate_content(
+                        model='gemini-2.0-flash-exp',
+                        contents=_comp_prompt,
+                        config={'temperature': 0.3, 'max_output_tokens': 1000}
+                    )
+                    _comp_answer = _comp_resp.text.strip()
+                    formatted_response = format_faq_response_html(_comp_answer, _prog1)
+                    formatted_response += create_contact_box()
+                    update_context_in_session(program=_prog1)
+                    log_to_sheets(
+                        st.session_state.get('session_id', 'unknown'),
+                        original_input, formatted_response, 'ai_comparison',
+                        time.time() - start_time,
+                        st.session_state.get('page', 'AI챗봇 상담')
+                    )
+                    return formatted_response, "AI_COMPARISON"
+                except Exception as e:
+                    debug_print(f"[DEBUG] AI 비교 생성 실패: {e}")
+                    # 실패 시 step 5로 계속 진행
 
     # 5. FAQ 매핑 검색 (확장된 질문으로!)
     faq_match, score = search_faq_mapping(user_input, faq_df)
