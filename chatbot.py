@@ -3179,6 +3179,11 @@ def generate_ai_response(user_input, chat_history, data_dict):
             if any(_ck in user_clean for _ck in _ckws):
                 _user_clear_intent = _ci
                 break
+        # '돼'는 문장 종결어로도 쓰이므로, METHOD 키워드가 함께 있으면 METHOD 우선
+        if _user_clear_intent == 'APPLY_QUALIFICATION':
+            _method_kws = ['방법', '절차', '순서', '어떻게', '어디서']
+            if any(_mk in user_clean for _mk in _method_kws):
+                _user_clear_intent = 'APPLY_METHOD'
 
         _has_conflict = (_user_clear_intent and _faq_intent != _user_clear_intent
                          and _faq_intent in _intent_conflict_map)
@@ -3220,6 +3225,11 @@ def generate_ai_response(user_input, chat_history, data_dict):
             if any(_k in user_clean for _k in _kws):
                 _detected_intent = _intent
                 break
+        # '돼'는 문장 종결어로도 쓰이므로, METHOD 키워드가 함께 있으면 METHOD 우선
+        if _detected_intent == 'APPLY_QUALIFICATION':
+            _method_kws = ['방법', '절차', '순서', '어떻게', '어디서']
+            if any(_mk in user_clean for _mk in _method_kws):
+                _detected_intent = 'APPLY_METHOD'
 
         if _detected_intent:
             debug_print(f"[DEBUG] 의도 기반 직접 조회: {program_type} + {_detected_intent}")
