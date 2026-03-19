@@ -488,8 +488,8 @@ def normalize_for_matching(text):
     # 소문자 변환
     text = text.lower()
     
-    # 특수문자 제거
-    text = re.sub(r'[?!.,]', '', text)
+    # 특수문자 제거 (·, •, / 등 구분 문자 포함)
+    text = re.sub(r'[?!.,·•/]', '', text)
     
     # 공백 제거
     text = text.replace(' ', '')
@@ -1037,7 +1037,7 @@ SEMANTIC_ROUTER = initialize_semantic_router()
 
 def extract_program_from_text(text):
     """텍스트에서 프로그램(제도) 추출"""
-    text_lower = text.lower().replace(' ', '')
+    text_lower = text.lower().replace(' ', '').replace('·', '').replace('•', '').replace('/', '')
     
     PROGRAM_KEYWORDS = {
         '복수전공': ['복수전공', '복전', '복수'],
@@ -1236,8 +1236,8 @@ def search_faq_mapping(user_input, faq_df):
     if faq_df.empty:
         return None, 0
     
-    # 🔧 개선: 조사 제거 정규화 적용
-    user_clean = user_input.lower().replace(' ', '')
+    # 🔧 개선: 조사 제거 정규화 적용 + 구분 문자(·, •, /) 제거
+    user_clean = user_input.lower().replace(' ', '').replace('·', '').replace('•', '').replace('/', '')
     user_normalized = normalize_for_matching(user_input)  # 조사 제거된 버전
     
     debug_print(f"[DEBUG FAQ] 원본: '{user_input}'")
@@ -1384,6 +1384,8 @@ def search_faq_mapping(user_input, faq_df):
         row_program = str(row.get('program', '')).strip()
         if row_program == detected_program:
             score += 30
+        elif row_program in _secondary:
+            score += 20
         elif row_program == '다전공':
             score += 10
 
