@@ -1395,7 +1395,7 @@ def search_faq_mapping(user_input, faq_df):
 
         # 의도별 키워드 부스팅: 사용자 질문에 의도 특화 키워드가 있으면 해당 FAQ 행에 보너스
         _intent_boost = {
-            'APPLY_QUALIFICATION': ['자격', '조건', '대상', '기준', '가능', '할수있는'],
+            'APPLY_QUALIFICATION': ['자격', '조건', '대상', '기준', '가능', '할수있는', '돼', '되나', '될까', '되는지', '가능해', '가능한가', '가능하나', '할수있나'],
             'APPLY_PERIOD': ['기간', '언제', '마감', '일정', '시기', '날짜', '몇월'],
             'APPLY_METHOD': ['방법', '절차', '순서', '어떻게', '어디서'],
             'CREDIT_INFO': ['학점', '몇학점', '이수학점', '졸업학점'],
@@ -3164,21 +3164,43 @@ def generate_ai_response(user_input, chat_history, data_dict):
     faq_match, score = search_faq_mapping(user_input, faq_df)
     
     if faq_match is not None and score >= 10:
-        raw_answer = faq_match.get('answer', '')
-        program = faq_match.get('program', '')
-        
-        conversational_answer = generate_conversational_response(raw_answer, user_input, program)
-        formatted_response = format_faq_response_html(conversational_answer, program)
-        formatted_response += create_contact_box()
-        
-        response_type = f"FAQ_{faq_match.get('intent', 'UNKNOWN')}"
-        log_to_sheets(
-            st.session_state.get('session_id', 'unknown'),
-            original_input, formatted_response, 'faq', 
-            time.time() - start_time,
-            st.session_state.get('page', 'AI챗봇 상담')
-        )
-        return formatted_response, response_type
+        # 의도 충돌 검사: FAQ 매칭 의도와 사용자의 실제 의도가 다르면 step 5.5로 넘김
+        _faq_intent = str(faq_match.get('intent', ''))
+        _user_clear_intent = None
+        _intent_conflict_map = {
+            'APPLY_QUALIFICATION': ['자격', '조건', '대상', '기준', '가능', '돼', '되나', '될까', '되는지', '가능해', '할수있나', '가능하나'],
+            'APPLY_PERIOD': ['기간', '언제', '마감', '일정', '시기', '날짜', '몇월'],
+            'APPLY_METHOD': ['방법', '절차', '순서', '어디서'],
+            'CREDIT_INFO': ['학점', '몇학점', '이수학점', '졸업학점'],
+            'APPLY_CANCEL': ['취소', '포기', '철회'],
+            'APPLY_CHANGE': ['변경', '바꾸', '전환'],
+        }
+        for _ci, _ckws in _intent_conflict_map.items():
+            if any(_ck in user_clean for _ck in _ckws):
+                _user_clear_intent = _ci
+                break
+
+        _has_conflict = (_user_clear_intent and _faq_intent != _user_clear_intent
+                         and _faq_intent in _intent_conflict_map)
+
+        if not _has_conflict:
+            raw_answer = faq_match.get('answer', '')
+            program = faq_match.get('program', '')
+
+            conversational_answer = generate_conversational_response(raw_answer, user_input, program)
+            formatted_response = format_faq_response_html(conversational_answer, program)
+            formatted_response += create_contact_box()
+
+            response_type = f"FAQ_{faq_match.get('intent', 'UNKNOWN')}"
+            log_to_sheets(
+                st.session_state.get('session_id', 'unknown'),
+                original_input, formatted_response, 'faq',
+                time.time() - start_time,
+                st.session_state.get('page', 'AI챗봇 상담')
+            )
+            return formatted_response, response_type
+        else:
+            debug_print(f"[DEBUG] 의도 충돌: FAQ={_faq_intent} vs User={_user_clear_intent} → step 5.5로")
 
     # 5.5 의도 기반 FAQ 직접 조회
     # FAQ 키워드 매칭 실패 시, 프로그램 + 의도 키워드로 직접 FAQ를 찾음
