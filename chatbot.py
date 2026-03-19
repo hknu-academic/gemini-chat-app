@@ -1393,6 +1393,22 @@ def search_faq_mapping(user_input, faq_df):
         elif row_program == '다전공':
             score += 10
 
+        # 의도별 키워드 부스팅: 사용자 질문에 의도 특화 키워드가 있으면 해당 FAQ 행에 보너스
+        _intent_boost = {
+            'APPLY_QUALIFICATION': ['자격', '조건', '대상', '기준', '가능', '할수있는'],
+            'APPLY_PERIOD': ['기간', '언제', '마감', '일정', '시기', '날짜', '몇월'],
+            'APPLY_METHOD': ['방법', '절차', '순서', '어떻게', '어디서'],
+            'CREDIT_INFO': ['학점', '몇학점', '이수학점', '졸업학점'],
+            'APPLY_CANCEL': ['취소', '포기', '철회', '그만'],
+            'APPLY_CHANGE': ['변경', '바꾸', '전환'],
+            'PROGRAM_TUITION': ['등록금', '학비', '수강료', '장학금'],
+        }
+        row_intent = str(row.get('intent', ''))
+        if row_intent in _intent_boost:
+            if any(ik in user_clean for ik in _intent_boost[row_intent]):
+                score += 25
+                debug_print(f"[DEBUG FAQ] 의도 부스팅: {row_intent} +25")
+
         if score > best_score:
             best_score = score
             best_match = row
