@@ -1248,7 +1248,11 @@ def search_faq_mapping(user_input, faq_df):
     programs_mentioned = [p for p in program_keywords if p in user_clean]
     
     if len(programs_mentioned) >= 2:
-        return None, 0
+        # 비교 질문이면 FAQ 검색 허용 (PROGRAM_COMPARISON FAQ 매칭 필요)
+        comparison_keywords = ['차이', '비교', '다른점', '다른거', 'vs', '차이점', '비교해', '뭐가달라', '어떻게달라']
+        is_comparison = any(kw in user_clean for kw in comparison_keywords)
+        if not is_comparison:
+            return None, 0
     
     # STEP 1.5: "목록" 질문 감지
     list_keywords = ['목록', '리스트', '전공은', '어떤전공']
