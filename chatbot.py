@@ -3108,7 +3108,28 @@ def generate_ai_response(user_input, chat_history, data_dict):
                     return formatted_response, "AI_COMPARISON"
                 except Exception as e:
                     debug_print(f"[DEBUG] AI 비교 생성 실패: {e}")
-                    # 실패 시 step 5로 계속 진행
+                    # AI 실패 시에도 양쪽 제도의 PROGRAM_INFO FAQ를 조합하여 응답
+                    _fallback_parts = []
+                    for _p in [_prog1, _prog2]:
+                        _pi = faq_df[
+                            (faq_df['program'] == _p) &
+                            (faq_df['intent'] == 'PROGRAM_INFO')
+                        ]
+                        if not _pi.empty:
+                            _fallback_parts.append(f"📋 **{_p}**\n{_pi.iloc[0].get('answer', '')}")
+                    if _fallback_parts:
+                        _fallback_answer = "\n\n".join(_fallback_parts)
+                        _fallback_answer += f"\n\n💡 더 자세한 비교는 학사지원팀(031-670-5035)에 문의해주세요."
+                        formatted_response = format_faq_response_html(_fallback_answer, _prog1)
+                        formatted_response += create_contact_box()
+                        update_context_in_session(program=_prog1)
+                        log_to_sheets(
+                            st.session_state.get('session_id', 'unknown'),
+                            original_input, formatted_response, 'comparison_fallback',
+                            time.time() - start_time,
+                            st.session_state.get('page', 'AI챗봇 상담')
+                        )
+                        return formatted_response, "COMPARISON_FALLBACK"
 
     # 5. FAQ 매핑 검색 (확장된 질문으로!)
     faq_match, score = search_faq_mapping(user_input, faq_df)
