@@ -3007,6 +3007,42 @@ def generate_ai_response(user_input, chat_history, data_dict):
                 )
                 return formatted_response, "FAQ_PROGRAM_INFO"
 
+    # 4.7 비교 질문 직접 처리 (2+ 프로그램 + 비교 키워드)
+    # FAQ 키워드 매칭이 조사(이랑, 과, 하고 등)로 인해 실패하는 문제 우회
+    _comp_words = ['차이', '비교', '다른점', '다른거', 'vs', '차이점', '비교해', '달라', '나아', '좋아', '유리']
+    _is_comp_query = any(w in user_clean for w in _comp_words)
+    if _is_comp_query:
+        # 프로그램 감지 (긴 이름 우선, substring 중복 방지)
+        _prog_order = ['소단위전공과정', '마이크로디그리', '융합부전공', '융합전공', '복수전공', '부전공', '연계전공', '다전공']
+        _found_progs = []
+        _temp_text = user_clean
+        for _p in _prog_order:
+            if _p in _temp_text:
+                _found_progs.append(_p)
+                _temp_text = _temp_text.replace(_p, '', 1)
+
+        if len(_found_progs) >= 2:
+            debug_print(f"[DEBUG] 비교 질문 직접 처리: {_found_progs}")
+            comp_faq = faq_df[
+                (faq_df['program'] == _found_progs[0]) &
+                (faq_df['intent'] == 'PROGRAM_COMPARISON')
+            ]
+            if not comp_faq.empty:
+                faq_match = comp_faq.iloc[0]
+                raw_answer = faq_match.get('answer', '')
+                program = faq_match.get('program', '')
+                conversational_answer = generate_conversational_response(raw_answer, user_input, program)
+                formatted_response = format_faq_response_html(conversational_answer, program)
+                formatted_response += create_contact_box()
+                update_context_in_session(program=_found_progs[0])
+                log_to_sheets(
+                    st.session_state.get('session_id', 'unknown'),
+                    original_input, formatted_response, 'faq_comparison_direct',
+                    time.time() - start_time,
+                    st.session_state.get('page', 'AI챗봇 상담')
+                )
+                return formatted_response, "FAQ_PROGRAM_COMPARISON"
+
     # 5. FAQ 매핑 검색 (확장된 질문으로!)
     faq_match, score = search_faq_mapping(user_input, faq_df)
     
