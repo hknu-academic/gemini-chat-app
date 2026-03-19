@@ -2983,9 +2983,20 @@ def generate_ai_response(user_input, chat_history, data_dict):
     if program_type and not entity_name:
         _info_words = ['뭐야', '뭔지', '무엇', '설명', '알려줘', '뭐임', '뭐에요', '뭐죠', '어떤거', '어떤것', '어떤제도', '개념', '정의']
         _comparison_words = ['차이', '비교', '다른점', '다른거', 'vs', '차이점', '비교해']
+        # 구체적 의도가 있으면 PROGRAM_INFO가 아닌 해당 의도로 처리해야 함
+        _specific_intent_words = [
+            '자격', '조건', '대상', '기준', '신청할수있', '가능',          # 자격
+            '기간', '언제', '마감', '일정', '시기',                        # 기간
+            '어떻게', '방법', '절차', '순서',                              # 방법
+            '학점', '몇학점', '이수학점', '졸업학점',                      # 학점
+            '취소', '포기', '철회',                                        # 취소
+            '변경', '바꾸', '전환',                                        # 변경
+            '등록금', '학비',                                              # 등록금
+        ]
         _user_clean_tmp = user_input.lower().replace(' ', '')
         _is_comparison = any(w in _user_clean_tmp for w in _comparison_words)
-        if any(w in _user_clean_tmp for w in _info_words) and not _is_comparison:
+        _has_specific_intent = any(w in _user_clean_tmp for w in _specific_intent_words)
+        if any(w in _user_clean_tmp for w in _info_words) and not _is_comparison and not _has_specific_intent:
             _prog_display = MAPPINGS.get('program_display_names', {}).get(program_type, program_type)
             _pi_faq = faq_df[
                 (faq_df['program'].isin([program_type, _prog_display])) &
