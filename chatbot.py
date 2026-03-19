@@ -3179,7 +3179,53 @@ def generate_ai_response(user_input, chat_history, data_dict):
             st.session_state.get('page', 'AI챗봇 상담')
         )
         return formatted_response, response_type
-    
+
+    # 5.5 의도 기반 FAQ 직접 조회
+    # FAQ 키워드 매칭 실패 시, 프로그램 + 의도 키워드로 직접 FAQ를 찾음
+    # (프로그램명과 의도 키워드 사이에 다른 텍스트가 있어 키워드 매칭이 안 되는 경우)
+    if program_type:
+        _intent_kw_map = {
+            'APPLY_QUALIFICATION': ['자격', '조건', '대상', '기준', '가능', '돼', '되나', '될까', '할수있', '할수있나', '가능해', '가능한가', '가능하나', '되는지'],
+            'APPLY_PERIOD': ['기간', '언제', '마감', '일정', '시기', '날짜', '몇월'],
+            'APPLY_METHOD': ['방법', '절차', '순서', '어디서'],
+            'CREDIT_INFO': ['학점', '몇학점', '이수학점', '졸업학점'],
+            'APPLY_CANCEL': ['취소', '포기', '철회'],
+            'APPLY_CHANGE': ['변경', '바꾸', '전환'],
+            'PROGRAM_TUITION': ['등록금', '학비', '수강료'],
+        }
+        _detected_intent = None
+        for _intent, _kws in _intent_kw_map.items():
+            if any(_k in user_clean for _k in _kws):
+                _detected_intent = _intent
+                break
+
+        if _detected_intent:
+            debug_print(f"[DEBUG] 의도 기반 직접 조회: {program_type} + {_detected_intent}")
+            _intent_faq = faq_df[
+                (faq_df['program'] == program_type) &
+                (faq_df['intent'] == _detected_intent)
+            ]
+            if _intent_faq.empty and program_type not in ['다전공', '유연학사제도']:
+                _intent_faq = faq_df[
+                    (faq_df['program'] == '다전공') &
+                    (faq_df['intent'] == _detected_intent)
+                ]
+            if not _intent_faq.empty:
+                faq_match = _intent_faq.iloc[0]
+                raw_answer = faq_match.get('answer', '')
+                program = faq_match.get('program', '')
+                conversational_answer = generate_conversational_response(raw_answer, user_input, program)
+                formatted_response = format_faq_response_html(conversational_answer, program)
+                formatted_response += create_contact_box()
+                update_context_in_session(program=program_type)
+                log_to_sheets(
+                    st.session_state.get('session_id', 'unknown'),
+                    original_input, formatted_response, f'faq_intent_direct_{_detected_intent}',
+                    time.time() - start_time,
+                    st.session_state.get('page', 'AI챗봇 상담')
+                )
+                return formatted_response, f"FAQ_{_detected_intent}"
+
     # 5. 특수 핸들러 (연락처, 과목 검색, 전공 정보 등)
     # 간단한 의도 분류
     extracted_info = {
