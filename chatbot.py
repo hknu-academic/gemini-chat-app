@@ -3035,8 +3035,10 @@ def generate_ai_response(user_input, chat_history, data_dict):
                 if not _cf.empty:
                     _answer_text = str(_cf.iloc[0].get('answer', ''))
                     _other = _prog2 if _try_prog == _prog1 else _prog1
-                    # FAQ 답변에 상대 프로그램명이 포함되어 있으면 매칭
-                    if _other in _answer_text:
+                    # FAQ 답변에 상대 프로그램명이 포함되어 있는지 확인
+                    # substring 오탐 방지: 현재 프로그램명을 먼저 제거 (예: '융합부전공' 제거 후 '부전공' 체크)
+                    _answer_cleaned = _answer_text.replace(_try_prog, '')
+                    if _other in _answer_cleaned:
                         _matched_comp_faq = _cf.iloc[0]
                         debug_print(f"[DEBUG] FAQ 매칭 성공: {_try_prog} COMPARISON (답변에 {_other} 포함)")
                         break
