@@ -1400,7 +1400,7 @@ def search_faq_mapping(user_input, faq_df):
             'APPLY_METHOD': ['방법', '절차', '순서', '어떻게', '어디서'],
             'CREDIT_INFO': ['학점', '몇학점', '이수학점', '졸업학점'],
             'APPLY_CANCEL': ['취소', '포기', '철회', '그만'],
-            'APPLY_CHANGE': ['변경', '바꾸', '전환'],
+            'APPLY_CHANGE': ['변경', '바꾸', '바꿀', '바꿔', '바꾼', '전환'],
             'PROGRAM_TUITION': ['등록금', '학비', '수강료', '장학금'],
         }
         row_intent = str(row.get('intent', ''))
@@ -3173,7 +3173,7 @@ def generate_ai_response(user_input, chat_history, data_dict):
             'APPLY_METHOD': ['방법', '절차', '순서', '어디서'],
             'CREDIT_INFO': ['학점', '몇학점', '이수학점', '졸업학점'],
             'APPLY_CANCEL': ['취소', '포기', '철회'],
-            'APPLY_CHANGE': ['변경', '바꾸', '전환'],
+            'APPLY_CHANGE': ['변경', '바꾸', '바꿀', '바꿔', '바꾼', '전환'],
         }
         for _ci, _ckws in _intent_conflict_map.items():
             if any(_ck in user_clean for _ck in _ckws):
@@ -3221,7 +3221,7 @@ def generate_ai_response(user_input, chat_history, data_dict):
             'APPLY_METHOD': ['방법', '절차', '순서', '어디서'],
             'CREDIT_INFO': ['학점', '몇학점', '이수학점', '졸업학점'],
             'APPLY_CANCEL': ['취소', '포기', '철회'],
-            'APPLY_CHANGE': ['변경', '바꾸', '전환'],
+            'APPLY_CHANGE': ['변경', '바꾸', '바꿀', '바꿔', '바꾼', '전환'],
             'PROGRAM_TUITION': ['등록금', '학비', '수강료'],
         }
         _detected_intent = None
