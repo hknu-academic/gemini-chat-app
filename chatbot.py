@@ -1244,18 +1244,18 @@ def search_faq_mapping(user_input, faq_df):
     debug_print(f"[DEBUG FAQ] 정규화: '{user_normalized}'")
     
     # STEP 1: 복수 프로그램 감지
-    program_keywords = ['복수전공', '부전공', '융합전공', '마이크로전공', '마이크로디그리']
+    program_keywords = ['복수전공', '부전공', '융합전공', '마이크로전공', '마이크로디그리', '소단위전공과정', '연계전공']
     programs_mentioned = [p for p in program_keywords if p in user_clean]
-    
+
     if len(programs_mentioned) >= 2:
         # 비교 질문이면 FAQ 검색 허용 (PROGRAM_COMPARISON FAQ 매칭 필요)
-        comparison_keywords = ['차이', '비교', '다른점', '다른거', 'vs', '차이점', '비교해', '뭐가달라', '어떻게달라']
+        comparison_keywords = ['차이', '비교', '다른점', '다른거', 'vs', '차이점', '비교해', '뭐가달라', '어떻게달라', '똑같아', '같은거', '같아', '나아', '좋아']
         is_comparison = any(kw in user_clean for kw in comparison_keywords)
         if not is_comparison:
             return None, 0
     
     # STEP 1.5: "목록" 질문 감지
-    list_keywords = ['목록', '리스트', '전공은', '어떤전공']
+    list_keywords = ['목록', '리스트', '종류', '어떤전공', '어떤과정', '무슨전공', '무슨과정', '뭐가있어', '뭐있어']
     is_list_query = any(kw in user_clean for kw in list_keywords)
 
     if is_list_query:
@@ -1342,16 +1342,29 @@ def search_faq_mapping(user_input, faq_df):
     _all_programs = ['복수전공', '부전공', '융합전공', '융합부전공', '연계전공', '소단위전공과정', '마이크로디그리']
     _secondary = [p for p in _all_programs if p != detected_program and p in user_clean]
 
+    # 🔧 등록금/학비/비용 키워드가 있으면 학사제도 FAQ도 포함
+    _cost_keywords = ['등록금', '학비', '비용', '돈얼마', '추가비용', '추가학비']
+    _include_haksa = any(ck in user_clean for ck in _cost_keywords)
+
     if detected_program == "학사제도":
         program_faq = faq_df[faq_df['program'] == '학사제도']
     elif detected_program == "유연학사제도":
         program_faq = faq_df[faq_df['program'] == '유연학사제도']
     elif detected_program in ['소단위전공과정', '마이크로디그리']:
-        program_faq = faq_df[faq_df['program'].isin(['소단위전공과정', '마이크로디그리', '다전공'] + _secondary)]
+        _search_progs = ['소단위전공과정', '마이크로디그리', '다전공'] + _secondary
+        if _include_haksa:
+            _search_progs.append('학사제도')
+        program_faq = faq_df[faq_df['program'].isin(_search_progs)]
     elif detected_program == "다전공":
-        program_faq = faq_df[faq_df['program'] == '다전공']
+        _search_progs = ['다전공']
+        if _include_haksa:
+            _search_progs.append('학사제도')
+        program_faq = faq_df[faq_df['program'].isin(_search_progs)]
     else:
-        program_faq = faq_df[faq_df['program'].isin([detected_program, '다전공'] + _secondary)]
+        _search_progs = [detected_program, '다전공'] + _secondary
+        if _include_haksa:
+            _search_progs.append('학사제도')
+        program_faq = faq_df[faq_df['program'].isin(_search_progs)]
     
     if program_faq.empty:
         return None, 0
@@ -3179,12 +3192,12 @@ def generate_ai_response(user_input, chat_history, data_dict):
         _faq_intent = str(faq_match.get('intent', ''))
         _user_clear_intent = None
         _intent_conflict_map = {
-            'APPLY_QUALIFICATION': ['자격', '조건', '대상', '기준', '가능', '돼', '되나', '될까', '되는지', '가능해', '할수있나', '가능하나'],
-            'APPLY_PERIOD': ['기간', '언제', '마감', '일정', '시기', '날짜', '몇월'],
-            'APPLY_METHOD': ['방법', '절차', '순서', '어디서'],
-            'CREDIT_INFO': ['학점', '몇학점', '이수학점', '졸업학점'],
             'APPLY_CANCEL': ['취소', '포기', '철회'],
             'APPLY_CHANGE': ['변경', '바꾸', '바꿀', '바꿔', '바꾼', '전환'],
+            'CREDIT_INFO': ['학점', '몇학점', '이수학점', '졸업학점'],
+            'APPLY_PERIOD': ['기간', '언제', '마감', '일정', '시기', '날짜', '몇월'],
+            'APPLY_METHOD': ['방법', '절차', '순서', '어디서'],
+            'APPLY_QUALIFICATION': ['자격', '조건', '대상', '기준', '가능', '돼', '되나', '될까', '되는지', '가능해', '할수있나', '가능하나'],
             'PROGRAM_INFO': ['목록', '종류', '어떤', '리스트', '뭐가있', '뭐있'],
         }
         for _ci, _ckws in _intent_conflict_map.items():
