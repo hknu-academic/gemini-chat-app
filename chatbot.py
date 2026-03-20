@@ -1721,17 +1721,15 @@ def is_followup_question(user_input):
         user_clean == p.replace('?', '').replace(' ', '') for p in question_only_patterns
     )
     
-    # 3. 매우 짧은 질문 (10자 이하) + 제도/전공 키워드 없음
-    is_very_short = len(user_clean) <= 10
-    
     # 후속 질문 판단 (더 엄격하게)
+    # 지시어가 있으면 확실한 후속 질문
     if has_indicator:
         return True
+    # "기간은?", "학점은?" 등 질문만 있는 패턴
     if is_question_only:
         return True
-    if is_very_short and not has_program and not has_major_name:
-        return True
-    
+    # 🔧 짧은 질문이라도 지시어 없으면 후속 질문으로 판단하지 않음
+    # (오타나 관련 없는 입력이 이전 답변을 재활용하는 문제 방지)
     return False
 
 
