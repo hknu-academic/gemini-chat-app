@@ -1670,9 +1670,19 @@ def is_followup_question(user_input):
         '유연학사제도', '유연학사', '다전공'  # 🔧 추가
     ]
     has_program = any(kw in user_clean for kw in program_keywords)
-    
-    # 🔧 전공명이나 제도명이 있으면 바로 False 반환 (후속 질문 아님)
-    if has_major_name or has_program:
+
+    # 🔧 학사제도 키워드 확인 (교직, 졸업, 등록금 등)
+    academic_keywords = [
+        '증명서', '학점교류', '교직', '교원자격', '휴학', '복학', '전과',
+        '수강신청', '학점인정', '이수구분', '성적처리', '졸업식', '학위수여식',
+        '졸업유예', '조기졸업', '등록금', '학비', '성적확인', '성적조회',
+        '학점확인', '수강확인', '계절학기', '수강철회', '장학금',
+        '졸업', '유예', '교직이수', '수강', '성적',
+    ]
+    has_academic = any(kw in user_clean for kw in academic_keywords)
+
+    # 🔧 전공명이나 제도명이나 학사제도 키워드가 있으면 바로 False 반환 (후속 질문 아님)
+    if has_major_name or has_program or has_academic:
         return False
     
     # 1. 지시어 패턴 (명확한 후속 질문 표현)
@@ -3351,8 +3361,18 @@ def generate_ai_response(user_input, chat_history, data_dict):
                 has_specific_major = True
                 break
     
-    # 🔧 제도명도 전공명도 없으면 → 재질문 유도 (AI에게 넘기지 않음)
-    if not has_program_keyword and not has_specific_major:
+    # 🔧 학사제도 키워드 체크 (교직, 졸업, 등록금 등 → FAQ에서 처리)
+    academic_fallback_keywords = [
+        '증명서', '학점교류', '교직', '교원자격', '휴학', '복학', '전과',
+        '수강신청', '학점인정', '이수구분', '성적처리', '졸업식', '학위수여식',
+        '졸업유예', '조기졸업', '등록금', '학비', '성적확인', '성적조회',
+        '학점확인', '수강확인', '계절학기', '수강철회', '장학금',
+        '졸업', '유예', '교직이수', '수강', '성적',
+    ]
+    has_academic_keyword = any(kw in user_clean_check for kw in academic_fallback_keywords)
+
+    # 🔧 제도명도 전공명도 학사제도 키워드도 없으면 → 재질문 유도 (AI에게 넘기지 않음)
+    if not has_program_keyword and not has_specific_major and not has_academic_keyword:
         debug_print("[DEBUG] ⚠️ 제도/전공 키워드 없음 - 재질문 유도")
         response = create_header_card("질문을 조금 더 구체적으로 해주세요", "🤔", "#f39c12")
         response += """
