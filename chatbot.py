@@ -3186,6 +3186,71 @@ def generate_ai_response(user_input, chat_history, data_dict):
                         )
                         return formatted_response, "COMPARISON_FALLBACK"
 
+    # 4.8 동시 이수 질문 처리 (2+ 프로그램 + 동시이수 키워드)
+    _combine_words = ['같이', '동시', '함께', '겸', '병행', '둘다', '둘 다', '중복', '이중']
+    _is_combine_query = any(w in user_clean for w in _combine_words)
+    if _is_combine_query:
+        _prog_order_c = ['소단위전공과정', '마이크로디그리', '융합부전공', '융합전공', '복수전공', '부전공', '연계전공', '다전공']
+        _found_progs_c = []
+        _temp_text_c = user_clean
+        for _p in _prog_order_c:
+            if _p in _temp_text_c:
+                _found_progs_c.append(_p)
+                _temp_text_c = _temp_text_c.replace(_p, '', 1)
+
+        if len(_found_progs_c) >= 2:
+            _prog1, _prog2 = _found_progs_c[0], _found_progs_c[1]
+            debug_print(f"[DEBUG] 동시 이수 질문 처리: {_prog1} + {_prog2}")
+            _ctx_parts_c = []
+            for _p in [_prog1, _prog2]:
+                _p_faqs = faq_df[faq_df['program'] == _p]
+                for _, _r in _p_faqs.iterrows():
+                    _ctx_parts_c.append(f"[{_p} - {_r.get('intent', '')}]\n{_r.get('answer', '')}")
+            _combine_context = "\n\n".join(_ctx_parts_c[:10])
+
+            _combine_prompt = f"""당신은 한경국립대학교 다전공 안내 AI챗봇입니다.
+
+[중요 지침]
+- 반드시 아래 제공된 정보 내에서만 답변하세요
+- 학생이 두 제도를 동시에 이수/신청할 수 있는지 묻고 있습니다
+- 추측하거나 만들어내지 마세요
+- 정보가 부족하면 학사지원팀(031-670-5035) 문의 안내
+
+[{_prog1} 및 {_prog2} 관련 정보]
+{_combine_context}
+
+[학생 질문]
+{user_input}
+
+[답변 지침]
+1. 두 제도의 동시 이수 가능 여부를 명확히 답변
+2. 가능하다면 조건이나 유의사항 안내
+3. 불가능하다면 대안 제시
+4. "~합니다" 등 정중한 종결어미 사용
+5. 이모지 적절히 사용
+6. 학사공지 확인: {ACADEMIC_NOTICE_URL}
+7. URL은 마크다운 볼드로 감싸지 말고 그대로 작성
+"""
+            try:
+                _combine_resp = client.models.generate_content(
+                    model='gemini-2.0-flash-exp',
+                    contents=_combine_prompt,
+                    config={'temperature': 0.3, 'max_output_tokens': 1000}
+                )
+                _combine_answer = _combine_resp.text.strip()
+                formatted_response = format_faq_response_html(_combine_answer, _prog1)
+                formatted_response += create_contact_box()
+                update_context_in_session(program=_prog1)
+                log_to_sheets(
+                    st.session_state.get('session_id', 'unknown'),
+                    original_input, formatted_response, 'ai_combine',
+                    time.time() - start_time,
+                    st.session_state.get('page', 'AI챗봇 상담')
+                )
+                return formatted_response, "AI_COMBINE"
+            except Exception as e:
+                debug_print(f"[DEBUG] AI 동시이수 생성 실패: {e}")
+
     # 5. FAQ 매핑 검색 (확장된 질문으로!)
     faq_match, score = search_faq_mapping(user_input, faq_df)
     
