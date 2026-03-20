@@ -3388,19 +3388,25 @@ def generate_ai_response(user_input, chat_history, data_dict):
     # 🔧 제도명도 전공명도 학사제도 키워드도 없으면 → 재질문 유도 (AI에게 넘기지 않음)
     if not has_program_keyword and not has_specific_major and not has_academic_keyword:
         debug_print("[DEBUG] ⚠️ 제도/전공 키워드 없음 - 재질문 유도")
-        response = create_header_card("질문을 조금 더 구체적으로 해주세요", "🤔", "#f39c12")
+        response = create_header_card("이 챗봇은 다전공·유연학사 제도 전용이에요", "📋", "#f39c12")
         response += """
 <div style="background: white; border-radius: 12px; padding: 16px; margin: 12px 0; border-left: 4px solid #f39c12;">
     <p style="margin: 0 0 12px 0; color: #333;">
-        정확한 답변을 드리기 위해 <strong>제도명</strong>이나 <strong>전공명</strong>을 함께 말씀해 주세요!
+        저는 <strong>복수전공, 부전공, 융합전공, 연계전공, 마이크로디그리</strong> 등<br>
+        <strong>다전공·유연학사 제도</strong>에 대해 답변해 드리는 챗봇이에요.
+    </p>
+    <p style="margin: 0 0 12px 0; color: #888; font-size: 0.85rem;">
+        기숙사, 도서관, 동아리, 학생증 등 <strong>다른 학교생활 관련 문의</strong>는<br>
+        학교 홈페이지나 해당 부서에 문의해 주세요.
     </p>
     <div style="background: #fff9e6; border-radius: 8px; padding: 12px; margin-top: 8px;">
-        <p style="margin: 0 0 8px 0; color: #666; font-size: 0.9rem;"><strong>📌 이렇게 질문해 보세요:</strong></p>
+        <p style="margin: 0 0 8px 0; color: #666; font-size: 0.9rem;"><strong>📌 이런 질문에 답변할 수 있어요:</strong></p>
         <ul style="margin: 0; padding-left: 20px; color: #555; font-size: 0.85rem;">
-            <li>"<strong>복수전공</strong> 신청 기간이 언제야?"</li>
+            <li>"<strong>복수전공</strong> 신청 자격이 뭐야?"</li>
             <li>"<strong>융합전공</strong>이랑 <strong>복수전공</strong> 차이가 뭐야?"</li>
+            <li>"<strong>마이크로디그리</strong> 신청 기간이 언제야?"</li>
             <li>"<strong>경영학전공</strong> 교과목 알려줘"</li>
-            <li>"<strong>마이크로디그리</strong> 목록 보여줘"</li>
+            <li>"<strong>등록금</strong> 얼마야?" / "<strong>졸업유예</strong> 어떻게 해?"</li>
         </ul>
     </div>
 </div>
