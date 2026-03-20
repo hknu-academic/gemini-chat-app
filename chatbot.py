@@ -1249,13 +1249,13 @@ def search_faq_mapping(user_input, faq_df):
 
     if len(programs_mentioned) >= 2:
         # 비교 질문이면 FAQ 검색 허용 (PROGRAM_COMPARISON FAQ 매칭 필요)
-        comparison_keywords = ['차이', '비교', '다른점', '다른거', 'vs', '차이점', '비교해', '뭐가달라', '어떻게달라', '똑같아', '같은거', '같아', '나아', '좋아']
+        comparison_keywords = ['차이', '비교', '다른점', '다른거', 'vs', '차이점', '비교해', '뭐가달라', '어떻게달라', '똑같아', '같은거', '같아', '나아', '좋아', '좋을까', '좋을']
         is_comparison = any(kw in user_clean for kw in comparison_keywords)
         if not is_comparison:
             return None, 0
     
     # STEP 1.5: "목록" 질문 감지 (변경/취소 등 구체적 의도가 있으면 제외)
-    list_keywords = ['목록', '리스트', '종류', '어떤전공', '어떤과정', '무슨전공', '무슨과정', '뭐가있어', '뭐있어']
+    list_keywords = ['목록', '리스트', '종류', '어떤전공', '어떤과정', '무슨전공', '무슨과정', '뭐가있어', '뭐있어', '어떤게있어', '뭐가있']
     _non_list_intents = ['변경', '바꾸', '전환', '취소', '포기', '철회']
     is_list_query = any(kw in user_clean for kw in list_keywords) and not any(ni in user_clean for ni in _non_list_intents)
 
@@ -3060,7 +3060,7 @@ def generate_ai_response(user_input, chat_history, data_dict):
 
     # 4.7 비교 질문 직접 처리 (2+ 프로그램 + 비교 키워드)
     # FAQ 키워드 매칭이 조사(이랑, 과, 하고 등)로 인해 실패하는 문제 우회
-    _comp_words = ['차이', '비교', '다른점', '다른거', 'vs', '차이점', '비교해', '달라', '나아', '좋아', '유리']
+    _comp_words = ['차이', '비교', '다른점', '다른거', 'vs', '차이점', '비교해', '달라', '나아', '좋아', '유리', '좋을까', '좋을']
     _is_comp_query = any(w in user_clean for w in _comp_words)
     if _is_comp_query:
         # 프로그램 감지 (긴 이름 우선, substring 중복 방지)
@@ -3243,7 +3243,7 @@ def generate_ai_response(user_input, chat_history, data_dict):
         _intent_kw_map = {
             'APPLY_QUALIFICATION': ['자격', '조건', '대상', '기준', '가능', '돼', '되나', '될까', '할수있', '할수있나', '가능해', '가능한가', '가능하나', '되는지', '아무나', '할수있어'],
             'APPLY_PERIOD': ['기간', '언제', '마감', '일정', '시기', '날짜', '몇월', '2학기'],
-            'APPLY_METHOD': ['방법', '절차', '순서', '어디서', '서류'],
+            'APPLY_METHOD': ['방법', '절차', '순서', '어디서', '서류', '어떻게'],
             'CREDIT_INFO': ['학점', '몇학점', '이수학점', '졸업학점'],
             'APPLY_CANCEL': ['취소', '포기', '철회', '그만두', '그만둘'],
             'APPLY_CHANGE': ['변경', '바꾸', '바꿀', '바꿔', '바꾼', '전환'],

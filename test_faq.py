@@ -39,7 +39,7 @@ def search_faq_mapping(user_input, faq_df):
     user_clean = user_input.lower().replace(' ', '').replace('\xb7', '').replace('\u2022', '').replace('/', '')
     user_normalized = normalize_for_matching(user_input)
 
-    list_keywords = ['목록', '리스트', '종류', '어떤전공', '어떤과정', '무슨전공', '무슨과정', '뭐가있어', '뭐있어']
+    list_keywords = ['목록', '리스트', '종류', '어떤전공', '어떤과정', '무슨전공', '무슨과정', '뭐가있어', '뭐있어', '어떤게있어', '뭐가있']
     if any(kw in user_clean for kw in list_keywords):
         return None, 0
 
@@ -184,7 +184,7 @@ def check_program_info_redirect(user_input, program_type):
 def is_comparison_query(user_input):
     """Step 4.7: 비교 질문 감지 (2개 이상 프로그램 + 비교 키워드)"""
     user_clean = user_input.lower().replace(' ', '')
-    comp_words = ['차이', '비교', '다른점', '다른거', 'vs', '차이점', '비교해', '달라', '나아', '좋아', '유리', '똑같아', '같은거', '같아']
+    comp_words = ['차이', '비교', '다른점', '다른거', 'vs', '차이점', '비교해', '달라', '나아', '좋아', '유리', '똑같아', '같은거', '같아', '좋을까', '좋을']
     if not any(w in user_clean for w in comp_words):
         return False
     prog_order = ['소단위전공과정', '마이크로디그리', '융합부전공', '융합전공', '복수전공', '부전공', '연계전공', '다전공']
@@ -204,7 +204,7 @@ def simulate_step_5_5(user_input, program_type, faq_df):
     _intent_kw_map = {
         'APPLY_QUALIFICATION': ['자격', '조건', '대상', '기준', '가능', '돼', '되나', '될까', '할수있', '할수있나', '가능해', '가능한가', '가능하나', '되는지', '아무나', '할수있어'],
         'APPLY_PERIOD': ['기간', '언제', '마감', '일정', '시기', '날짜', '몇월', '2학기'],
-        'APPLY_METHOD': ['방법', '절차', '순서', '어디서', '서류'],
+        'APPLY_METHOD': ['방법', '절차', '순서', '어디서', '서류', '어떻게'],
         'CREDIT_INFO': ['학점', '몇학점', '이수학점', '졸업학점'],
         'APPLY_CANCEL': ['취소', '포기', '철회', '그만두', '그만둘'],
         'APPLY_CHANGE': ['변경', '바꾸', '바꿀', '바꿔', '바꾼', '전환'],
@@ -413,6 +413,65 @@ questions = [
     ("휴학 신청 어떻게 해?", "증명서"),
     ("전과하고 싶은데 어떻게 해?", "증명서"),
     ("학사시스템 로그인이 안 돼", "NONE"),                        # FAQ 답변 없음
+    # ===== 추가 50개 (151-200) =====
+    # 구어체/줄임말 표현 (151-158)
+    ("복전 어떻게 해?", "APPLY_METHOD"),                         # 복전 → 복수전공
+    ("부전 신청하려면?", "NONE"),                               # '하려면' 의도 키워드 없음
+    ("복수전공 알려줘", "PROGRAM_INFO"),
+    ("부전공이 뭔데?", "PROGRAM_INFO"),
+    ("마이크로디그리 해보고 싶은데", "NONE"),                     # 의도 불명확
+    ("연계전공 궁금해요", "PROGRAM_INFO"),
+    ("융합전공 하고 싶어", "NONE"),                             # 의도 불명확
+    ("소단위전공과정 궁금합니다", "PROGRAM_INFO"),
+    # 복합 키워드 질문 (159-166)
+    ("복수전공 신청 자격이랑 기간 알려줘", "APPLY_PERIOD"),         # 자격+기간 → _icm에서 기간 선순위
+    ("부전공 학점이랑 신청 방법 궁금해", "CREDIT_INFO"),           # 학점+방법 → 학점 우선 (CREDIT_INFO가 APPLY_METHOD보다 선순위)
+    ("융합전공 취소하면 학점은 어떻게 돼?", "APPLY_CANCEL"),        # 취소+학점 → 취소 우선
+    ("마이크로디그리 신청 기간이랑 자격 알려줘", "APPLY_PERIOD"),   # 기간이 APPLY_QUALIFICATION보다 선순위
+    ("복수전공 변경하려면 언제까지 해야 해?", "APPLY_CHANGE"),      # 변경+언제 → 변경 우선
+    ("부전공 포기하면 학점 인정돼?", "APPLY_CANCEL"),              # 포기+학점 → 취소 우선
+    ("연계전공 신청 서류랑 절차 알려줘", "APPLY_METHOD"),          # 서류+절차 → 방법
+    ("다전공 신청 마감 지났는데 가능해?", "APPLY_PERIOD"),         # 마감+가능 → 기간 우선
+    # 다양한 학사제도 표현 (167-175)
+    ("졸업 요건이 뭐야?", "졸업식"),                              # 졸업 키워드 → 졸업식 FAQ 먼저 매칭
+    ("학위수여식 언제야?", "졸업식"),                              # 학위수여식
+    ("등록금 분납 가능해?", "등록금"),
+    ("국가장학금 신청 방법 알려줘", "등록금"),                     # 장학금
+    ("성적증명서 뽑으려면?", "증명서"),
+    ("수강철회 기간 알려줘", "수강"),
+    ("학점교류 학점 인정 기준이 뭐야?", "학점교류"),
+    ("교직 필수 과목이 뭐야?", "교직"),
+    ("계절학기 학점 몇 학점까지 들을 수 있어?", "학점교류"),
+    # 프로그램 비교 추가 (176-180)
+    ("복수전공이랑 부전공 어떤 게 좋아?", "PROGRAM_COMPARISON"),
+    ("융합전공하고 복수전공하고 뭐가 다른 거야?", "PROGRAM_COMPARISON"),
+    ("소단위전공과정이랑 마이크로디그리 같은 건가?", "PROGRAM_COMPARISON"),
+    ("부전공 vs 연계전공", "PROGRAM_COMPARISON"),
+    ("복수전공이랑 융합부전공이랑 뭐가 좋을까?", "PROGRAM_COMPARISON"),
+    # 신청/자격 다양한 표현 (181-186)
+    ("복수전공 신청할 수 있는 학년이 어떻게 돼?", "APPLY_QUALIFICATION"),
+    ("융합부전공 신청 가능 학과 알려줘", "APPLY_QUALIFICATION"),
+    ("소단위전공과정 신청 시작일이 언제야?", "APPLY_PERIOD"),
+    ("마이크로디그리 접수 마감 언제야?", "APPLY_PERIOD"),
+    ("연계전공 어떻게 접수해?", "APPLY_METHOD"),
+    ("복수전공 신청 취소할 수 있어?", "APPLY_CANCEL"),
+    # 학점/이수 관련 (187-191)
+    ("복수전공 전공필수 몇 학점이야?", "CREDIT_INFO"),
+    ("융합전공 최소 이수학점 알려줘", "CREDIT_INFO"),
+    ("소단위전공과정 이수학점 궁금해", "CREDIT_INFO"),
+    ("부전공 전공선택 학점은?", "CREDIT_INFO"),
+    ("연계전공 졸업 이수학점 기준 알려줘", "CREDIT_INFO"),
+    # 목록/검색 추가 (192-195)
+    ("마이크로디그리 어떤 과정이 있어?", "MAJOR_SEARCH"),
+    ("복수전공 할 수 있는 학과가 뭐야?", "PROGRAM_INFO"),          # '뭐야' → PROGRAM_INFO redirect
+    ("융합전공 어떤 게 있어?", "MAJOR_SEARCH"),                   # 어떤게있어 → list_keywords
+    ("부전공 목록 보여줘", "MAJOR_SEARCH"),
+    # NONE/경계 케이스 (196-200)
+    ("안녕하세요", "NONE"),                                       # 인사말
+    ("ㅎㅎ", "NONE"),                                            # 무의미 입력
+    ("점심 뭐 먹지?", "NONE"),                                   # 범위 외
+    ("도서관 어디 있어?", "NONE"),                                # 범위 외
+    ("기숙사 신청 어떻게 해?", "NONE"),                           # 범위 외
 ]
 
 print(f"{'#':>3} | {'결과':^2} | {'질문':<42} | {'기대':<22} | {'실제':<22} | {'점수':>4}")
@@ -461,7 +520,7 @@ for i, (q, expected) in enumerate(questions, 1):
     else:
         # FAQ 미매칭
         _uc = q.lower().replace(' ', '')
-        _list_kws = ['목록', '리스트', '종류', '어떤전공', '어떤과정', '무슨전공', '무슨과정', '뭐가있어', '뭐있어']
+        _list_kws = ['목록', '리스트', '종류', '어떤전공', '어떤과정', '무슨전공', '무슨과정', '뭐가있어', '뭐있어', '어떤게있어', '뭐가있']
         # 변경/취소 등 구체적 의도가 있으면 목록 질문이 아님
         _non_list_intents = ['변경', '바꾸', '전환', '취소', '포기', '철회']
         _is_list = any(lk in _uc for lk in _list_kws) and program_type and not any(ni in _uc for ni in _non_list_intents)
