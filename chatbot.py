@@ -3190,9 +3190,15 @@ def generate_ai_response(user_input, chat_history, data_dict):
     _combine_words = ['같이', '동시', '함께', '겸', '병행', '둘다', '둘 다', '중복', '이중']
     _is_combine_query = any(w in user_clean for w in _combine_words)
     if _is_combine_query:
+        # 약어 → 정식명 치환 후 프로그램 감지
+        _abbr_map = [('복전', '복수전공'), ('부전', '부전공'), ('md', '마이크로디그리'), ('마이크로', '마이크로디그리'), ('소단위', '소단위전공과정')]
+        _temp_for_detect = user_clean
+        for _short, _full in _abbr_map:
+            if _short in _temp_for_detect and _full not in _temp_for_detect:
+                _temp_for_detect = _temp_for_detect.replace(_short, _full, 1)
         _prog_order_c = ['소단위전공과정', '마이크로디그리', '융합부전공', '융합전공', '복수전공', '부전공', '연계전공', '다전공']
         _found_progs_c = []
-        _temp_text_c = user_clean
+        _temp_text_c = _temp_for_detect
         for _p in _prog_order_c:
             if _p in _temp_text_c:
                 _found_progs_c.append(_p)

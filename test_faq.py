@@ -198,6 +198,27 @@ def is_comparison_query(user_input):
             temp = temp.replace(p, '', 1)
     return len(found) >= 2
 
+def is_combine_query(user_input):
+    """Step 4.8: 동시 이수 질문 감지 (2개 이상 프로그램 + 동시이수 키워드)"""
+    user_clean = user_input.lower().replace(' ', '')
+    combine_words = ['같이', '동시', '함께', '겸', '병행', '둘다', '둘 다', '중복', '이중']
+    if not any(w in user_clean for w in combine_words):
+        return False
+    # 약어 → 정식명 치환 후 프로그램 감지
+    _abbr = [('복전', '복수전공'), ('부전', '부전공'), ('md', '마이크로디그리'), ('마이크로', '마이크로디그리'), ('소단위', '소단위전공과정')]
+    _temp_for_detect = user_clean
+    for short, full in _abbr:
+        if short in _temp_for_detect and full not in _temp_for_detect:
+            _temp_for_detect = _temp_for_detect.replace(short, full, 1)
+    prog_order = ['소단위전공과정', '마이크로디그리', '융합부전공', '융합전공', '복수전공', '부전공', '연계전공', '다전공']
+    found = []
+    temp = _temp_for_detect
+    for p in prog_order:
+        if p in temp:
+            found.append(p)
+            temp = temp.replace(p, '', 1)
+    return len(found) >= 2
+
 def simulate_step_5_5(user_input, program_type, faq_df):
     """Step 5.5: 의도 기반 FAQ 직접 조회 시뮬레이션"""
     if not program_type:
@@ -582,10 +603,65 @@ questions = [
     ("학생증 재발급 어떻게 해?", "NONE"),
     ("생활관 식단 알려줘", "NONE"),
     ("축제 언제야?", "NONE"),
-    ("복수전공이랑 부전공 동시에 할 수 있어?", "APPLY_QUALIFICATION"),  # '할수있어' → 자격
+    ("복수전공이랑 부전공 동시에 할 수 있어?", "AI_COMBINE"),           # 2개 프로그램 + '동시' → 동시이수
     ("마이크로디그리 이수 기간이 얼마나 걸려?", "APPLY_PERIOD"),      # '기간' → 기간
     ("다전공 신청하면 수강신청 어떻게 바뀌어?", "APPLY_METHOD"),      # '어떻게' + '신청' → FAQ APPLY_METHOD 매칭
     ("유연학사제도 설명해줘", "PROGRAM_INFO"),
+    # ===== 동시 이수 관련 50개 (301-350) =====
+    # AI_COMBINE: 2개 이상 프로그램 + 동시이수 키워드 (301-335)
+    ("마이크로디그리랑 연계전공 같이 신청 가능해?", "AI_COMBINE"),
+    ("복수전공이랑 부전공 같이 할 수 있어?", "AI_COMBINE"),
+    ("융합전공이랑 복수전공 동시에 신청 가능한가요?", "AI_COMBINE"),
+    ("부전공이랑 연계전공 함께 이수할 수 있어?", "AI_COMBINE"),
+    ("복수전공이랑 마이크로디그리 병행 가능해?", "AI_COMBINE"),
+    ("융합부전공이랑 복수전공 둘다 할 수 있나?", "AI_COMBINE"),
+    ("부전공이랑 융합전공 겸 신청 돼?", "AI_COMBINE"),
+    ("연계전공이랑 부전공 같이 들을 수 있어?", "AI_COMBINE"),
+    ("마이크로디그리랑 복수전공 동시 이수 가능해?", "AI_COMBINE"),
+    ("소단위전공과정이랑 부전공 같이 신청 가능?", "AI_COMBINE"),
+    ("복수전공이랑 융합부전공 함께 하면 돼?", "AI_COMBINE"),
+    ("연계전공이랑 복수전공 병행할 수 있나요?", "AI_COMBINE"),
+    ("융합전공이랑 부전공 둘다 신청 가능해?", "AI_COMBINE"),
+    ("마이크로디그리랑 부전공 같이 이수 가능한가?", "AI_COMBINE"),
+    ("소단위전공과정이랑 마이크로디그리 동시에 할 수 있어?", "AI_COMBINE"),
+    ("복수전공이랑 연계전공 같이 신청해도 돼?", "AI_COMBINE"),
+    ("융합부전공이랑 연계전공 동시 신청 가능해?", "AI_COMBINE"),
+    ("부전공이랑 소단위전공과정 함께 들을 수 있나?", "AI_COMBINE"),
+    ("복수전공이랑 부전공 중복 신청 되나?", "AI_COMBINE"),
+    ("마이크로디그리랑 융합전공 이중으로 할 수 있어?", "AI_COMBINE"),
+    ("복수전공이랑 융합전공 같이 하면 학점이 어떻게 돼?", "AI_COMBINE"),
+    ("부전공이랑 연계전공 동시에 졸업 가능해?", "AI_COMBINE"),
+    ("융합전공이랑 마이크로디그리 병행하면 힘들어?", "AI_COMBINE"),
+    ("복수전공이랑 부전공 겸하면 졸업 늦어져?", "AI_COMBINE"),
+    ("연계전공이랑 융합부전공 같이 하는 학생 있어?", "AI_COMBINE"),
+    ("복수전공이랑 소단위전공과정 함께 신청하고 싶어", "AI_COMBINE"),
+    ("부전공이랑 마이크로디그리 둘다 하고 싶은데", "AI_COMBINE"),
+    ("융합전공이랑 연계전공 같이 신청하려면 어떻게 해?", "AI_COMBINE"),
+    ("복수전공이랑 융합부전공 동시에 이수하는 사람 많아?", "AI_COMBINE"),
+    ("마이크로디그리랑 소단위전공과정 병행 가능한가요?", "AI_COMBINE"),
+    ("복수전공이랑 부전공 같이 하면 추가 등록금 있어?", "AI_COMBINE"),
+    ("연계전공이랑 마이크로디그리 함께 신청 가능해?", "AI_COMBINE"),
+    ("융합부전공이랑 부전공 둘다 이수할 수 있어?", "AI_COMBINE"),
+    ("복수전공이랑 연계전공 동시 이수하면 학점 인정 돼?", "AI_COMBINE"),
+    ("부전공이랑 융합전공 같이 하면 졸업 요건 어떻게 돼?", "AI_COMBINE"),
+    # 동시이수 키워드 있지만 프로그램 1개 → AI_COMBINE 아님 (336-340)
+    ("복수전공 같이 하고 싶어", "NONE"),                                  # 프로그램 1개 + 의도 불명확 → NONE
+    ("부전공 동시에 몇 개까지 가능해?", "APPLY_QUALIFICATION"),            # 프로그램 1개 → step 5.5
+    ("마이크로디그리 함께 이수하려면 어떻게 해?", "APPLY_METHOD"),          # 프로그램 1개 → step 5.5
+    ("연계전공 병행하기 힘들어?", "NONE"),                                 # 프로그램 1개 + 의도 없음
+    ("융합전공 겸하는 사람 많아?", "NONE"),                                # 프로그램 1개 + 의도 없음
+    # 비교 vs 동시이수 구분 (341-345)
+    ("복수전공이랑 부전공 차이가 뭐야?", "PROGRAM_COMPARISON"),            # 비교 키워드 → 비교
+    ("융합전공이랑 연계전공 뭐가 달라?", "PROGRAM_COMPARISON"),            # 비교 키워드 → 비교
+    ("복수전공이랑 부전공 중에 뭐가 좋아?", "PROGRAM_COMPARISON"),         # 비교 키워드 → 비교
+    ("마이크로디그리랑 부전공 같이 해도 되나?", "AI_COMBINE"),             # 동시이수 키워드 → 동시이수
+    ("연계전공이랑 복수전공 함께 신청할 수 있나요?", "AI_COMBINE"),         # 동시이수 키워드 → 동시이수
+    # 다양한 문체 (346-350)
+    ("복전이랑 부전 같이 할 수 있음?", "AI_COMBINE"),                     # 약어 사용
+    ("복수전공하고 부전공 동시에 되나요?", "AI_COMBINE"),                  # 정중한 표현
+    ("융합전공이랑 복수전공 둘 다 하고 싶습니다", "AI_COMBINE"),           # 공손한 표현
+    ("MD랑 부전공 같이 하면 돼?", "AI_COMBINE"),                          # MD 약어
+    ("소단위랑 마이크로 같이 신청 가능?", "AI_COMBINE"),                   # 약어 사용
 ]
 
 print(f"{'#':>3} | {'결과':^2} | {'질문':<42} | {'기대':<22} | {'실제':<22} | {'점수':>4}")
@@ -600,6 +676,7 @@ for i, (q, expected) in enumerate(questions, 1):
     program_type = extract_program_from_text(q)
     is_pi_redirect = check_program_info_redirect(q, program_type)
     is_comp = is_comparison_query(q)
+    is_comb = is_combine_query(q)
     faq_match, score = search_faq_mapping(q, faq_df)
 
     # determine actual result (simulating real code flow)
@@ -608,6 +685,9 @@ for i, (q, expected) in enumerate(questions, 1):
     elif is_comp:
         # Step 4.7: 비교 질문 → PROGRAM_COMPARISON
         actual = "PROGRAM_COMPARISON"
+    elif is_comb:
+        # Step 4.8: 동시 이수 질문 → AI_COMBINE
+        actual = "AI_COMBINE"
     elif is_pi_redirect:
         # Step 4.5: 프로그램 설명 질문 → PROGRAM_INFO
         actual = "PROGRAM_INFO"
