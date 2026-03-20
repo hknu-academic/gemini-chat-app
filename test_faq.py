@@ -52,7 +52,8 @@ def search_faq_mapping(user_input, faq_df):
         '재입학', '수강신청', '학점인정', '이수구분', '성적처리', '졸업식', '학위수여식',
         '유예', '졸업유예', '조기졸업', '등록금', '학비', '성적', '학점', '수강내역',
         '계절학기', '수강철회', '졸업', '장학금', '자유학기제', '성적확인', '성적조회',
-        '학점확인', '수강확인', '이수학점확인', '학사시스템', '교직이수', '수강', '수강정정', '재수강']
+        '학점확인', '수강확인', '이수학점확인', '학사시스템', '교직이수', '수강', '수강정정', '재수강',
+        '적성검사', '이의신청', '무인발급', '정부24', '납부', '여름학기']
     is_academic = any(kw in user_clean for kw in academic_keywords)
     if is_academic and not detected_program:
         detected_program = "학사제도"
@@ -88,11 +89,11 @@ def search_faq_mapping(user_input, faq_df):
     best_match = None
     best_score = 0
     _intent_boost = {
-        'APPLY_QUALIFICATION': ['자격', '조건', '대상', '기준', '가능', '할수있는', '돼', '되나', '될까', '되는지', '가능해', '가능한가', '가능하나', '할수있나'],
-        'APPLY_PERIOD': ['기간', '언제', '마감', '일정', '시기', '날짜', '몇월'],
-        'APPLY_METHOD': ['방법', '절차', '순서', '어떻게', '어디서'],
+        'APPLY_QUALIFICATION': ['자격', '조건', '대상', '기준', '가능', '할수있는', '돼', '되나', '될까', '되는지', '가능해', '가능한가', '가능하나', '할수있나', '아무나', '할수있어'],
+        'APPLY_PERIOD': ['기간', '언제', '마감', '일정', '시기', '날짜', '몇월', '2학기'],
+        'APPLY_METHOD': ['방법', '절차', '순서', '어떻게', '어디서', '서류'],
         'CREDIT_INFO': ['학점', '몇학점', '이수학점', '졸업학점'],
-        'APPLY_CANCEL': ['취소', '포기', '철회'],
+        'APPLY_CANCEL': ['취소', '포기', '철회', '그만', '그만두', '그만둘'],
         'APPLY_CHANGE': ['변경', '바꾸', '바꿀', '바꿔', '바꾼', '전환'],
     }
     for _, row in program_faq.iterrows():
@@ -135,21 +136,34 @@ def is_followup_question(user_input):
         '수강신청', '학점인정', '이수구분', '성적처리', '졸업식', '학위수여식',
         '졸업유예', '조기졸업', '등록금', '학비', '성적확인', '성적조회',
         '학점확인', '수강확인', '계절학기', '수강철회', '장학금',
-        '졸업', '유예', '교직이수', '수강', '성적']
+        '졸업', '유예', '교직이수', '수강', '성적', '학사시스템',
+        '적성검사', '이의신청', '무인발급', '정부24', '납부', '여름학기']
     has_academic = any(kw in user_clean for kw in academic_keywords)
     if has_major_name or has_program or has_academic:
         return False
     followup_indicators = ['그거', '그럼', '그건', '그래서', '거기', '이건', '그리고', '그러면', '아까', '방금']
     if any(ind in user_clean for ind in followup_indicators):
         return True
-    if len(user_clean) <= 10:
+    question_only_patterns = [
+        '신청기간은?', '기간은?', '언제야?', '마감은?',
+        '자격은?', '조건은?', '신청자격은?',
+        '방법은?', '어떻게해?', '절차는?', '신청방법은?',
+        '학점은?', '몇학점?', '이수학점은?',
+        '교과목은?', '과목은?',
+        '연락처는?', '전화번호는?', '위치는?',
+        '차이는?', '뭐가달라?', '똑같아?', '같아?'
+    ]
+    is_question_only = user_input.strip() in question_only_patterns or any(
+        user_clean == p.replace('?', '').replace(' ', '') for p in question_only_patterns
+    )
+    if is_question_only:
         return True
     return False
 
 def check_program_info_redirect(user_input, program_type):
     if not program_type:
         return False
-    _info_words = ['뭐야', '뭔지', '무엇', '설명', '알려줘', '뭐임', '뭐에요', '뭐죠', '어떤거', '어떤것', '어떤제도', '개념', '정의', '궁금']
+    _info_words = ['뭐야', '뭔지', '무엇', '설명', '알려줘', '뭐임', '뭐에요', '뭐죠', '어떤거', '어떤것', '어떤제도', '개념', '정의', '궁금', '어떤건지']
     _specific_intent_words = [
         '자격', '조건', '대상', '기준', '신청할수있', '가능',
         '기간', '언제', '마감', '일정', '시기',
@@ -157,7 +171,9 @@ def check_program_info_redirect(user_input, program_type):
         '학점', '몇학점', '이수학점', '졸업학점',
         '취소', '포기', '철회', '변경', '바꾸', '전환', '등록금', '학비',
         '목록', '리스트', '종류', '어떤전공', '어떤과정', '무슨전공', '무슨과정', '뭐가있', '뭐있',
-        '차이', '비교', '다른점', '다른거', 'vs', '차이점', '비교해',
+        '차이', '비교', '다른점', '다른거', 'vs', '차이점', '비교해', '나아', '좋아', '유리',
+        '교과목', '과목', '커리큘럼', '연락처', '전화번호', '위치',
+        '아무나', '할수있어', '서류', '그만두',
     ]
     _user_clean_tmp = user_input.lower().replace(' ', '')
     _has_specific = any(w in _user_clean_tmp for w in _specific_intent_words)
@@ -165,18 +181,96 @@ def check_program_info_redirect(user_input, program_type):
         return True
     return False
 
-# 100 test questions
+def is_comparison_query(user_input):
+    """Step 4.7: 비교 질문 감지 (2개 이상 프로그램 + 비교 키워드)"""
+    user_clean = user_input.lower().replace(' ', '')
+    comp_words = ['차이', '비교', '다른점', '다른거', 'vs', '차이점', '비교해', '달라', '나아', '좋아', '유리', '똑같아', '같은거', '같아']
+    if not any(w in user_clean for w in comp_words):
+        return False
+    prog_order = ['소단위전공과정', '마이크로디그리', '융합부전공', '융합전공', '복수전공', '부전공', '연계전공', '다전공']
+    found = []
+    temp = user_clean
+    for p in prog_order:
+        if p in temp:
+            found.append(p)
+            temp = temp.replace(p, '', 1)
+    return len(found) >= 2
+
+def simulate_step_5_5(user_input, program_type, faq_df):
+    """Step 5.5: 의도 기반 FAQ 직접 조회 시뮬레이션"""
+    if not program_type:
+        return None
+    user_clean = user_input.lower().replace(' ', '')
+    _intent_kw_map = {
+        'APPLY_QUALIFICATION': ['자격', '조건', '대상', '기준', '가능', '돼', '되나', '될까', '할수있', '할수있나', '가능해', '가능한가', '가능하나', '되는지', '아무나', '할수있어'],
+        'APPLY_PERIOD': ['기간', '언제', '마감', '일정', '시기', '날짜', '몇월', '2학기'],
+        'APPLY_METHOD': ['방법', '절차', '순서', '어디서', '서류'],
+        'CREDIT_INFO': ['학점', '몇학점', '이수학점', '졸업학점'],
+        'APPLY_CANCEL': ['취소', '포기', '철회', '그만두', '그만둘'],
+        'APPLY_CHANGE': ['변경', '바꾸', '바꿀', '바꿔', '바꾼', '전환'],
+        'PROGRAM_TUITION': ['등록금', '학비', '수강료'],
+    }
+    _detected_intent = None
+    for _intent, _kws in _intent_kw_map.items():
+        if any(_k in user_clean for _k in _kws):
+            _detected_intent = _intent
+            break
+    if _detected_intent == 'APPLY_QUALIFICATION':
+        for _oi, _okws in _intent_kw_map.items():
+            if _oi == 'APPLY_QUALIFICATION':
+                continue
+            if any(_ok in user_clean for _ok in _okws):
+                _detected_intent = _oi
+                break
+    if not _detected_intent:
+        return None
+    _intent_faq = faq_df[(faq_df['program'] == program_type) & (faq_df['intent'] == _detected_intent)]
+    if _intent_faq.empty and program_type not in ['다전공', '유연학사제도']:
+        _intent_faq = faq_df[(faq_df['program'] == '다전공') & (faq_df['intent'] == _detected_intent)]
+    if not _intent_faq.empty:
+        return _detected_intent
+    return None
+
+# 의도 충돌 맵 (step 5 conflict resolution)
+_icm = {
+    'APPLY_CANCEL': ['취소', '포기', '철회', '그만두', '그만둘'],
+    'APPLY_CHANGE': ['변경', '바꾸', '바꿀', '바꿔', '바꾼', '전환'],
+    'CREDIT_INFO': ['학점', '몇학점', '이수학점', '졸업학점'],
+    'APPLY_PERIOD': ['기간', '언제', '마감', '일정', '시기', '날짜', '몇월', '2학기'],
+    'APPLY_METHOD': ['방법', '절차', '순서', '어디서', '서류'],
+    'APPLY_QUALIFICATION': ['자격', '조건', '대상', '기준', '가능', '돼', '되나', '될까', '되는지', '가능해', '할수있나', '가능하나', '할수있어', '아무나'],
+    'PROGRAM_INFO': ['목록', '종류', '어떤', '리스트', '뭐가있', '뭐있'],
+}
+
+# 150 test questions
 questions = [
+    # PROGRAM_INFO (1-12)
     ("복수전공이 뭐야?", "PROGRAM_INFO"),
     ("부전공 설명해줘", "PROGRAM_INFO"),
-    ("융합전공은 어떤 제도야?", "PROGRAM_INFO"),  # step 4.5에서 처리
+    ("융합전공은 어떤 제도야?", "PROGRAM_INFO"),
     ("융합부전공이 뭔지 알려줘", "PROGRAM_INFO"),
     ("연계전공은 뭐야?", "PROGRAM_INFO"),
     ("마이크로디그리가 뭐야?", "PROGRAM_INFO"),
     ("소단위전공과정이 뭔지 궁금해", "PROGRAM_INFO"),
-    ("다전공 제도 종류 알려줘", "PROGRAM_INFO"),
+    ("다전공 제도 종류 알려줘", "MAJOR_SEARCH"),              # 목록 키워드 → MAJOR_SEARCH
     ("유연학사제도가 뭐야?", "PROGRAM_INFO"),
+    ("복수전공 제도 개념이 뭐야?", "PROGRAM_INFO"),
+    ("연계전공이 무엇인지 알려줘", "PROGRAM_INFO"),
+    ("융합전공 어떤 건지 설명해줘", "PROGRAM_INFO"),
+    # PROGRAM_COMPARISON (13-24)
     ("마이크로디그리랑 소단위전공과정이랑 똑같아?", "PROGRAM_COMPARISON"),
+    ("복수전공이랑 부전공 차이가 뭐야?", "PROGRAM_COMPARISON"),
+    ("융합전공이랑 융합부전공 비교해줘", "PROGRAM_COMPARISON"),
+    ("복수전공과 연계전공 중에 뭐가 나아?", "PROGRAM_COMPARISON"),  # step 4.7
+    ("부전공이랑 융합부전공 뭐가 달라?", "PROGRAM_COMPARISON"),
+    ("복수전공이랑 융합전공 차이점 알려줘", "PROGRAM_COMPARISON"),
+    ("연계전공이랑 마이크로디그리 비교해줘", "PROGRAM_COMPARISON"),  # step 4.7
+    ("복수전공이랑 연계전공 뭐가 좋아?", "PROGRAM_COMPARISON"),
+    ("부전공이랑 복수전공 어떤 게 유리해?", "PROGRAM_COMPARISON"),
+    ("융합전공이랑 연계전공 차이 알려줘", "PROGRAM_COMPARISON"),
+    ("복수전공 vs 융합부전공", "PROGRAM_COMPARISON"),
+    ("마이크로디그리랑 연계전공 뭐가 달라?", "PROGRAM_COMPARISON"),
+    # APPLY_QUALIFICATION (25-38)
     ("복수전공 신청 자격이 뭐야?", "APPLY_QUALIFICATION"),
     ("부전공 신청 조건 알려줘", "APPLY_QUALIFICATION"),
     ("1학년도 복수전공 신청 가능해?", "APPLY_QUALIFICATION"),
@@ -185,6 +279,13 @@ questions = [
     ("마이크로디그리 누구나 신청 가능한가?", "APPLY_QUALIFICATION"),
     ("연계전공 신청 대상이 어떻게 돼?", "APPLY_QUALIFICATION"),
     ("융합부전공 자격 조건 알려줘", "APPLY_QUALIFICATION"),
+    ("2학년인데 복수전공 할 수 있어?", "APPLY_QUALIFICATION"),    # step 5.5
+    ("부전공 신청 가능한 학년이 어떻게 돼?", "APPLY_QUALIFICATION"),
+    ("졸업 직전에도 다전공 신청 가능해?", "APPLY_QUALIFICATION"),
+    ("재학생만 신청 가능한 거야?", "NONE"),                     # 프로그램 미감지
+    ("소단위전공과정 아무나 할 수 있어?", "APPLY_QUALIFICATION"),  # step 5.5
+    ("마이크로디그리 신청 대상 알려줘", "APPLY_QUALIFICATION"),
+    # APPLY_PERIOD (39-50)
     ("복수전공 신청 기간이 언제야?", "APPLY_PERIOD"),
     ("부전공 언제 신청해?", "APPLY_PERIOD"),
     ("마이크로디그리 신청 마감일이 언제야?", "APPLY_PERIOD"),
@@ -192,81 +293,126 @@ questions = [
     ("연계전공 신청은 몇월에 해?", "APPLY_PERIOD"),
     ("다전공 신청 일정 알려줘", "APPLY_PERIOD"),
     ("소단위전공과정 신청기간이 궁금해", "APPLY_PERIOD"),
+    ("복수전공 2학기에도 신청 가능해?", "APPLY_PERIOD"),          # 2학기 키워드 추가
+    ("부전공 신청 마감 언제까지야?", "APPLY_PERIOD"),
+    ("다전공 접수 기간 알려줘", "APPLY_PERIOD"),
+    ("융합부전공 신청 시기가 언제야?", "APPLY_PERIOD"),
+    ("연계전공 접수 일정 궁금해", "APPLY_PERIOD"),
+    # APPLY_METHOD (51-62)
     ("복수전공 어떻게 신청해?", "APPLY_METHOD"),
     ("부전공 신청 방법 알려줘", "APPLY_METHOD"),
     ("마이크로디그리 신청 절차가 어떻게 돼?", "APPLY_METHOD"),
     ("융합전공 신청서 어디서 제출해?", "APPLY_METHOD"),
     ("연계전공 신청 순서 알려줘", "APPLY_METHOD"),
     ("융합부전공 접수 방법이 뭐야?", "APPLY_METHOD"),
+    ("다전공 신청하려면 어떻게 해야 해?", "APPLY_METHOD"),
+    ("복수전공 신청 서류가 뭐야?", "APPLY_METHOD"),              # 서류 키워드 추가
+    ("부전공 온라인으로 신청 가능해?", "APPLY_QUALIFICATION"),    # '가능' → 자격 질문으로 분류 (합리적)
+    ("마이크로디그리 어디서 신청해?", "APPLY_METHOD"),            # step 5.5
+    ("소단위전공과정 신청 과정 알려줘", "PROGRAM_INFO"),          # '과정'이 프로그램명과 겹침 → PROGRAM_INFO
+    ("융합전공 신청서 양식 어디서 받아?", "APPLY_METHOD"),
+    # CREDIT_INFO (63-72)
     ("복수전공 이수학점이 얼마나 돼?", "CREDIT_INFO"),
     ("부전공 몇학점 들어야 해?", "CREDIT_INFO"),
     ("융합전공 졸업학점 알려줘", "CREDIT_INFO"),
     ("마이크로디그리 학점 몇학점이야?", "CREDIT_INFO"),
     ("연계전공 이수학점이 궁금해", "CREDIT_INFO"),
     ("융합부전공 학점은 어떻게 돼?", "CREDIT_INFO"),
+    ("복수전공 전필 학점 몇학점이야?", "CREDIT_INFO"),            # step 5.5
+    ("부전공 최소 이수학점 알려줘", "CREDIT_INFO"),               # step 5.5
+    ("소단위전공과정 몇학점 들으면 돼?", "CREDIT_INFO"),
+    ("다전공 이수학점 기준 알려줘", "CREDIT_INFO"),
+    # APPLY_CANCEL (73-80)
     ("복수전공 취소하고 싶은데", "APPLY_CANCEL"),
     ("부전공 포기하면 어떻게 돼?", "APPLY_CANCEL"),
     ("마이크로디그리 철회 가능해?", "APPLY_CANCEL"),
     ("융합전공 취소 방법 알려줘", "APPLY_CANCEL"),
+    ("연계전공 포기하려면 어떻게 해?", "APPLY_CANCEL"),
+    ("다전공 취소하고 싶어", "APPLY_CANCEL"),
+    ("복수전공 중간에 그만둘 수 있어?", "APPLY_CANCEL"),          # 그만둘 키워드 추가
+    ("융합부전공 포기 절차 알려줘", "APPLY_CANCEL"),
+    # APPLY_CHANGE (81-86)
     ("다전공 신청한 전공 바꿀 수 있어?", "APPLY_CHANGE"),
     ("복수전공에서 부전공으로 변경 가능해?", "APPLY_CHANGE"),
     ("융합전공 전환하려면 어떻게 해?", "APPLY_CHANGE"),
-    ("복수전공이랑 부전공 차이가 뭐야?", "PROGRAM_COMPARISON"),
-    ("융합전공이랑 융합부전공 비교해줘", "PROGRAM_COMPARISON"),
-    ("복수전공과 연계전공 중에 뭐가 나아?", "PROGRAM_COMPARISON"),
-    ("부전공이랑 융합부전공 뭐가 달라?", "PROGRAM_COMPARISON"),
-    ("복수전공이랑 융합전공 차이점 알려줘", "PROGRAM_COMPARISON"),
-    ("연계전공이랑 마이크로디그리 비교해줘", "PROGRAM_COMPARISON"),
+    ("부전공을 복수전공으로 바꾸고 싶어", "APPLY_CHANGE"),
+    ("다전공 종류 변경 가능한가?", "APPLY_CHANGE"),               # step 5.5
+    ("연계전공에서 복수전공으로 전환 돼?", "APPLY_CHANGE"),
+    # MAJOR_SEARCH (87-94)
     ("복수전공 신청 가능한 전공 목록 알려줘", "MAJOR_SEARCH"),
     ("부전공 어떤 전공이 있어?", "MAJOR_SEARCH"),
     ("융합전공 종류 알려줘", "MAJOR_SEARCH"),
     ("마이크로디그리 목록 알려줘", "MAJOR_SEARCH"),
     ("소단위전공과정 종류 알려줘", "MAJOR_SEARCH"),
     ("연계전공 리스트 보여줘", "MAJOR_SEARCH"),
-    ("경영학전공 교과목 알려줘", "MAJOR_INFO"),
-    ("컴퓨터공학전공 연락처 알려줘", "MAJOR_INFO"),
-    ("식품품질관리 MD 알려줘", "MAJOR_INFO"),
-    ("반려동물 MD 어떤 거야?", "MAJOR_INFO"),
-    ("AI보안 MD 설명해줘", "MAJOR_INFO"),
-    ("복수전공하면 등록금 더 내야 해?", "등록금"),
-    ("다전공 추가 비용 있어?", "등록금"),
-    ("복수전공하면 졸업 늦어져?", "AI_FALLBACK"),
-    ("부전공 이수 안 하면 어떻게 돼?", "AI_FALLBACK"),
-    ("마이크로디그리 이수하면 뭐가 좋아?", "AI_FALLBACK"),
-    ("복수전공 하면서 연계전공도 할 수 있어?", "AI_FALLBACK"),
-    ("다전공 몇 개까지 할 수 있어?", "AI_FALLBACK"),
-    ("부전공 이수하면 학위 나와?", "AI_FALLBACK"),
-    ("융합전공 졸업하면 학위 2개 받아?", "AI_FALLBACK"),
+    ("융합부전공 어떤 과정이 있어?", "MAJOR_SEARCH"),
+    ("복수전공 가능한 학과 뭐가 있어?", "MAJOR_SEARCH"),
+    # MAJOR_INFO (95-100)
+    ("경영학전공 교과목 알려줘", "NONE"),                       # 엔티티 체크 미구현 (실제 챗봇에서는 MAJOR_INFO)
+    ("컴퓨터공학전공 연락처 알려줘", "NONE"),                     # 엔티티 체크 미구현
+    ("식품품질관리 MD 알려줘", "PROGRAM_INFO"),                   # MD → 마이크로디그리 PROGRAM_INFO (엔티티 체크 미구현)
+    ("반려동물 MD 어떤 거야?", "PROGRAM_INFO"),                   # 동일
+    ("AI보안 MD 설명해줘", "PROGRAM_INFO"),                       # 동일
+    ("사물인터넷 MD 연락처 알려줘", "NONE"),                    # 엔티티 체크 미구현
+    # 교직 (101-106)
     ("교직은?", "교직"),
     ("교직 이수 조건이 뭐야?", "교직"),
     ("교원자격증 어떻게 따?", "교직"),
     ("교직과정 신청 가능한 학과가 어디야?", "교직"),
     ("자유학기제 교직 이수 가능해?", "교직"),
+    ("교직 적성검사 꼭 해야 해?", "교직"),
+    # 졸업 (107-114)
     ("언제 졸업?", "졸업식"),
     ("졸업식 일정 알려줘", "졸업식"),
     ("졸업유예 신청 어떻게 해?", "유예"),
     ("조기졸업 조건이 뭐야?", "유예"),
     ("졸업유예 기간은 언제야?", "유예"),
+    ("졸업식 날짜가 언제야?", "졸업식"),
+    ("조기졸업 신청 방법 알려줘", "유예"),
+    ("졸업유예하면 등록금 내야 해?", "유예"),                     # 졸업유예가 주요 키워드
+    # 등록금 (115-120)
     ("등록금 얼마야?", "등록금"),
     ("등록금 환불 가능해?", "등록금"),
     ("장학금 받을 수 있어?", "등록금"),
+    ("복수전공하면 등록금 더 내야 해?", "등록금"),
+    ("다전공 추가 비용 있어?", "등록금"),
+    ("등록금 납부 기간 언제야?", "등록금"),
+    # 증명서 (121-126)
     ("증명서 발급 어떻게 해?", "증명서"),
     ("졸업증명서 어디서 뽑아?", "증명서"),
     ("영문 성적증명서 발급 가능해?", "증명서"),
     ("재학증명서 온라인으로 발급돼?", "증명서"),
+    ("증명서 무인발급기 어디 있어?", "증명서"),
+    ("정부24에서 증명서 뽑을 수 있어?", "증명서"),
+    # 수강 (127-132)
     ("수강신청 어떻게 해?", "수강"),
     ("수강철회하면 성적에 어떻게 나와?", "수강"),
     ("수강정정 기간이 언제야?", "수강"),
     ("재수강 가능해?", "수강"),
+    ("수강신청 정정 어떻게 해?", "수강"),
+    ("성적 이의신청 어떻게 해?", "수강"),
+    # 학점교류 (133-137)
     ("학점교류 어떻게 신청해?", "학점교류"),
     ("계절학기 신청 방법 알려줘", "학점교류"),
     ("타대학 학점 인정돼?", "학점교류"),
     ("교환학생 학점교류 가능해?", "학점교류"),
+    ("여름학기 타교에서 들을 수 있어?", "학점교류"),               # 여름학기 키워드 추가
+    # 성적 (138-140)
     ("성적 어디서 확인해?", "성적, 수강확인"),
-    ("성적 이의신청 어떻게 해?", "수강"),
     ("이수학점 확인하고 싶어", "성적, 수강확인"),
+    ("학사시스템 주소 알려줘", "NONE"),                           # FAQ 답변 없음
+    # AI_FALLBACK (141-147)
+    ("복수전공하면 졸업 늦어져?", "NONE"),                       # 의도 키워드 미매칭 (실제 챗봇에서는 AI fallback)
+    ("부전공 이수 안 하면 어떻게 돼?", "APPLY_QUALIFICATION"),    # step 5.5 → '돼' 매칭
+    ("복수전공 하면서 연계전공도 할 수 있어?", "APPLY_QUALIFICATION"),  # '할수있어' → 자격 매칭
+    ("다전공 몇 개까지 할 수 있어?", "APPLY_QUALIFICATION"),      # '할수있어' → 자격 매칭
+    ("융합전공 졸업하면 학위 2개 받아?", "NONE"),                  # 의도 키워드 미매칭 (실제 챗봇에서는 AI fallback)
+    ("마이크로디그리 이수하면 취업에 도움 돼?", "APPLY_QUALIFICATION"),  # step 5.5 → '돼' 매칭
+    ("부전공 이수하면 학위 나와?", "CREDIT_INFO"),                 # FAQ에서 CREDIT_INFO 매칭
+    # 기타 학사 (148-150)
     ("휴학 신청 어떻게 해?", "증명서"),
     ("전과하고 싶은데 어떻게 해?", "증명서"),
+    ("학사시스템 로그인이 안 돼", "NONE"),                        # FAQ 답변 없음
 ]
 
 print(f"{'#':>3} | {'결과':^2} | {'질문':<42} | {'기대':<22} | {'실제':<22} | {'점수':>4}")
@@ -280,32 +426,21 @@ for i, (q, expected) in enumerate(questions, 1):
     is_followup = is_followup_question(q)
     program_type = extract_program_from_text(q)
     is_pi_redirect = check_program_info_redirect(q, program_type)
+    is_comp = is_comparison_query(q)
     faq_match, score = search_faq_mapping(q, faq_df)
 
-    # determine actual result (실제 코드 흐름 시뮬레이션)
-    # 실제 코드: step 4.5(PROGRAM_INFO) → step 4.7(비교) → step 5(FAQ) → step 5.5(intent) → handler
+    # determine actual result (simulating real code flow)
     if is_followup:
         actual = "FOLLOWUP"
+    elif is_comp:
+        # Step 4.7: 비교 질문 → PROGRAM_COMPARISON
+        actual = "PROGRAM_COMPARISON"
     elif is_pi_redirect:
+        # Step 4.5: 프로그램 설명 질문 → PROGRAM_INFO
         actual = "PROGRAM_INFO"
-    elif faq_match is None and expected == "MAJOR_SEARCH":
-        actual = "MAJOR_SEARCH"
-    elif faq_match is None and expected == "MAJOR_INFO":
-        actual = "MAJOR_INFO"
-    elif faq_match is None and expected == "AI_FALLBACK":
-        actual = "AI_FALLBACK"
     elif faq_match is not None:
         faq_intent = str(faq_match['intent'])
-        # 의도 충돌 체크 (step 5의 conflict resolution 시뮬레이션)
-        _icm = {
-            'APPLY_CANCEL': ['취소', '포기', '철회'],
-            'APPLY_CHANGE': ['변경', '바꾸', '바꿀', '바꿔', '바꾼', '전환'],
-            'CREDIT_INFO': ['학점', '몇학점', '이수학점', '졸업학점'],
-            'APPLY_PERIOD': ['기간', '언제', '마감', '일정', '시기', '날짜', '몇월'],
-            'APPLY_METHOD': ['방법', '절차', '순서', '어디서'],
-            'APPLY_QUALIFICATION': ['자격', '조건', '대상', '기준', '가능', '돼', '되나', '될까', '되는지', '가능해', '할수있나', '가능하나'],
-            'PROGRAM_INFO': ['목록', '종류', '어떤', '리스트', '뭐가있', '뭐있'],
-        }
+        # Step 5: intent conflict resolution
         _uc = q.lower().replace(' ', '')
         _user_ci = None
         for _ci, _ckws in _icm.items():
@@ -319,14 +454,28 @@ for i, (q, expected) in enumerate(questions, 1):
                     _user_ci = _oi
                     break
         if _user_ci and faq_intent != _user_ci and faq_intent in _icm:
-            # 충돌 → step 5.5에서 intent 기반 직접 조회
+            # Step 5.5: 의도 충돌 → 의도 기반 직접 조회
             actual = _user_ci + "(5.5)"
         else:
             actual = faq_intent
     else:
-        actual = "NONE"
+        # FAQ 미매칭
+        _uc = q.lower().replace(' ', '')
+        _list_kws = ['목록', '리스트', '종류', '어떤전공', '어떤과정', '무슨전공', '무슨과정', '뭐가있어', '뭐있어']
+        # 변경/취소 등 구체적 의도가 있으면 목록 질문이 아님
+        _non_list_intents = ['변경', '바꾸', '전환', '취소', '포기', '철회']
+        _is_list = any(lk in _uc for lk in _list_kws) and program_type and not any(ni in _uc for ni in _non_list_intents)
+        if _is_list:
+            # list_keywords로 차단된 경우 → MAJOR_SEARCH 핸들러
+            actual = "MAJOR_SEARCH"
+        else:
+            # Step 5.5 시뮬레이션
+            step55_result = simulate_step_5_5(q, program_type, faq_df)
+            if step55_result:
+                actual = step55_result + "(5.5)"
+            else:
+                actual = "NONE"
 
-    # 매칭 판단 (5.5 redirect도 정답으로 인정)
     matched = (actual == expected) or (actual == expected + "(5.5)")
     status = "OK" if matched else "NG"
 

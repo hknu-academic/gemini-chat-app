@@ -1254,9 +1254,10 @@ def search_faq_mapping(user_input, faq_df):
         if not is_comparison:
             return None, 0
     
-    # STEP 1.5: "목록" 질문 감지
+    # STEP 1.5: "목록" 질문 감지 (변경/취소 등 구체적 의도가 있으면 제외)
     list_keywords = ['목록', '리스트', '종류', '어떤전공', '어떤과정', '무슨전공', '무슨과정', '뭐가있어', '뭐있어']
-    is_list_query = any(kw in user_clean for kw in list_keywords)
+    _non_list_intents = ['변경', '바꾸', '전환', '취소', '포기', '철회']
+    is_list_query = any(kw in user_clean for kw in list_keywords) and not any(ni in user_clean for ni in _non_list_intents)
 
     if is_list_query:
         return None, 0
@@ -1328,7 +1329,7 @@ def search_faq_mapping(user_input, faq_df):
     detected_program = extract_program_from_text(user_input)
     
     # 학사제도 키워드 감지
-    academic_keywords = ['증명서', '학점교류', '교직', '교원자격', '휴학', '복학', '전과', '전공변경', '재입학', '수강신청', '학점인정', '이수구분', '성적처리', '졸업식', '학위수여식', '유예', '졸업유예', '조기졸업', '등록금', '학비', '성적', '학점', '수강내역', '계절학기', '수강철회', '졸업', '장학금', '자유학기제', '성적확인', '성적조회', '학점확인', '수강확인', '이수학점확인', '학사시스템']
+    academic_keywords = ['증명서', '학점교류', '교직', '교원자격', '휴학', '복학', '전과', '전공변경', '재입학', '수강신청', '학점인정', '이수구분', '성적처리', '졸업식', '학위수여식', '유예', '졸업유예', '조기졸업', '등록금', '학비', '성적', '학점', '수강내역', '계절학기', '수강철회', '졸업', '장학금', '자유학기제', '성적확인', '성적조회', '학점확인', '수강확인', '이수학점확인', '학사시스템', '여름학기']
     is_academic_system = any(kw in user_clean for kw in academic_keywords)
     
     if is_academic_system and not detected_program:
@@ -1408,11 +1409,11 @@ def search_faq_mapping(user_input, faq_df):
 
         # 의도별 키워드 부스팅: 사용자 질문에 의도 특화 키워드가 있으면 해당 FAQ 행에 보너스
         _intent_boost = {
-            'APPLY_QUALIFICATION': ['자격', '조건', '대상', '기준', '가능', '할수있는', '돼', '되나', '될까', '되는지', '가능해', '가능한가', '가능하나', '할수있나'],
-            'APPLY_PERIOD': ['기간', '언제', '마감', '일정', '시기', '날짜', '몇월'],
-            'APPLY_METHOD': ['방법', '절차', '순서', '어떻게', '어디서'],
+            'APPLY_QUALIFICATION': ['자격', '조건', '대상', '기준', '가능', '할수있는', '돼', '되나', '될까', '되는지', '가능해', '가능한가', '가능하나', '할수있나', '아무나', '할수있어'],
+            'APPLY_PERIOD': ['기간', '언제', '마감', '일정', '시기', '날짜', '몇월', '2학기'],
+            'APPLY_METHOD': ['방법', '절차', '순서', '어떻게', '어디서', '서류'],
             'CREDIT_INFO': ['학점', '몇학점', '이수학점', '졸업학점'],
-            'APPLY_CANCEL': ['취소', '포기', '철회', '그만'],
+            'APPLY_CANCEL': ['취소', '포기', '철회', '그만', '그만두', '그만둘'],
             'APPLY_CHANGE': ['변경', '바꾸', '바꿀', '바꿔', '바꾼', '전환'],
             'PROGRAM_TUITION': ['등록금', '학비', '수강료', '장학금'],
         }
@@ -3026,9 +3027,10 @@ def generate_ai_response(user_input, chat_history, data_dict):
             '기간', '언제', '마감', '일정', '시기',                        # 기간
             '어떻게', '방법', '절차', '순서',                              # 방법
             '학점', '몇학점', '이수학점', '졸업학점',                      # 학점
-            '취소', '포기', '철회',                                        # 취소
+            '취소', '포기', '철회', '그만두', '그만둘',                        # 취소
             '변경', '바꾸', '전환',                                        # 변경
             '등록금', '학비',                                              # 등록금
+            '아무나', '할수있어', '서류',                                   # 자격/방법
             '목록', '리스트', '종류', '어떤전공', '어떤과정', '무슨전공', '무슨과정', '뭐가있', '뭐있',  # 목록 → MAJOR_SEARCH
         ]
         _user_clean_tmp = user_input.lower().replace(' ', '')
@@ -3190,12 +3192,12 @@ def generate_ai_response(user_input, chat_history, data_dict):
         _faq_intent = str(faq_match.get('intent', ''))
         _user_clear_intent = None
         _intent_conflict_map = {
-            'APPLY_CANCEL': ['취소', '포기', '철회'],
+            'APPLY_CANCEL': ['취소', '포기', '철회', '그만두', '그만둘'],
             'APPLY_CHANGE': ['변경', '바꾸', '바꿀', '바꿔', '바꾼', '전환'],
             'CREDIT_INFO': ['학점', '몇학점', '이수학점', '졸업학점'],
-            'APPLY_PERIOD': ['기간', '언제', '마감', '일정', '시기', '날짜', '몇월'],
-            'APPLY_METHOD': ['방법', '절차', '순서', '어디서'],
-            'APPLY_QUALIFICATION': ['자격', '조건', '대상', '기준', '가능', '돼', '되나', '될까', '되는지', '가능해', '할수있나', '가능하나'],
+            'APPLY_PERIOD': ['기간', '언제', '마감', '일정', '시기', '날짜', '몇월', '2학기'],
+            'APPLY_METHOD': ['방법', '절차', '순서', '어디서', '서류'],
+            'APPLY_QUALIFICATION': ['자격', '조건', '대상', '기준', '가능', '돼', '되나', '될까', '되는지', '가능해', '할수있나', '가능하나', '할수있어', '아무나'],
             'PROGRAM_INFO': ['목록', '종류', '어떤', '리스트', '뭐가있', '뭐있'],
         }
         for _ci, _ckws in _intent_conflict_map.items():
@@ -3239,14 +3241,13 @@ def generate_ai_response(user_input, chat_history, data_dict):
     # (프로그램명과 의도 키워드 사이에 다른 텍스트가 있어 키워드 매칭이 안 되는 경우)
     if program_type:
         _intent_kw_map = {
-            'APPLY_QUALIFICATION': ['자격', '조건', '대상', '기준', '가능', '돼', '되나', '될까', '할수있', '할수있나', '가능해', '가능한가', '가능하나', '되는지'],
-            'APPLY_PERIOD': ['기간', '언제', '마감', '일정', '시기', '날짜', '몇월'],
-            'APPLY_METHOD': ['방법', '절차', '순서', '어디서'],
+            'APPLY_QUALIFICATION': ['자격', '조건', '대상', '기준', '가능', '돼', '되나', '될까', '할수있', '할수있나', '가능해', '가능한가', '가능하나', '되는지', '아무나', '할수있어'],
+            'APPLY_PERIOD': ['기간', '언제', '마감', '일정', '시기', '날짜', '몇월', '2학기'],
+            'APPLY_METHOD': ['방법', '절차', '순서', '어디서', '서류'],
             'CREDIT_INFO': ['학점', '몇학점', '이수학점', '졸업학점'],
-            'APPLY_CANCEL': ['취소', '포기', '철회'],
+            'APPLY_CANCEL': ['취소', '포기', '철회', '그만두', '그만둘'],
             'APPLY_CHANGE': ['변경', '바꾸', '바꿀', '바꿔', '바꾼', '전환'],
             'PROGRAM_TUITION': ['등록금', '학비', '수강료'],
-            'PROGRAM_INFO': ['목록', '종류', '어떤', '리스트', '뭐가있', '뭐있'],
         }
         _detected_intent = None
         for _intent, _kws in _intent_kw_map.items():
