@@ -3008,6 +3008,7 @@ def generate_ai_response(user_input, chat_history, data_dict):
             '취소', '포기', '철회',                                        # 취소
             '변경', '바꾸', '전환',                                        # 변경
             '등록금', '학비',                                              # 등록금
+            '목록', '리스트', '종류', '어떤전공', '어떤과정', '무슨전공', '무슨과정', '뭐가있', '뭐있',  # 목록 → MAJOR_SEARCH
         ]
         _user_clean_tmp = user_input.lower().replace(' ', '')
         _is_comparison = any(w in _user_clean_tmp for w in _comparison_words)
