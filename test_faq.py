@@ -103,6 +103,10 @@ def search_faq_mapping(user_input, faq_df):
         exclude_kws = [e.strip().lower().replace(' ', '') for e in exclude_kws if e.strip()]
         if any(ex in user_clean for ex in exclude_kws):
             continue
+        # CONCURRENT_ENROLL은 2개 이상 프로그램 감지 시에만 매칭
+        row_intent_tmp = str(row.get('intent', ''))
+        if row_intent_tmp == 'CONCURRENT_ENROLL' and not _secondary:
+            continue
         keyword_matches = 0
         total_keyword_length = 0
         for kw in keywords:

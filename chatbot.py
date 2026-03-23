@@ -1384,6 +1384,11 @@ def search_faq_mapping(user_input, faq_df):
         if any(ex in user_clean for ex in exclude_kws):
             continue
 
+        # CONCURRENT_ENROLL은 2개 이상 프로그램 감지 시에만 매칭 (단일 프로그램 질문 차단)
+        row_intent_tmp = str(row.get('intent', ''))
+        if row_intent_tmp == 'CONCURRENT_ENROLL' and not _secondary:
+            continue
+
         keyword_matches = 0
         total_keyword_length = 0
 
@@ -3221,6 +3226,12 @@ def generate_ai_response(user_input, chat_history, data_dict):
 - 학생이 두 제도를 동시에 이수/신청할 수 있는지 묻고 있습니다
 - 추측하거나 만들어내지 마세요
 - 정보가 부족하면 학사지원팀(031-670-5035) 문의 안내
+
+[다전공 동시 이수 규정]
+- 마이크로디그리만 중복 신청 가능 (여러 개 동시 이수 가능)
+- 나머지 다전공(복수전공, 부전공, 융합전공, 융합부전공, 연계전공)은 1개만 이수 가능
+- 가능한 조합: (복수전공/부전공/융합전공/융합부전공/연계전공) + 마이크로디그리, 마이크로디그리 여러 개
+- 불가능한 조합: 복수전공+부전공, 복수전공+융합전공, 복수전공+연계전공, 부전공+융합전공, 부전공+연계전공, 융합전공+연계전공
 
 [{_prog1} 및 {_prog2} 관련 정보]
 {_combine_context}
