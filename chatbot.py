@@ -3267,6 +3267,23 @@ def generate_ai_response(user_input, chat_history, data_dict):
                 return formatted_response, "AI_COMBINE"
             except Exception as e:
                 debug_print(f"[DEBUG] AI 동시이수 생성 실패: {e}")
+                # AI 실패 시 FAQ 데이터 기반 직접 답변
+                _concurrent_faq = faq_df[
+                    (faq_df['intent'] == 'CONCURRENT_ENROLL') &
+                    (faq_df['program'].isin([_prog1, _prog2, '다전공']))
+                ]
+                if not _concurrent_faq.empty:
+                    _fallback_answer = _concurrent_faq.iloc[0].get('answer', '')
+                    formatted_response = format_faq_response_html(_fallback_answer, _prog1)
+                    formatted_response += create_contact_box()
+                    update_context_in_session(program=_prog1)
+                    log_to_sheets(
+                        st.session_state.get('session_id', 'unknown'),
+                        original_input, formatted_response, 'ai_combine_fallback',
+                        time.time() - start_time,
+                        st.session_state.get('page', 'AI챗봇 상담')
+                    )
+                    return formatted_response, "AI_COMBINE"
 
     # 5. FAQ 매핑 검색 (확장된 질문으로!)
     faq_match, score = search_faq_mapping(user_input, faq_df)
