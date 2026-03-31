@@ -3024,7 +3024,7 @@ def generate_ai_response(user_input, chat_history, data_dict):
     # 4.5 프로그램 설명 질문 패턴 직접 처리 (예: "복수전공은 뭐야?", "부전공 설명해줘")
     # FAQ 키워드 미등록으로 매칭 실패하는 경우를 코드로 보완
     if program_type and not entity_name:
-        _info_words = ['뭐야', '뭔지', '무엇', '설명', '알려줘', '뭐임', '뭐에요', '뭐죠', '어떤거', '어떤것', '어떤제도', '개념', '정의']
+        _info_words = ['뭐야', '뭔지', '무엇', '설명', '알려줘', '뭐임', '뭐에요', '뭐예요', '뭐죠', '어떤거', '어떤것', '어떤제도', '개념', '정의']
         _comparison_words = ['차이', '비교', '다른점', '다른거', 'vs', '차이점', '비교해']
         # 구체적 의도가 있으면 PROGRAM_INFO가 아닌 해당 의도로 처리해야 함
         _specific_intent_words = [
@@ -3341,6 +3341,8 @@ def generate_ai_response(user_input, chat_history, data_dict):
     # FAQ 키워드 매칭 실패 시, 프로그램 + 의도 키워드로 직접 FAQ를 찾음
     # (프로그램명과 의도 키워드 사이에 다른 텍스트가 있어 키워드 매칭이 안 되는 경우)
     if program_type:
+        _non_apply_context = ['표기', '유지', '도움', '불이익', '처리', '미달', '인정', '취업']
+        _skip_step_5_5 = any(nac in user_clean for nac in _non_apply_context)
         _intent_kw_map = {
             'APPLY_QUALIFICATION': ['자격', '조건', '대상', '기준', '가능', '돼', '되나', '될까', '할수있', '할수있나', '가능해', '가능한가', '가능하나', '되는지', '아무나', '할수있어'],
             'APPLY_PERIOD': ['기간', '언제', '마감', '일정', '시기', '날짜', '몇월', '2학기'],
@@ -3351,19 +3353,20 @@ def generate_ai_response(user_input, chat_history, data_dict):
             'PROGRAM_TUITION': ['등록금', '학비', '수강료'],
         }
         _detected_intent = None
-        for _intent, _kws in _intent_kw_map.items():
-            if any(_k in user_clean for _k in _kws):
-                _detected_intent = _intent
-                break
-        # APPLY_QUALIFICATION 키워드('돼','가능' 등)는 범용적이므로,
-        # 다른 구체적 의도 키워드가 함께 있으면 그쪽을 우선
-        if _detected_intent == 'APPLY_QUALIFICATION':
-            for _oi, _okws in _intent_kw_map.items():
-                if _oi == 'APPLY_QUALIFICATION':
-                    continue
-                if any(_ok in user_clean for _ok in _okws):
-                    _detected_intent = _oi
+        if not _skip_step_5_5:
+            for _intent, _kws in _intent_kw_map.items():
+                if any(_k in user_clean for _k in _kws):
+                    _detected_intent = _intent
                     break
+            # APPLY_QUALIFICATION 키워드('돼','가능' 등)는 범용적이므로,
+            # 다른 구체적 의도 키워드가 함께 있으면 그쪽을 우선
+            if _detected_intent == 'APPLY_QUALIFICATION':
+                for _oi, _okws in _intent_kw_map.items():
+                    if _oi == 'APPLY_QUALIFICATION':
+                        continue
+                    if any(_ok in user_clean for _ok in _okws):
+                        _detected_intent = _oi
+                        break
 
         if _detected_intent:
             debug_print(f"[DEBUG] 의도 기반 직접 조회: {program_type} + {_detected_intent}")
