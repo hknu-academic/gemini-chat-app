@@ -3487,8 +3487,14 @@ def generate_ai_response(user_input, chat_history, data_dict):
     ]
     has_academic_keyword = any(kw in user_clean_check for kw in academic_fallback_keywords)
 
-    # 🔧 제도명도 전공명도 학사제도 키워드도 없으면 → 재질문 유도 (AI에게 넘기지 않음)
-    if not has_program_keyword and not has_specific_major and not has_academic_keyword:
+    # 🔧 다전공 맥락 키워드 체크 (제도명 없이도 다전공 관련임을 추론)
+    _multi_major_context = ['신청', '합격', '불합격', '경쟁률', '재신청', '추가신청', '이수', '포기', '취소', '변경']
+    has_multi_major_context = any(kw in user_clean_check for kw in _multi_major_context)
+    if has_multi_major_context and not program_type:
+        program_type = '다전공'
+
+    # 🔧 제도명도 전공명도 학사제도 키워드도 다전공 맥락도 없으면 → 재질문 유도
+    if not has_program_keyword and not has_specific_major and not has_academic_keyword and not has_multi_major_context:
         debug_print("[DEBUG] ⚠️ 제도/전공 키워드 없음 - 재질문 유도")
         response = create_header_card("이 챗봇은 다전공·유연학사 제도 전용이에요", "📋", "#f39c12")
         response += """
