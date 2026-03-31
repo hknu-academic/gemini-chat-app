@@ -3613,8 +3613,26 @@ def generate_ai_response(user_input, chat_history, data_dict):
                 st.session_state.get('session_id', 'unknown'),
                 original_input, ai_response, "AI가 적절한 답변을 생성하지 못함"
             )
-            # 실패 시 재질문 유도
-            response, response_type = handle_out_of_scope(user_input, extracted_info, data_dict)
+            # 실패 시: 제도명이 있으면 학사지원팀 안내, 없으면 범위 외
+            if program_type and program_type not in ['학사제도']:
+                _prog_display = program_type if program_type != '다전공' else '다전공 제도'
+                response = create_header_card(f"{_prog_display} 관련 안내", "💡", "#3498db")
+                response += f"""
+<div style="background: white; border-radius: 12px; padding: 16px; margin: 12px 0; border-left: 4px solid #3498db;">
+    <p style="margin: 0 0 12px 0; color: #333;">
+        해당 질문에 대한 정확한 답변을 드리기 어려워요.<br>
+        <strong>{_prog_display}</strong>에 대한 자세한 사항은 아래로 문의해 주세요!
+    </p>
+    <p style="margin: 0; color: #555; font-size: 0.9rem;">
+        📞 학사지원팀: <strong>031-670-5035</strong><br>
+        📋 학사공지: <a href="{ACADEMIC_NOTICE_URL}" target="_blank">{ACADEMIC_NOTICE_URL}</a>
+    </p>
+</div>
+"""
+                response += create_contact_box()
+                response_type = "AI_FALLBACK_GUIDE"
+            else:
+                response, response_type = handle_out_of_scope(user_input, extracted_info, data_dict)
             log_to_sheets(
                 st.session_state.get('session_id', 'unknown'),
                 original_input, response, 'ai_failed', 
@@ -3639,10 +3657,29 @@ def generate_ai_response(user_input, chat_history, data_dict):
         return formatted_response, "AI_RESPONSE"
         
     except Exception as e:
-        response, response_type = handle_out_of_scope(user_input, extracted_info, data_dict)
+        # 제도명이 있으면 학사지원팀 안내, 없으면 범위 외
+        if program_type and program_type not in ['학사제도']:
+            _prog_display = program_type if program_type != '다전공' else '다전공 제도'
+            response = create_header_card(f"{_prog_display} 관련 안내", "💡", "#3498db")
+            response += f"""
+<div style="background: white; border-radius: 12px; padding: 16px; margin: 12px 0; border-left: 4px solid #3498db;">
+    <p style="margin: 0 0 12px 0; color: #333;">
+        해당 질문에 대한 정확한 답변을 드리기 어려워요.<br>
+        <strong>{_prog_display}</strong>에 대한 자세한 사항은 아래로 문의해 주세요!
+    </p>
+    <p style="margin: 0; color: #555; font-size: 0.9rem;">
+        📞 학사지원팀: <strong>031-670-5035</strong><br>
+        📋 학사공지: <a href="{ACADEMIC_NOTICE_URL}" target="_blank">{ACADEMIC_NOTICE_URL}</a>
+    </p>
+</div>
+"""
+            response += create_contact_box()
+            response_type = "AI_FALLBACK_GUIDE"
+        else:
+            response, response_type = handle_out_of_scope(user_input, extracted_info, data_dict)
         log_to_sheets(
             st.session_state.get('session_id', 'unknown'),
-            original_input, response, 'failed', 
+            original_input, response, 'failed',
             time.time() - start_time,
             st.session_state.get('page', 'AI챗봇 상담')
         )
