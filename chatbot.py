@@ -1263,8 +1263,19 @@ def search_faq_mapping(user_input, faq_df):
         return None, 0
 
     # STEP 1.6: 연락처 질문 감지 → 연락처 핸들러에서 처리하도록 스킵
+    # 단, 학사업무 키워드가 포함되면 FAQ(ACADEMIC_CONTACT)로 매칭되도록 허용
     _contact_guard = ['연락처', '전화번호', '번호', '사무실', '문의처', '팩스']
-    if any(kw in user_clean for kw in _contact_guard):
+    _academic_contact_keywords = [
+        '강의개설', '시간표', '강의계획서', '수강신청', '수강변경', '수강신청변경', '설폐강', '수강철회',
+        '성적입력', '성적열람', '성적정정', '성적확정', '학사경고', '제적처리',
+        '전과', '재입학', '전공배정', '출석인정', '학적변동', '휴학', '복학', '제적', '증명서', '제증명',
+        '계절수업', '계절학기', '이수구분', '대체과목', '유사과목', '성적삭제', '학점교류', '군복무', 'ocu',
+        '교직과정', '교직', '교원자격증', '교원자격', '강의평가', 'swan', '스완', '특별학기', '자유학기',
+        '학위수여', '학위수여식', '온라인학위', '복수학위', '공동학위', '시간제등록생', '시간제',
+        '학사지원팀', '학사제도문의', '학사업무'
+    ]
+    _has_academic_keyword = any(kw in user_clean for kw in _academic_contact_keywords)
+    if any(kw in user_clean for kw in _contact_guard) and not _has_academic_keyword:
         return None, 0
 
     # 🔥 STEP 1.7: 세부 전공/과정명 감지 (개선: 가장 긴 것 우선)
@@ -1329,7 +1340,7 @@ def search_faq_mapping(user_input, faq_df):
     detected_program = extract_program_from_text(user_input)
     
     # 학사제도 키워드 감지
-    academic_keywords = ['증명서', '학점교류', '교직', '교원자격', '휴학', '복학', '전과', '전공변경', '재입학', '수강신청', '학점인정', '이수구분', '성적처리', '졸업식', '학위수여식', '유예', '졸업유예', '조기졸업', '등록금', '학비', '성적', '학점', '수강내역', '계절학기', '수강철회', '졸업', '장학금', '자유학기제', '성적확인', '성적조회', '학점확인', '수강확인', '이수학점확인', '학사시스템', '여름학기', '개강', '종강', '방학', '학사일정', '학기시작', '겨울방학', '여름방학']
+    academic_keywords = ['증명서', '학점교류', '교직', '교원자격', '휴학', '복학', '전과', '전공변경', '재입학', '수강신청', '학점인정', '이수구분', '성적처리', '졸업식', '학위수여식', '유예', '졸업유예', '조기졸업', '등록금', '학비', '성적', '학점', '수강내역', '계절학기', '수강철회', '졸업', '장학금', '자유학기제', '성적확인', '성적조회', '학점확인', '수강확인', '이수학점확인', '학사시스템', '여름학기', '개강', '종강', '방학', '학사일정', '학기시작', '겨울방학', '여름방학', '계절수업', '강의평가', '복수학위', '공동학위', '시간제', '시간제등록생', '강의계획서', '학사업무', '학사지원팀', '학사경고', '설폐강', '수강철회', '성적정정', '성적입력', '제적처리', '학적변동', '전공배정', '출석인정', '학위수여']
     is_academic_system = any(kw in user_clean for kw in academic_keywords)
     
     if is_academic_system and not detected_program:
@@ -1421,6 +1432,7 @@ def search_faq_mapping(user_input, faq_df):
             'APPLY_CANCEL': ['취소', '포기', '철회', '그만', '그만두', '그만둘'],
             'APPLY_CHANGE': ['변경', '바꾸', '바꿀', '바꿔', '바꾼', '전환'],
             'PROGRAM_TUITION': ['등록금', '학비', '수강료', '장학금'],
+            'ACADEMIC_CONTACT': ['문의', '연락처', '전화번호', '전화', '번호', '문의처', '어디로', '담당', '담당자'],
         }
         row_intent = str(row.get('intent', ''))
         if row_intent in _intent_boost:
@@ -1892,14 +1904,27 @@ def classify_intent(user_input, use_ai_fallback=True, chat_history=None):
             return 'NEED_CONTEXT', 'followup', {'original_input': user_input}
     
     # 4. 연락처/전화번호 문의 (최우선)
+    # 단, 학사업무 키워드가 포함되면 FAQ(ACADEMIC_CONTACT)로 매칭되도록 스킵
     contact_keywords = ['연락처', '전화번호', '번호', '문의처', '사무실', '팩스', 'contact', 'call']
+    _academic_contact_kw = [
+        '강의개설', '시간표', '강의계획서', '수강신청', '수강변경', '수강신청변경', '설폐강', '수강철회',
+        '성적입력', '성적열람', '성적정정', '성적확정', '학사경고', '제적처리',
+        '전과', '재입학', '전공배정', '출석인정', '학적변동', '휴학', '복학', '증명서', '제증명',
+        '계절수업', '계절학기', '이수구분', '대체과목', '유사과목', '성적삭제', '학점교류', '군복무', 'ocu',
+        '교직과정', '교직', '교원자격증', '교원자격', '강의평가', 'swan', '스완', '특별학기', '자유학기',
+        '학위수여', '학위수여식', '온라인학위', '복수학위', '공동학위', '시간제등록생', '시간제',
+        '학사지원팀', '학사제도문의', '학사업무'
+    ]
     if any(kw in user_clean for kw in contact_keywords):
-        debug_print("[DEBUG] ✅ 연락처 문의")
-        entity_name, entity_type = extract_entity_from_text(user_input)
-        # 🆕 컨텍스트 업데이트
-        if entity_name:
-            update_context_in_session(entity=entity_name, entity_type=entity_type)
-        return 'CONTACT_SEARCH', 'keyword', {'entity': entity_name, 'entity_type': entity_type}
+        if any(kw in user_clean for kw in _academic_contact_kw):
+            debug_print("[DEBUG] ✅ 학사업무 연락처 문의 → FAQ(ACADEMIC_CONTACT)로 처리")
+        else:
+            debug_print("[DEBUG] ✅ 연락처 문의")
+            entity_name, entity_type = extract_entity_from_text(user_input)
+            # 🆕 컨텍스트 업데이트
+            if entity_name:
+                update_context_in_session(entity=entity_name, entity_type=entity_type)
+            return 'CONTACT_SEARCH', 'keyword', {'entity': entity_name, 'entity_type': entity_type}
     
     # [STEP 1] 전공/과정 엔티티 추출
     entity_name, entity_type = extract_entity_from_text(user_input)
@@ -3293,6 +3318,7 @@ def generate_ai_response(user_input, chat_history, data_dict):
         _faq_intent = str(faq_match.get('intent', ''))
         _user_clear_intent = None
         _intent_conflict_map = {
+            'ACADEMIC_CONTACT': ['연락처', '전화번호', '문의처', '담당', '담당자'],
             'APPLY_CANCEL': ['취소', '포기', '철회', '그만두', '그만둘'],
             'APPLY_CHANGE': ['변경', '바꾸', '바꿀', '바꿔', '바꾼', '전환'],
             'CREDIT_INFO': ['학점', '몇학점', '이수학점', '졸업학점'],
@@ -3404,13 +3430,22 @@ def generate_ai_response(user_input, chat_history, data_dict):
         'major': entity_name
     }
     
-    # 연락처 문의
+    # 연락처 문의 (학사업무 키워드가 있으면 FAQ에서 이미 처리되었으므로 스킵)
     contact_keywords = ['연락처', '전화번호', '번호', '문의처', '사무실', '팩스']
-    if any(kw in user_clean for kw in contact_keywords):
+    _academic_kw_check = [
+        '강의개설', '시간표', '강의계획서', '수강신청', '수강변경', '설폐강', '수강철회',
+        '성적입력', '성적열람', '성적정정', '성적확정', '학사경고', '제적처리',
+        '전과', '재입학', '전공배정', '출석인정', '학적변동', '휴학', '복학', '증명서', '제증명',
+        '계절수업', '계절학기', '이수구분', '대체과목', '유사과목', '성적삭제', '학점교류', '군복무', 'ocu',
+        '교직과정', '교직', '교원자격증', '강의평가', 'swan', '스완', '특별학기', '자유학기',
+        '학위수여', '학위수여식', '온라인학위', '복수학위', '공동학위', '시간제등록생', '시간제',
+        '학사지원팀', '학사제도문의', '학사업무'
+    ]
+    if any(kw in user_clean for kw in contact_keywords) and not any(kw in user_clean for kw in _academic_kw_check):
         response, response_type = handle_contact_search(user_input, extracted_info, data_dict)
         log_to_sheets(
             st.session_state.get('session_id', 'unknown'),
-            original_input, response, 'contact', 
+            original_input, response, 'contact',
             time.time() - start_time,
             st.session_state.get('page', 'AI챗봇 상담')
         )

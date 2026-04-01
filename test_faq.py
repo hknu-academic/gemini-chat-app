@@ -44,7 +44,17 @@ def search_faq_mapping(user_input, faq_df):
         return None, 0
 
     contact_guard = ['연락처', '전화번호', '번호알려줘', '사무실', '문의처']
-    if any(kw in user_clean for kw in contact_guard):
+    _academic_contact_keywords = [
+        '강의개설', '시간표', '강의계획서', '수강신청', '수강변경', '수강신청변경', '설폐강', '수강철회',
+        '성적입력', '성적열람', '성적정정', '성적확정', '학사경고', '제적처리',
+        '전과', '재입학', '전공배정', '출석인정', '학적변동', '휴학', '복학', '제적', '증명서', '제증명',
+        '계절수업', '계절학기', '이수구분', '대체과목', '유사과목', '성적삭제', '학점교류', '군복무', 'ocu',
+        '교직과정', '교직', '교원자격증', '교원자격', '강의평가', 'swan', '스완', '특별학기', '자유학기',
+        '학위수여', '학위수여식', '온라인학위', '복수학위', '공동학위', '시간제등록생', '시간제',
+        '학사지원팀', '학사제도문의', '학사업무'
+    ]
+    _has_academic = any(kw in user_clean for kw in _academic_contact_keywords)
+    if any(kw in user_clean for kw in contact_guard) and not _has_academic:
         return None, 0
 
     detected_program = extract_program_from_text(user_input)
@@ -53,7 +63,10 @@ def search_faq_mapping(user_input, faq_df):
         '유예', '졸업유예', '조기졸업', '등록금', '학비', '성적', '학점', '수강내역',
         '계절학기', '수강철회', '졸업', '장학금', '자유학기제', '성적확인', '성적조회',
         '학점확인', '수강확인', '이수학점확인', '학사시스템', '교직이수', '수강', '수강정정', '재수강',
-        '적성검사', '이의신청', '무인발급', '정부24', '납부', '여름학기']
+        '적성검사', '이의신청', '무인발급', '정부24', '납부', '여름학기',
+        '계절수업', '강의평가', '복수학위', '공동학위', '시간제', '시간제등록생', '강의계획서',
+        '학사업무', '학사지원팀', '학사경고', '설폐강', '성적정정', '성적입력', '제적처리',
+        '학적변동', '전공배정', '출석인정', '학위수여']
     is_academic = any(kw in user_clean for kw in academic_keywords)
     if is_academic and not detected_program:
         detected_program = "학사제도"
@@ -95,6 +108,7 @@ def search_faq_mapping(user_input, faq_df):
         'CREDIT_INFO': ['학점', '몇학점', '이수학점', '졸업학점'],
         'APPLY_CANCEL': ['취소', '포기', '철회', '그만', '그만두', '그만둘'],
         'APPLY_CHANGE': ['변경', '바꾸', '바꿀', '바꿔', '바꾼', '전환'],
+        'ACADEMIC_CONTACT': ['문의', '연락처', '전화번호', '전화', '번호', '문의처', '어디로', '담당', '담당자'],
     }
     for _, row in program_faq.iterrows():
         keywords = str(row.get('keyword', '')).split(',')
@@ -263,6 +277,7 @@ def simulate_step_5_5(user_input, program_type, faq_df):
 
 # 의도 충돌 맵 (step 5 conflict resolution)
 _icm = {
+    'ACADEMIC_CONTACT': ['연락처', '전화번호', '문의처', '담당', '담당자'],
     'APPLY_CANCEL': ['취소', '포기', '철회', '그만두', '그만둘'],
     'APPLY_CHANGE': ['변경', '바꾸', '바꿀', '바꿔', '바꾼', '전환'],
     'CREDIT_INFO': ['학점', '몇학점', '이수학점', '졸업학점'],
@@ -726,6 +741,27 @@ questions = [
     ("중복 신청되면 어떻게 처리되나요?", "NONE"),                            # '처리'→_non_apply_context, 제도명 없음
     ("자유학점이랑 다전공 같이 가능한가요?", "CREDIT_INFO"),                 # '학점'+'다전공'→CREDIT_INFO(5.5)
     ("예외적으로 인정받을 수 있는 경우가 있나요?", "NONE"),                  # 제도명 없음
+    # ===== 학사업무 연락처 (401-420) =====
+    ("수강신청 문의", "ACADEMIC_CONTACT"),                                    # F083: 5032 (문의 boost)
+    ("성적 정정 전화번호 알려줘", "ACADEMIC_CONTACT"),                         # F084: 전화번호 → _icm ACADEMIC_CONTACT
+    ("휴학 관련 연락처", "ACADEMIC_CONTACT"),                                  # F085: 연락처 → _icm ACADEMIC_CONTACT
+    ("계절수업 문의 어디로", "ACADEMIC_CONTACT"),                              # F086: 문의 boost
+    ("교직과정 전화번호", "ACADEMIC_CONTACT"),                                 # F087: 전화번호 → _icm ACADEMIC_CONTACT
+    ("학사지원팀 연락처", "ACADEMIC_CONTACT"),                                 # F088: 연락처 → _icm ACADEMIC_CONTACT
+    ("강의평가 관련 문의", "ACADEMIC_CONTACT"),                                # F087: 문의 boost
+    ("학점교류 문의 전화번호", "ACADEMIC_CONTACT"),                            # F086: 전화번호 → _icm ACADEMIC_CONTACT
+    ("수강철회 문의", "APPLY_CANCEL"),                                         # 문의만 있고 contact_guard 없음 → APPLY_CANCEL(5.5)
+    ("학사경고 관련 연락처", "ACADEMIC_CONTACT"),                              # 연락처 → _icm ACADEMIC_CONTACT
+    ("전과 문의 전화번호", "ACADEMIC_CONTACT"),                                # F085: 전화번호 → _icm ACADEMIC_CONTACT
+    ("증명서 발급 연락처", "ACADEMIC_CONTACT"),                                # F085: 연락처 → _icm ACADEMIC_CONTACT
+    ("이수구분 변경 문의", "APPLY_CHANGE"),                                    # 문의만 있고 contact_guard 없음 → APPLY_CHANGE(5.5)
+    ("교원자격증 관련 연락처", "ACADEMIC_CONTACT"),                            # F087: 연락처 → _icm ACADEMIC_CONTACT
+    ("학위수여식 문의 전화번호", "ACADEMIC_CONTACT"),                          # F087: 전화번호 → _icm ACADEMIC_CONTACT
+    ("복수학위 관련 문의", "ACADEMIC_CONTACT"),                                # F087: 문의 boost
+    ("시간제 등록생 연락처", "ACADEMIC_CONTACT"),                              # F087: 연락처 → _icm ACADEMIC_CONTACT
+    ("재입학 문의 어디로 해야 하나요?", "APPLY_METHOD"),                       # 문의+어디로 → APPLY_METHOD(5.5)
+    ("강의계획서 관련 문의", "ACADEMIC_CONTACT"),                              # F083: 문의 boost
+    ("학사업무 문의 연락처", "ACADEMIC_CONTACT"),                              # F088: 연락처 → _icm ACADEMIC_CONTACT
 ]
 
 print(f"{'#':>3} | {'결과':^2} | {'질문':<42} | {'기대':<22} | {'실제':<22} | {'점수':>4}")
@@ -746,7 +782,10 @@ for i, (q, expected) in enumerate(questions, 1):
             '유예', '졸업유예', '조기졸업', '등록금', '학비', '성적', '학점', '수강내역',
             '계절학기', '수강철회', '졸업', '장학금', '자유학기제', '성적확인', '성적조회',
             '학점확인', '수강확인', '이수학점확인', '학사시스템', '여름학기',
-            '개강', '종강', '방학', '학사일정', '학기시작', '겨울방학', '여름방학']
+            '개강', '종강', '방학', '학사일정', '학기시작', '겨울방학', '여름방학',
+            '계절수업', '강의평가', '복수학위', '공동학위', '시간제', '시간제등록생', '강의계획서',
+            '학사업무', '학사지원팀', '학사경고', '설폐강', '성적정정', '성적입력', '제적처리',
+            '학적변동', '전공배정', '출석인정', '학위수여']
         if any(kw in _uc_tmp for kw in _ak):
             program_type = "학사제도"
     is_pi_redirect = check_program_info_redirect(q, program_type)
