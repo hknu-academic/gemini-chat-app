@@ -4278,8 +4278,8 @@ def main():
         with st.expander("💡 어떤 질문을 해야 할지 모르겠나요? **(클릭)**", expanded=False):
 
             # 질문 버튼 탭
-            tab_apply, tab_program, tab_credit, tab_academic, tab_etc = st.tabs(
-                ["📋 신청", "📚 제도", "🎓 학점", "📌 기타(학사제도 등)", "🎯 전공/ 📞 연락처"]
+            tab_apply, tab_program, tab_credit, tab_etc, tab_academic = st.tabs(
+                ["📋 신청", "📚 제도", "🎓 학점", "🎯 전공/ 📞 연락처", "📌 기타(학사제도 등)"]
             )
             
             with tab_apply:
