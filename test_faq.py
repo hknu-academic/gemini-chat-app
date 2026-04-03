@@ -745,7 +745,7 @@ questions = [
     ("수강신청 문의", "ACADEMIC_CONTACT"),                                    # F083: 5032 (문의 boost)
     ("성적 정정 전화번호 알려줘", "ACADEMIC_CONTACT"),                         # F084: 전화번호 → _icm ACADEMIC_CONTACT
     ("휴학 관련 연락처", "ACADEMIC_CONTACT"),                                  # F085: 연락처 → _icm ACADEMIC_CONTACT
-    ("계절수업 문의 어디로", "ACADEMIC_CONTACT"),                              # F086: 문의 boost
+    ("계절수업 문의 어디로", "APPLY_METHOD"),                                 # 어디로 → APPLY_METHOD 5.5
     ("교직과정 전화번호", "ACADEMIC_CONTACT"),                                 # F087: 전화번호 → _icm ACADEMIC_CONTACT
     ("학사지원팀 연락처", "ACADEMIC_CONTACT"),                                 # F088: 연락처 → _icm ACADEMIC_CONTACT
     ("강의평가 관련 문의", "ACADEMIC_CONTACT"),                                # F087: 문의 boost
@@ -820,7 +820,8 @@ for i, (q, expected) in enumerate(questions, 1):
                 if any(_ok in _uc for _ok in _okws):
                     _user_ci = _oi
                     break
-        if _user_ci and faq_intent != _user_ci and faq_intent in _icm:
+        _explicit_contact = any(kw in _uc for kw in ['연락처', '전화번호', '문의처', '담당', '담당자'])
+        if _user_ci and faq_intent != _user_ci and (faq_intent in _icm or _user_ci == 'ACADEMIC_CONTACT') and not (faq_intent == 'ACADEMIC_CONTACT' and _explicit_contact):
             # Step 5.5: 의도 충돌 → 의도 기반 직접 조회
             actual = _user_ci + "(5.5)"
         else:

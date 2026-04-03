@@ -3344,8 +3344,11 @@ def generate_ai_response(user_input, chat_history, data_dict):
                     _user_clear_intent = _oi
                     break
 
+        _explicit_contact = any(kw in user_clean for kw in ['연락처', '전화번호', '문의처', '담당', '담당자'])
         _has_conflict = (_user_clear_intent and _faq_intent != _user_clear_intent
-                         and _faq_intent in _intent_conflict_map)
+                         and (_faq_intent in _intent_conflict_map
+                              or _user_clear_intent == 'ACADEMIC_CONTACT')
+                         and not (_faq_intent == 'ACADEMIC_CONTACT' and _explicit_contact))
 
         if not _has_conflict:
             raw_answer = faq_match.get('answer', '')
