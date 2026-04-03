@@ -1250,8 +1250,11 @@ def search_faq_mapping(user_input, faq_df):
     if len(programs_mentioned) >= 2:
         # 비교 질문이면 FAQ 검색 허용 (PROGRAM_COMPARISON FAQ 매칭 필요)
         comparison_keywords = ['차이', '비교', '다른점', '다른거', 'vs', '차이점', '비교해', '뭐가달라', '어떻게달라', '똑같아', '같은거', '같아', '나아', '좋아', '좋을까', '좋을']
+        # 동시 이수/중복 질문도 FAQ 검색 허용 (CONCURRENT_ENROLL 매칭 필요)
+        concurrent_keywords = ['동시', '같이', '함께', '중복', '두개', '둘다', '동시에', '같이신청', '함께신청']
         is_comparison = any(kw in user_clean for kw in comparison_keywords)
-        if not is_comparison:
+        is_concurrent = any(kw in user_clean for kw in concurrent_keywords)
+        if not is_comparison and not is_concurrent:
             return None, 0
     
     # STEP 1.5: "목록" 질문 감지 (변경/취소 등 구체적 의도가 있으면 제외)
