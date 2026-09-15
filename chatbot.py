@@ -1916,7 +1916,7 @@ def classify_intent(user_input, use_ai_fallback=True, chat_history=None):
         '계절수업', '계절학기', '이수구분', '대체과목', '유사과목', '성적삭제', '학점교류', '군복무', 'ocu',
         '교직과정', '교직', '교원자격증', '교원자격', '강의평가', 'swan', '스완', '특별학기', '자유학기',
         '학위수여', '학위수여식', '온라인학위', '복수학위', '공동학위', '시간제등록생', '시간제',
-        '교육학사혁신팀', 학사지원팀', '학사제도문의', '학사업무'
+        '교육학사혁신팀', '학사지원팀', '학사제도문의', '학사업무'
     ]
     if any(kw in user_clean for kw in contact_keywords):
         if any(kw in user_clean for kw in _academic_contact_kw):
