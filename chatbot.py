@@ -54,7 +54,7 @@ SETTINGS = load_yaml_config('settings.yaml')
 # 📌 상수 정의
 # ============================================================
 
-DEFAULT_CONTACT_MESSAGE = "📞 문의: 전공 사무실 또는 학사지원팀 031-670-5035로 연락주시면 보다 상세한 정보를 안내 받을 수 있습니다."
+DEFAULT_CONTACT_MESSAGE = "📞 문의: 전공 사무실 또는 교육학사혁신팀 031-670-5035로 연락주시면 보다 상세한 정보를 안내 받을 수 있습니다."
 CONTACT_MESSAGE = MESSAGES.get('contact', {}).get('default', DEFAULT_CONTACT_MESSAGE)
 
 LINKS = MESSAGES.get('links', {})
@@ -1275,7 +1275,7 @@ def search_faq_mapping(user_input, faq_df):
         '계절수업', '계절학기', '이수구분', '대체과목', '유사과목', '성적삭제', '학점교류', '군복무', 'ocu',
         '교직과정', '교직', '교원자격증', '교원자격', '강의평가', 'swan', '스완', '특별학기', '자유학기',
         '학위수여', '학위수여식', '온라인학위', '복수학위', '공동학위', '시간제등록생', '시간제',
-        '학사지원팀', '학사제도문의', '학사업무'
+        '교육학사혁신팀', '학사지원팀', '학사제도문의', '학사업무'
     ]
     _has_academic_keyword = any(kw in user_clean for kw in _academic_contact_keywords)
     if any(kw in user_clean for kw in _contact_guard) and not _has_academic_keyword:
@@ -1343,7 +1343,7 @@ def search_faq_mapping(user_input, faq_df):
     detected_program = extract_program_from_text(user_input)
     
     # 학사제도 키워드 감지
-    academic_keywords = ['증명서', '학점교류', '교직', '교원자격', '휴학', '복학', '전과', '전공변경', '재입학', '수강신청', '학점인정', '이수구분', '성적처리', '졸업식', '학위수여식', '유예', '졸업유예', '조기졸업', '등록금', '학비', '성적', '학점', '수강내역', '계절학기', '수강철회', '졸업', '장학금', '자유학기제', '성적확인', '성적조회', '학점확인', '수강확인', '이수학점확인', '학사시스템', '여름학기', '개강', '종강', '방학', '학사일정', '학기시작', '겨울방학', '여름방학', '계절수업', '강의평가', '복수학위', '공동학위', '시간제', '시간제등록생', '강의계획서', '학사업무', '학사지원팀', '학사경고', '설폐강', '수강철회', '성적정정', '성적입력', '제적처리', '학적변동', '전공배정', '출석인정', '학위수여']
+    academic_keywords = ['증명서', '학점교류', '교직', '교원자격', '휴학', '복학', '전과', '전공변경', '재입학', '수강신청', '학점인정', '이수구분', '성적처리', '졸업식', '학위수여식', '유예', '졸업유예', '조기졸업', '등록금', '학비', '성적', '학점', '수강내역', '계절학기', '수강철회', '졸업', '장학금', '자유학기제', '성적확인', '성적조회', '학점확인', '수강확인', '이수학점확인', '학사시스템', '여름학기', '개강', '종강', '방학', '학사일정', '학기시작', '겨울방학', '여름방학', '계절수업', '강의평가', '복수학위', '공동학위', '시간제', '시간제등록생', '강의계획서', '학사업무', '교육학사혁신팀', '학사지원팀', '학사경고', '설폐강', '수강철회', '성적정정', '성적입력', '제적처리', '학적변동', '전공배정', '출석인정', '학위수여']
     is_academic_system = any(kw in user_clean for kw in academic_keywords)
     
     if is_academic_system and not detected_program:
@@ -1519,7 +1519,7 @@ def create_warning_box(text, emoji="⚠️"):
 
 
 def create_contact_box():
-    return """<p style="margin: 16px 0 0 0; color: inherit; opacity: 0.8; font-size: 0.9rem;">📞 <strong>문의:</strong> 전공 사무실 또는 학사지원팀 <strong>031-670-5035</strong></p>"""
+    return """<p style="margin: 16px 0 0 0; color: inherit; opacity: 0.8; font-size: 0.9rem;">📞 <strong>문의:</strong> 전공 사무실 또는 교육학사혁신팀 <strong>031-670-5035</strong></p>"""
 
 
 def create_table_html(headers, rows, colors=None):
@@ -1916,7 +1916,7 @@ def classify_intent(user_input, use_ai_fallback=True, chat_history=None):
         '계절수업', '계절학기', '이수구분', '대체과목', '유사과목', '성적삭제', '학점교류', '군복무', 'ocu',
         '교직과정', '교직', '교원자격증', '교원자격', '강의평가', 'swan', '스완', '특별학기', '자유학기',
         '학위수여', '학위수여식', '온라인학위', '복수학위', '공동학위', '시간제등록생', '시간제',
-        '학사지원팀', '학사제도문의', '학사업무'
+        '교육학사혁신팀', 학사지원팀', '학사제도문의', '학사업무'
     ]
     if any(kw in user_clean for kw in contact_keywords):
         if any(kw in user_clean for kw in _academic_contact_kw):
@@ -3160,7 +3160,7 @@ def generate_ai_response(user_input, chat_history, data_dict):
 - 반드시 아래 제공된 정보 내에서만 답변하세요
 - 두 제도를 항목별로 비교해주세요 (이수학점, 자격, 특징 등)
 - 추측하거나 만들어내지 마세요
-- 정보가 부족하면 학사지원팀(031-670-5035) 문의 안내
+- 정보가 부족하면 교육학사혁신팀(031-670-5035) 문의 안내
 
 [{_prog1} 및 {_prog2} 관련 정보]
 {_comp_context}
@@ -3207,7 +3207,7 @@ def generate_ai_response(user_input, chat_history, data_dict):
                             _fallback_parts.append(f"📋 **{_p}**\n{_pi.iloc[0].get('answer', '')}")
                     if _fallback_parts:
                         _fallback_answer = "\n\n".join(_fallback_parts)
-                        _fallback_answer += f"\n\n💡 더 자세한 비교는 학사지원팀(031-670-5035)에 문의해주세요."
+                        _fallback_answer += f"\n\n💡 더 자세한 비교는 교육학사혁신팀(031-670-5035)에 문의해주세요."
                         formatted_response = format_faq_response_html(_fallback_answer, _prog1)
                         formatted_response += create_contact_box()
                         update_context_in_session(program=_prog1)
@@ -3253,7 +3253,7 @@ def generate_ai_response(user_input, chat_history, data_dict):
 - 반드시 아래 제공된 정보 내에서만 답변하세요
 - 학생이 두 제도를 동시에 이수/신청할 수 있는지 묻고 있습니다
 - 추측하거나 만들어내지 마세요
-- 정보가 부족하면 학사지원팀(031-670-5035) 문의 안내
+- 정보가 부족하면 교육학사혁신팀(031-670-5035) 문의 안내
 
 [다전공 동시 이수 규정]
 - 마이크로디그리만 중복 신청 가능 (여러 개 동시 이수 가능)
@@ -3445,7 +3445,7 @@ def generate_ai_response(user_input, chat_history, data_dict):
         '계절수업', '계절학기', '이수구분', '대체과목', '유사과목', '성적삭제', '학점교류', '군복무', 'ocu',
         '교직과정', '교직', '교원자격증', '강의평가', 'swan', '스완', '특별학기', '자유학기',
         '학위수여', '학위수여식', '온라인학위', '복수학위', '공동학위', '시간제등록생', '시간제',
-        '학사지원팀', '학사제도문의', '학사업무'
+        '교육학사혁신팀', '학사지원팀', '학사제도문의', '학사업무'
     ]
     if any(kw in user_clean for kw in contact_keywords) and not any(kw in user_clean for kw in _academic_kw_check):
         response, response_type = handle_contact_search(user_input, extracted_info, data_dict)
@@ -3612,7 +3612,7 @@ def generate_ai_response(user_input, chat_history, data_dict):
 
 [중요 지침]
 - 반드시 아래 제공된 정보 내에서만 답변하세요
-- 제공된 정보에 없는 내용은 "정확한 정보는 학사지원팀(031-670-5035)에 문의해주세요"라고 안내하세요
+- 제공된 정보에 없는 내용은 "정확한 정보는 교육학사혁신팀(031-670-5035)에 문의해주세요"라고 안내하세요
 - 추측하거나 만들어내지 마세요
 - URL 작성 시 마크다운 서식(**, __, *, _)으로 감싸지 마세요. URL은 그대로 작성하세요.
 
@@ -3626,7 +3626,7 @@ def generate_ai_response(user_input, chat_history, data_dict):
 
 [답변 지침]
 1. 위 정보에 답이 있으면 그 내용을 기반으로 답변
-2. 위 정보에 답이 없으면 학사지원팀 문의 안내
+2. 위 정보에 답이 없으면 교육학사혁신팀 문의 안내
 3. "~합니다" 등 정중한 종결어미 사용
 4. 핵심 정보를 간결하게 전달
 5. 이모지 적절히 사용 (📅, 📋, ✅ 등)
@@ -3660,7 +3660,7 @@ def generate_ai_response(user_input, chat_history, data_dict):
                 st.session_state.get('session_id', 'unknown'),
                 original_input, ai_response, "AI가 적절한 답변을 생성하지 못함"
             )
-            # 실패 시: 제도명이 있으면 학사지원팀 안내, 없으면 범위 외
+            # 실패 시: 제도명이 있으면 교육학사혁신팀 안내, 없으면 범위 외
             if program_type and program_type not in ['학사제도']:
                 _prog_display = program_type if program_type != '다전공' else '다전공 제도'
                 response = create_header_card(f"{_prog_display} 관련 안내", "💡", "#3498db")
@@ -3671,7 +3671,7 @@ def generate_ai_response(user_input, chat_history, data_dict):
         <strong>{_prog_display}</strong>에 대한 자세한 사항은 아래로 문의해 주세요!
     </p>
     <p style="margin: 0; color: #555; font-size: 0.9rem;">
-        📞 학사지원팀: <strong>031-670-5035</strong><br>
+        📞 교육학사혁신팀: <strong>031-670-5035</strong><br>
         📋 학사공지: <a href="{ACADEMIC_NOTICE_URL}" target="_blank">{ACADEMIC_NOTICE_URL}</a>
     </p>
 </div>
@@ -3704,7 +3704,7 @@ def generate_ai_response(user_input, chat_history, data_dict):
         return formatted_response, "AI_RESPONSE"
         
     except Exception as e:
-        # 제도명이 있으면 학사지원팀 안내, 없으면 범위 외
+        # 제도명이 있으면 교육학사혁신팀 안내, 없으면 범위 외
         if program_type and program_type not in ['학사제도']:
             _prog_display = program_type if program_type != '다전공' else '다전공 제도'
             response = create_header_card(f"{_prog_display} 관련 안내", "💡", "#3498db")
@@ -3715,7 +3715,7 @@ def generate_ai_response(user_input, chat_history, data_dict):
         <strong>{_prog_display}</strong>에 대한 자세한 사항은 아래로 문의해 주세요!
     </p>
     <p style="margin: 0; color: #555; font-size: 0.9rem;">
-        📞 학사지원팀: <strong>031-670-5035</strong><br>
+        📞 교육학사혁신팀: <strong>031-670-5035</strong><br>
         📋 학사공지: <a href="{ACADEMIC_NOTICE_URL}" target="_blank">{ACADEMIC_NOTICE_URL}</a>
     </p>
 </div>
@@ -4082,7 +4082,7 @@ def display_major_contact(major, program_type="전공"):
     
     # 일반 전공인 경우 MAJORS_INFO에서 찾기
     if MAJORS_INFO.empty:
-        st.info(f"📞 **문의**: 학사지원팀 031-670-5035")
+        st.info(f"📞 **문의**: 교육학사혁신팀 031-670-5035")
         return
     
     edu_major = None
@@ -4123,7 +4123,7 @@ def display_major_contact(major, program_type="전공"):
         
         st.info(f"**📋 {contact_title}**\n\n" + "\n\n".join(contact_parts))
     else:
-        st.info(f"📞 **문의**: 학사지원팀 031-670-5035")
+        st.info(f"📞 **문의**: 교육학사혁신팀 031-670-5035")
 
 
 def render_question_buttons(questions, key_prefix, cols=5):
@@ -4249,12 +4249,12 @@ def main():
         </div>
         """, unsafe_allow_html=True)
         
-        # 학사지원팀 연락처
+        # 교육학사혁신팀 연락처
         st.markdown("""
         <div style="background-color: #fff3e0; border-left: 4px solid #ff9800; 
                     padding: 12px; border-radius: 8px; margin-bottom: 12px;">
             <p style="color: #333; font-size: 0.8rem; margin: 0; line-height: 1.5;">
-                📞 <strong>학사지원팀</strong><br>
+                📞 <strong>교육학사혁신팀</strong><br>
                 <span style="color: #555; font-size: 0.75rem;">031-670-5035</span>
             </p>
         </div>
